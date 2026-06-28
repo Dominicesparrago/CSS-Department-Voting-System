@@ -1,0 +1,283 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && (
+          ("admin" in request.auth.token && request.auth.token.admin == true)
+          || ("role" in request.auth.token && request.auth.token.role == "admin")
+        );
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function electionPath(electionId) {
+      return /databases/$(database)/documents/elections/$(electionId);
+    }
+
+    function candidatePath(candidateId) {
+      return /databases/$(database)/documents/candidates/$(candidateId);
+    }
+
+    function voterPath(uid) {
+      return /databases/$(database)/documents/voters/$(uid);
+    }
+
+    function electionOpen(electionId) {
+      return get(electionPath(electionId)).data.status == "open";
+    }
+
+    function electionPublished(electionId) {
+      return get(electionPath(electionId)).data.status == "published";
+    }
+
+    function voterIsEligible(uid) {
+      return get(voterPath(uid)).data.eligible == true;
+    }
+
+    function voterHasNotVoted(uid, electionId) {
+      let voter = get(voterPath(uid)).data;
+      return !("hasVoted" in voter)
+        || !(electionId in voter.hasVoted)
+        || voter.hasVoted[electionId] != true;
+    }
+
+    function validStudentEmail(email) {
+      return email is string
+        && email.matches('^[a-z0-9._-]+[.]scc@gmail[.]com$');
+    }
+
+    function validStudentNo(studentNo) {
+      return studentNo is string
+        && studentNo.matches('^[0-9]{7,9}$');
+    }
+
+    function validYearLevel(yearLevel) {
+      return yearLevel in [1, 2, 3, 4];
+    }
+
+    function validVoterCreate(uid) {
+      return isSelf(uid)
+        && request.resource.data.keys().hasOnly([
+          "studentNo",
+          "fullName",
+          "email",
+          "yearLevel",
+          "section",
+          "eligible",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.keys().hasAll([
+          "studentNo",
+          "fullName",
+          "email",
+          "yearLevel",
+          "section",
+          "eligible",
+          "createdAt",
+          "updatedAt"
+        ])
+        && validStudentNo(request.resource.data.studentNo)
+        && validStudentEmail(request.resource.data.email)
+        && validYearLevel(request.resource.data.yearLevel)
+        && request.resource.data.eligible == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && !("hasVoted" in request.resource.data)
+        && !("votedAt" in request.resource.data);
+    }
+
+    function unchangedLockedVoterFields() {
+      return request.resource.data.studentNo == resource.data.studentNo
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.eligible == resource.data.eligible
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validVoterProfileUpdate(uid) {
+      return isSelf(uid)
+        && unchangedLockedVoterFields()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "fullName",
+          "section",
+          "yearLevel",
+          "updatedAt"
+        ])
+        && validYearLevel(request.resource.data.yearLevel)
+        && request.resource.data.updatedAt == request.time
+        && (
+          request.resource.data.yearLevel == resource.data.yearLevel
+          || !("hasVoted" in resource.data)
+        );
+    }
+
+    function validVoterVoteCompletionUpdate(uid) {
+      return isSelf(uid)
+        && unchangedLockedVoterFields()
+        && request.resource.data.yearLevel == resource.data.yearLevel
+        && request.resource.data.fullName == resource.data.fullName
+        && request.resource.data.section == resource.data.section
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "hasVoted",
+          "votedAt",
+          "updatedAt"
+        ])
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validStudentIndexCreate(studentNo) {
+      return isSignedIn()
+        && validStudentNo(studentNo)
+        && request.resource.data.keys().hasOnly(["uid", "createdAt"])
+        && request.resource.data.keys().hasAll(["uid", "createdAt"])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && getAfter(voterPath(request.auth.uid)).data.studentNo == studentNo;
+    }
+
+    function voteIdMatches(voteId) {
+      return voteId == request.resource.data.electionId
+        + "__"
+        + request.resource.data.uid
+        + "__"
+        + request.resource.data.positionId;
+    }
+
+    function positionAllowedForVoter(positionId, uid) {
+      let voter = get(voterPath(uid)).data;
+      // Fixed position IDs are duplicated in firebase/seed-data.js; update both files in lockstep.
+      return positionId in [
+          "president",
+          "vp_internal",
+          "vp_external",
+          "secretary",
+          "treasurer",
+          "auditor",
+          "pro",
+          "business_manager_committee",
+          "academic_committee_chair",
+          "research_committee_chair",
+          "ict_committee_chair",
+          "events_committee_chair",
+          "sports_committee_chair",
+          "environmental_committee_chair",
+          "membership_committee_chair",
+          "community_committee_chair"
+        ]
+        || (positionId == "year_rep_1" && voter.yearLevel == 1)
+        || (positionId == "year_rep_2" && voter.yearLevel == 2)
+        || (positionId == "year_rep_3" && voter.yearLevel == 3)
+        || (positionId == "year_rep_4" && voter.yearLevel == 4);
+    }
+
+    function candidateMatchesPosition(candidateId, electionId, positionId) {
+      let candidate = get(candidatePath(candidateId)).data;
+      return candidate.electionId == electionId
+        && candidate.positionId == positionId
+        && candidate.active == true;
+    }
+
+    function validVoteCreate(voteId) {
+      return isSignedIn()
+        && request.auth.uid == request.resource.data.uid
+        && request.resource.data.keys().hasOnly([
+          "electionId",
+          "uid",
+          "positionId",
+          "candidateId",
+          "yearLevel",
+          "createdAt"
+        ])
+        && request.resource.data.keys().hasAll([
+          "electionId",
+          "uid",
+          "positionId",
+          "candidateId",
+          "yearLevel",
+          "createdAt"
+        ])
+        && voteIdMatches(voteId)
+        && request.resource.data.createdAt == request.time
+        && electionOpen(request.resource.data.electionId)
+        && voterIsEligible(request.auth.uid)
+        && voterHasNotVoted(request.auth.uid, request.resource.data.electionId)
+        && request.resource.data.yearLevel == get(voterPath(request.auth.uid)).data.yearLevel
+        && positionAllowedForVoter(request.resource.data.positionId, request.auth.uid)
+        && candidateMatchesPosition(
+          request.resource.data.candidateId,
+          request.resource.data.electionId,
+          request.resource.data.positionId
+        )
+        && !exists(/databases/$(database)/documents/votes/$(voteId));
+    }
+
+    function validAuditCreate() {
+      return isSignedIn()
+        && request.resource.data.keys().hasAll(["ts", "actorUid", "action", "target"])
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.ts == request.time;
+    }
+
+    match /elections/{electionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /positions/{positionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /candidates/{candidateId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /voters/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if isAdmin() || validVoterCreate(uid);
+      allow update: if isAdmin()
+        || validVoterProfileUpdate(uid)
+        || validVoterVoteCompletionUpdate(uid);
+      allow delete: if isAdmin();
+    }
+
+    match /studentIndex/{studentNo} {
+      allow read: if isAdmin();
+      allow create: if validStudentIndexCreate(studentNo);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /votes/{voteId} {
+      allow read: if isAdmin();
+      allow create: if validVoteCreate(voteId);
+      allow update, delete: if false;
+    }
+
+    match /tallies/{electionId} {
+      allow read: if isAdmin() || (isSignedIn() && electionPublished(electionId));
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /audit/{auditId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() || validAuditCreate();
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

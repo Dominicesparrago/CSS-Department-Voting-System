@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | CSS Department Voting System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230A0E0F'/%3E%3Cpath d='M9 17.2 13.2 21 23 10.5' fill='none' stroke='%2322B8A0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/src/ui/theme.css" />
+    <link rel="stylesheet" href="/src/ui/components.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  </head>
+  <body>
+    <canvas class="binary-rain" data-binary-rain aria-hidden="true"></canvas>
+    <main class="page-shell admin-page">
+      <section id="admin-denied" class="status-panel" hidden>
+        <p class="eyebrow">Admin Route</p>
+        <h1>Access denied</h1>
+        <p id="admin-denied-message" class="lede">Please sign in with an admin account.</p>
+        <div class="action-row">
+          <a class="btn btn-ghost" href="/">Back</a>
+          <button class="btn btn-ghost" id="admin-denied-sign-out" type="button">Sign out</button>
+        </div>
+      </section>
+
+      <section id="admin-dashboard" class="admin-dashboard" hidden>
+        <header class="admin-header">
+          <div>
+            <p class="eyebrow">CSS Department Admin</p>
+            <h1>Election command center</h1>
+            <p id="admin-status" class="lede">Loading live election data...</p>
+          </div>
+          <div class="admin-header-actions">
+            <a class="btn btn-ghost" href="/vote.html">Student view</a>
+            <button class="btn btn-ghost" id="admin-sign-out-button" type="button">Sign out</button>
+          </div>
+        </header>
+
+        <nav class="admin-tabs" aria-label="Admin sections">
+          <button class="tab-button is-active" type="button" data-admin-tab="monitor">Monitor</button>
+          <button class="tab-button" type="button" data-admin-tab="candidates">Candidates</button>
+          <button class="tab-button" type="button" data-admin-tab="voters">Voters</button>
+          <button class="tab-button" type="button" data-admin-tab="election">Election</button>
+          <button class="tab-button" type="button" data-admin-tab="votes">Votes</button>
+        </nav>
+
+        <section class="admin-section is-active" data-admin-panel="monitor">
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Total turnout</span>
+              <strong id="turnout-total">0</strong>
+              <small id="turnout-eligible">0 eligible voters</small>
+            </article>
+            <article class="metric-card">
+              <span>Vote documents</span>
+              <strong id="vote-doc-total">0</strong>
+              <small>Immutable records</small>
+            </article>
+            <article class="metric-card">
+              <span>Active candidates</span>
+              <strong id="active-candidate-total">0</strong>
+              <small id="candidate-total">0 total candidates</small>
+            </article>
+          </div>
+
+          <div class="admin-card">
+            <label>
+              Position filter
+              <select id="position-filter"></select>
+            </label>
+          </div>
+
+          <div class="chart-grid">
+            <article class="admin-card chart-card">
+              <h2>Live vote counts</h2>
+              <canvas id="candidate-counts-chart" aria-label="Live vote counts per candidate"></canvas>
+            </article>
+            <article class="admin-card chart-card">
+              <h2>Vote distribution</h2>
+              <canvas id="distribution-chart" aria-label="Vote distribution per position"></canvas>
+            </article>
+            <article class="admin-card chart-card">
+              <h2>Turnout by year</h2>
+              <canvas id="turnout-chart" aria-label="Turnout by year level"></canvas>
+            </article>
+            <article class="admin-card chart-card">
+              <h2>Leaderboard</h2>
+              <canvas id="leaderboard-chart" aria-label="Candidate ranking by selected position"></canvas>
+            </article>
+          </div>
+        </section>
+
+        <section class="admin-section" data-admin-panel="candidates">
+          <div class="admin-grid">
+            <form id="candidate-form" class="admin-card form-stack">
+              <div>
+                <h2 id="candidate-form-title">Add candidate</h2>
+                <p class="form-message" id="candidate-message"></p>
+              </div>
+              <input type="hidden" id="candidate-id" />
+              <label>
+                Name
+                <input id="candidate-name" required autocomplete="off" />
+              </label>
+              <label>
+                Position
+                <select id="candidate-position" required></select>
+              </label>
+              <div class="two-col">
+                <label>
+                  Section
+                  <input id="candidate-section" required autocomplete="off" />
+                </label>
+                <label>
+                  Year level
+                  <select id="candidate-year" required>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                Platform
+                <textarea id="candidate-platform" required rows="4"></textarea>
+              </label>
+              <label>
+                Party
+                <input id="candidate-party" autocomplete="off" placeholder="Optional" />
+              </label>
+              <div class="two-col">
+                <label>
+                  Display order
+                  <input id="candidate-order" type="number" min="1" value="1" required />
+                </label>
+                <label class="checkbox-label">
+                  <input id="candidate-active" type="checkbox" checked />
+                  Active
+                </label>
+              </div>
+              <label>
+                Candidate photo
+                <input id="candidate-photo" type="file" accept="image/*" />
+                <span class="field-error" id="candidate-photo-error"></span>
+              </label>
+              <div class="action-row">
+                <button class="btn btn-primary" id="candidate-save-button" type="submit">Save candidate</button>
+                <button class="btn btn-ghost" id="candidate-reset-button" type="button">Clear</button>
+              </div>
+            </form>
+
+            <article class="admin-card">
+              <div class="section-title-row">
+                <h2>Candidates</h2>
+                <span id="candidate-list-count" class="table-note">0 records</span>
+              </div>
+              <div id="candidate-list" class="record-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="admin-section" data-admin-panel="voters">
+          <article class="admin-card">
+            <div class="section-title-row">
+              <h2>Voter management</h2>
+              <input id="voter-search" class="search-input" autocomplete="off" placeholder="Search voters" />
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Student ID</th>
+                    <th>Year</th>
+                    <th>Eligible</th>
+                    <th>Has voted</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="voter-table"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="admin-section" data-admin-panel="election">
+          <div class="admin-grid">
+            <article class="admin-card">
+              <h2>Lifecycle controls</h2>
+              <p id="election-status-line" class="lede">Current status: loading</p>
+              <div class="lifecycle-actions">
+                <button class="btn btn-ghost" type="button" data-status-target="draft">Reopen draft</button>
+                <button class="btn btn-primary" type="button" data-status-target="open">Open voting</button>
+                <button class="btn btn-ghost" type="button" data-status-target="closed">Close voting</button>
+                <button class="btn btn-primary" type="button" id="publish-button">Publish results</button>
+              </div>
+              <p class="table-note">
+                Reopen is intentionally exposed for correction windows; every transition is written to audit.
+              </p>
+            </article>
+            <article class="admin-card">
+              <h2>Published tally preview</h2>
+              <pre id="tally-preview" class="json-preview">{}</pre>
+            </article>
+          </div>
+        </section>
+
+        <section class="admin-section" data-admin-panel="votes">
+          <article class="admin-card">
+            <div class="section-title-row">
+              <h2>Vote records</h2>
+              <button class="btn btn-ghost" id="export-votes-button" type="button">Export CSV</button>
+            </div>
+            <p class="table-note">Admin-only audit view. Exports include vote document fields and remain restricted.</p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vote ID</th>
+                    <th>Position</th>
+                    <th>Candidate</th>
+                    <th>Year</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody id="vote-table"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/src/ui/binaryRain.js"></script>
+    <script type="module" src="/src/admin/adminRoute.js"></script>
+  </body>
+</html>

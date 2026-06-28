@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSS Department Voting System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/ui/theme.css" />
+    <link rel="stylesheet" href="/src/ui/components.css" />
+  </head>
+  <body>
+    <canvas class="binary-rain" data-binary-rain aria-hidden="true"></canvas>
+    <main class="auth-shell">
+      <section class="auth-panel">
+        <p class="eyebrow">St. Clare College of Caloocan</p>
+        <h1>CSS Department Voting System</h1>
+        <p class="lede">Sign in or register with your official student details.</p>
+
+        <div class="tabs" role="tablist" aria-label="Authentication mode">
+          <button class="tab-button is-active" type="button" data-auth-tab="login">Login</button>
+          <button class="tab-button" type="button" data-auth-tab="register">Register</button>
+        </div>
+
+        <form class="form-stack" id="login-form" novalidate>
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="email" required />
+            <span class="field-error" data-error-for="login-email"></span>
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" autocomplete="current-password" required />
+            <span class="field-error" data-error-for="login-password"></span>
+          </label>
+          <p class="form-message" id="login-message" role="status"></p>
+          <button class="btn btn-primary" type="submit">Sign in</button>
+        </form>
+
+        <form class="form-stack is-hidden" id="register-form" novalidate>
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="email" placeholder="juan.delacruz.scc@gmail.com" required />
+            <span class="field-error" data-error-for="register-email"></span>
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+            <span class="field-error" data-error-for="register-password"></span>
+          </label>
+          <label>
+            Student ID
+            <input name="studentNo" inputmode="numeric" autocomplete="off" required />
+            <span class="field-error" data-error-for="register-studentNo"></span>
+          </label>
+          <label>
+            Full name
+            <input name="fullName" autocomplete="name" required />
+            <span class="field-error" data-error-for="register-fullName"></span>
+          </label>
+          <label>
+            Year level
+            <select name="yearLevel" required>
+              <option value="">Select year</option>
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3">3rd Year</option>
+              <option value="4">4th Year</option>
+            </select>
+            <span class="field-error" data-error-for="register-yearLevel"></span>
+          </label>
+          <label>
+            Section
+            <input name="section" placeholder="BSCS 2-A" required />
+            <span class="field-error" data-error-for="register-section"></span>
+          </label>
+          <p class="form-message" id="register-message" role="status"></p>
+          <button class="btn btn-primary" type="submit">Create account</button>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="/src/ui/binaryRain.js"></script>
+    <script type="module" src="/src/auth/indexPage.js"></script>
+  </body>
+</html>

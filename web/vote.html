@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vote | CSS Department Voting System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/ui/theme.css" />
+    <link rel="stylesheet" href="/src/ui/components.css" />
+  </head>
+  <body>
+    <canvas class="binary-rain" data-binary-rain aria-hidden="true"></canvas>
+    <main class="page-shell ballot-page">
+      <section class="status-panel" id="student-route">
+        <div class="ballot-head">
+          <div>
+            <p class="eyebrow">Student Ballot</p>
+            <h1 id="route-title">Checking session...</h1>
+            <p id="route-message" class="lede">Please wait while your voter profile is loaded.</p>
+          </div>
+          <button class="btn btn-ghost" id="sign-out-button" type="button">Sign out</button>
+        </div>
+
+        <dl class="profile-list compact is-hidden" id="profile-list">
+          <div><dt>Name</dt><dd data-profile="fullName"></dd></div>
+          <div><dt>Student ID</dt><dd data-profile="studentNo"></dd></div>
+          <div><dt>Year</dt><dd data-profile="yearLevel"></dd></div>
+          <div><dt>Section</dt><dd data-profile="section"></dd></div>
+        </dl>
+
+        <div class="ballot-toolbar is-hidden" id="ballot-toolbar">
+          <p id="ballot-progress">0 of 17 races selected</p>
+          <button class="btn btn-primary" id="review-button" type="button" disabled>Review ballot</button>
+        </div>
+
+        <div class="race-list" id="race-list"></div>
+
+        <section class="review-panel is-hidden" id="review-panel" aria-live="polite">
+          <div class="review-head">
+            <div>
+              <p class="eyebrow">Review</p>
+              <h2>Confirm your selections</h2>
+            </div>
+            <button class="btn btn-ghost" id="edit-button" type="button">Edit</button>
+          </div>
+          <p class="warning-text">Submitting is final and cannot be changed.</p>
+          <div class="review-list" id="review-list"></div>
+          <p class="form-message" id="submit-message" role="status"></p>
+          <button class="btn btn-primary" id="confirm-button" type="button">Confirm vote</button>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/src/ui/binaryRain.js"></script>
+    <script type="module" src="/src/student/studentRoute.js"></script>
+  </body>
+</html>

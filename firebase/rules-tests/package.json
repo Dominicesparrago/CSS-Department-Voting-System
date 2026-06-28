@@ -1,0 +1,18 @@
+{
+  "name": "css-vote-rules-tests",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "node firestore.rules.test.js && node storage.rules.test.js",
+    "test:phase2": "node phase2.auth.test.js",
+    "test:phase3": "node phase3.vote.test.js",
+    "test:phase4": "node phase4.admin.test.js",
+    "test:phase6": "node phase6.anti-cheating.test.js"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^13.0.0"
+  }
+}

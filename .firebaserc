@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "css-department-voting-system"
+  },
+  "targets": {
+    "css-department-voting-system": {
+      "hosting": {
+        "scc-cs-department-vote": [
+          "scc-cs-department-vote"
+        ]
+      }
+    }
+  }
+}
+

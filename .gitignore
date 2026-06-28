@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+__pycache__/
+*.pyc
+serviceAccountKey.json
+admin-app/serviceAccountKey.json
+
+# Firebase local artifacts
+.firebase/
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log
+emulator-phase4.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

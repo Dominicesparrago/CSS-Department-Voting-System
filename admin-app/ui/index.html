@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSS Department Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">St. Clare College of Caloocan</p>
+          <h1>CSS Department Admin</h1>
+          <p id="status-line">Connecting to Firebase Admin SDK...</p>
+        </div>
+        <button id="refresh-button">Refresh</button>
+      </header>
+
+      <nav class="tabs">
+        <button class="active" data-tab="monitor">Monitor</button>
+        <button data-tab="candidates">Candidates</button>
+        <button data-tab="voters">Voters</button>
+        <button data-tab="election">Election</button>
+        <button data-tab="bootstrap">Admin Claim</button>
+      </nav>
+
+      <section class="panel active" data-panel="monitor">
+        <div class="metrics">
+          <article><span>Turnout</span><strong id="metric-turnout">0</strong></article>
+          <article><span>Vote docs</span><strong id="metric-votes">0</strong></article>
+          <article><span>Eligible voters</span><strong id="metric-eligible">0</strong></article>
+          <article><span>Active candidates</span><strong id="metric-candidates">0</strong></article>
+        </div>
+        <div class="grid">
+          <article class="card chart-card">
+            <h2>Turnout by year</h2>
+            <canvas id="turnout-chart"></canvas>
+          </article>
+          <article class="card chart-card">
+            <h2>Votes by position</h2>
+            <canvas id="position-chart"></canvas>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="candidates">
+        <div class="grid">
+          <form id="candidate-form" class="card form">
+            <h2>Add or edit candidate</h2>
+            <input type="hidden" id="candidate-id" />
+            <label>Name<input id="candidate-name" required /></label>
+            <label>Position<select id="candidate-position" required></select></label>
+            <label>Section<input id="candidate-section" required /></label>
+            <label>Year level<select id="candidate-year"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+            <label>Platform<textarea id="candidate-platform" rows="4" required></textarea></label>
+            <label>Party<input id="candidate-party" placeholder="Optional" /></label>
+            <label>Order<input id="candidate-order" type="number" min="1" value="1" required /></label>
+            <label class="check"><input id="candidate-active" type="checkbox" checked /> Active</label>
+            <div class="actions">
+              <button type="submit">Save</button>
+              <button id="candidate-clear" type="button" class="ghost">Clear</button>
+            </div>
+          </form>
+          <article class="card">
+            <h2>Candidates</h2>
+            <div id="candidate-list" class="list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="voters">
+        <div class="grid">
+          <form id="voter-form" class="card form">
+            <h2>Create voter</h2>
+            <label>Email<input id="voter-email" required /></label>
+            <label>Password<input id="voter-password" type="password" required /></label>
+            <label>Student ID<input id="voter-student-no" required /></label>
+            <label>Full name<input id="voter-full-name" required /></label>
+            <label>Year level<select id="voter-year"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+            <label>Section<input id="voter-section" required /></label>
+            <button type="submit">Create voter</button>
+          </form>
+          <article class="card">
+            <div class="row">
+              <h2>Voters</h2>
+              <input id="voter-search" placeholder="Search" />
+            </div>
+            <div id="voter-list" class="list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="election">
+        <div class="grid">
+          <article class="card">
+            <h2>Lifecycle</h2>
+            <p id="election-status">Status: loading</p>
+            <div class="actions stack">
+              <button data-transition="open">Open voting</button>
+              <button data-transition="closed" class="ghost">Close voting</button>
+              <button data-transition="draft" class="ghost">Reopen to draft</button>
+              <button id="publish-button">Publish recomputed results</button>
+            </div>
+          </article>
+          <article class="card">
+            <div class="row">
+              <h2>Vote export</h2>
+              <button id="export-votes" class="ghost">Build CSV</button>
+            </div>
+            <textarea id="csv-output" rows="12" readonly></textarea>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-panel="bootstrap">
+        <article class="card form narrow">
+          <h2>First-admin bootstrap</h2>
+          <p>Set the custom claim <code>{ admin: true }</code> on an existing Firebase Auth user by email or uid.</p>
+          <label>Email or uid<input id="admin-identifier" /></label>
+          <button id="claim-button">Set admin claim</button>
+        </article>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
