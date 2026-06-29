@@ -83,7 +83,13 @@ export default function AuthCard() {
     setRegBusy(true);
     try {
       await registerStudent(values);
+      // registerStudent awaits batch.commit(), so the voter document exists by
+      // the time we navigate. We navigate explicitly here because onAuthStateChanged
+      // fires during createUserWithEmailAndPassword (before batch.commit finishes),
+      // so the watchSession callback above would see no voter profile and skip
+      // the automatic redirect.
       setRegMessage('Account created. Redirecting...');
+      router.replace('/vote');
     } catch (err) {
       setRegMessage(friendlyAuthError(err));
     } finally {
