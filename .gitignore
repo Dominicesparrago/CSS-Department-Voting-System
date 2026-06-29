@@ -25,3 +25,4 @@ Thumbs.db
 voting-app/.next/
 voting-app/out/
 voting-app/node_modules/
+voting-app/tsconfig.tsbuildinfo
