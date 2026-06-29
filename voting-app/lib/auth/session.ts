@@ -10,18 +10,24 @@ export function watchSession(callback: (session: Session) => void): () => void {
       return;
     }
 
-    const [tokenResult, voterSnapshot] = await Promise.all([
-      user.getIdTokenResult(true),
-      getDoc(doc(db, 'voters', user.uid)),
-    ]);
+    try {
+      const [tokenResult, voterSnapshot] = await Promise.all([
+        user.getIdTokenResult(true),
+        getDoc(doc(db, 'voters', user.uid)),
+      ]);
 
-    callback({
-      user,
-      voterProfile: voterSnapshot.exists()
-        ? { uid: user.uid, ...(voterSnapshot.data() as Omit<import('../types').VoterProfile, 'uid'>) }
-        : null,
-      claims: tokenResult.claims as Record<string, unknown>,
-    });
+      callback({
+        user,
+        voterProfile: voterSnapshot.exists()
+          ? { uid: user.uid, ...(voterSnapshot.data() as Omit<import('../types').VoterProfile, 'uid'>) }
+          : null,
+        claims: tokenResult.claims as Record<string, unknown>,
+      });
+    } catch {
+      // If the profile/token fetch fails, surface the user without a voter profile
+      // so the page doesn't stay stuck on "Checking session..." indefinitely.
+      callback({ user, voterProfile: null, claims: null });
+    }
   });
 }
 

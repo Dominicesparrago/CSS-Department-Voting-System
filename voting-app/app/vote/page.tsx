@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/hooks/useSession';
 import { hasVotedInElection, isStudentSession } from '@/lib/auth/guards-core';
@@ -22,6 +22,10 @@ export default function VotePage() {
   const [requiredPositions, setRequiredPositions] = useState<Position[]>([]);
   const [candidatesByPosition, setCandidatesByPosition] = useState<Record<string, Candidate[]>>({});
   const [errorMsg, setErrorMsg] = useState('');
+  // Guard: only request the ballot once. Without this, a session update (e.g.
+  // a background token refresh) would re-run the effect and reload the ballot
+  // mid-vote, resetting the page to a loading state.
+  const ballotRequested = useRef(false);
 
   useEffect(() => {
     if (loading) return;
@@ -41,6 +45,9 @@ export default function VotePage() {
       setPageState('already-voted');
       return;
     }
+
+    if (ballotRequested.current) return;
+    ballotRequested.current = true;
 
     async function loadBallot() {
       try {

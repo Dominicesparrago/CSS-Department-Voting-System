@@ -6,6 +6,13 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      { "source": "/vote", "destination": "/vote/index.html" },
+      { "source": "/admin", "destination": "/admin/index.html" },
+      { "source": "**", "destination": "/index.html" }
     ]
   },
   "firestore": {
