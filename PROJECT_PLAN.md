@@ -11,8 +11,8 @@
 
 | # | Requirement | Decision in this plan |
 |---|-------------|-----------------------|
-| 1 | Firebase project `css-department-voting-system` (config provided) | Use the provided web config verbatim in the web app. |
-| 2 | Deploy target `scc-cs-department-vote.web.app` | Add this as a Hosting site / custom site ID. Note it differs from the default `authDomain`. See §9. |
+| 1 | Firebase project `css-department-voting-sy-f46a5` (config provided) | Use the provided web config verbatim in the web app. |
+| 2 | Deploy target `scc-css-department-vote.web.app` | Add this as a Hosting site / custom site ID. Note it differs from the default `authDomain`. See §9. |
 | 3 | 20 positions, **independent candidates only** ("No Alliance just a person") | No party/group field is required, but the data model keeps an optional `party` field as nullable for forward-compatibility; UI hides it when empty. |
 | 4 | Year-level Representative positions (1st–4th Year Rep) | **Year-scoped ballots**: a student only sees and can vote for the Representative of their own year level. See §4 and §11. |
 | 5 | Admin: graphs + add candidate with name, section, year, platform, etc. | Admin dashboard (web) **and** Python PyWebView app both support candidate CRUD + charts. |
@@ -356,7 +356,7 @@ The `studentIndex/{studentNo}` create-only doc (written in the same transaction)
 1. **Authentication** — enable **Email/Password** with **open self-registration**; **email verification disabled** (fast voting). Registration is gated client-side AND revalidated on the `voters/{uid}` write: email must match `^[a-z0-9._-]+\.scc@gmail\.com$`; `studentNo` must be a 7–9 digit number; year level 1–4 required. Admins get custom claims via Admin SDK (never via registration).
 2. **Firestore** — production mode, region `asia-southeast1` (closest to PH). Deploy rules + indexes.
 3. **Storage** — same region; deploy storage rules; bucket per provided config (`...firebasestorage.app`).
-4. **Hosting** — create a Hosting **site** with ID `scc-cs-department-vote` so the app serves at `scc-cs-department-vote.web.app` (the `information.txt` deploy target). Map it in `.firebaserc` `targets`. Note this differs from the default `authDomain` (`css-department-voting-system.firebaseapp.com`); **add `scc-cs-department-vote.web.app` to Auth → Settings → Authorized domains** or login will fail on the custom site.
+4. **Hosting** — create a Hosting **site** with ID `scc-css-department-vote` so the app serves at `scc-css-department-vote.web.app` (the `information.txt` deploy target). Map it in `.firebaserc` `targets`. Note this differs from the default `authDomain` (`css-department-voting-sy-f46a5.firebaseapp.com`); **add `scc-css-department-vote.web.app` to Auth → Settings → Authorized domains** or login will fail on the custom site.
 5. **(Optional) Cloud Functions** — only if Strategy A tallies are chosen (requires Blaze).
 
 ---
@@ -405,7 +405,7 @@ The `studentIndex/{studentNo}` create-only doc (written in the same transaction)
 - Image upload failures / oversized images → client validation + Storage rule size/type limits; candidate save tolerates missing photo (placeholder avatar).
 - Duplicate student records / re-import → Python app upserts by `studentNo`; surfaces conflicts.
 - Tally drift (Strategy B) → "Recompute from votes" admin action; votes are the source of truth.
-- Custom-domain auth failure → ensure `scc-cs-department-vote.web.app` is in Authorized domains (§9.4).
+- Custom-domain auth failure → ensure `scc-css-department-vote.web.app` is in Authorized domains (§9.4).
 - Network loss mid-vote → transaction is all-or-nothing; user retries safely.
 - Time zone → store all timestamps as Firestore server timestamps (UTC); display in Asia/Manila.
 
@@ -417,7 +417,7 @@ The `studentIndex/{studentNo}` create-only doc (written in the same transaction)
 ## 12. Development phases (sequenced for Codex)
 
 **Phase 0 — Project scaffolding**
-- Create `web/`, `admin-app/`, `firebase/` trees; `firebase.json`, `.firebaserc` (with `scc-cs-department-vote` hosting target), `.gitignore` (service account, node_modules, dist).
+- Create `web/`, `admin-app/`, `firebase/` trees; `firebase.json`, `.firebaserc` (with `scc-css-department-vote` hosting target), `.gitignore` (service account, node_modules, dist).
 - Wire Firebase Web SDK init from the provided config. Stand up the Emulator Suite.
 
 **Phase 1 — Data & rules foundation**
@@ -436,7 +436,7 @@ The `studentIndex/{studentNo}` create-only doc (written in the same transaction)
 - `firebase-admin` service-account init; JS↔Python bridge; candidate/voter/election/results modules; embedded Chart.js UI in the shared theme; CSV/PDF export; first-admin bootstrap (claim assignment); PyInstaller packaging.
 
 **Phase 6 — Hardening & deploy**
-- Full rules test pass; anti-cheating scenarios from §11 exercised; accessibility + mobile QA; add custom domain to Authorized domains; `firebase deploy` to `scc-cs-department-vote.web.app`; dry-run election with seed data; runbook in `docs/`.
+- Full rules test pass; anti-cheating scenarios from §11 exercised; accessibility + mobile QA; add custom domain to Authorized domains; `firebase deploy` to `scc-css-department-vote.web.app`; dry-run election with seed data; runbook in `docs/`.
 - **MUST:** smoke-test the real all-at-once 17-vote batch against **production** Firestore rules (not just the emulator) to confirm it stays within the document-access budget — see the accepted Phase 3 deviation in §8.
 
 ---

@@ -24,7 +24,7 @@ import { getAuth } from "firebase-admin/auth";
 
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 
-const app = initializeApp({ projectId: "css-department-voting-system" });
+const app = initializeApp({ projectId: "css-department-voting-sy-f46a5" });
 await getAuth(app).setCustomUserClaims("<ADMIN_AUTH_UID>", { admin: true });
 ```
 

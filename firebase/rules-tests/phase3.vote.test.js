@@ -15,7 +15,7 @@ import {
   unansweredPositions
 } from "../../web/src/student/ballotState.js";
 
-const projectId = "css-department-voting-system";
+const projectId = "css-department-voting-sy-f46a5";
 const uid = "student-year-2";
 const voterYearLevel = 2;
 

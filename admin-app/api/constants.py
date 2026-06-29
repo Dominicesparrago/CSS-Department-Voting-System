@@ -1,7 +1,7 @@
 """Shared constants for the desktop admin app."""
 
-PROJECT_ID = "css-department-voting-system"
-STORAGE_BUCKET = "css-department-voting-system.firebasestorage.app"
+PROJECT_ID = "css-department-voting-sy-f46a5"
+STORAGE_BUCKET = "css-department-voting-sy-f46a5.firebasestorage.app"
 ELECTION_ID = "css_department_election_2026"
 
 # Fixed position IDs are duplicated in firebase/seed-data.js and firebase/firestore.rules.

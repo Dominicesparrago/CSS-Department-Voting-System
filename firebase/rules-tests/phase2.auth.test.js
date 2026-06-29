@@ -22,7 +22,7 @@ import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { hasAdminClaim, hasVotedInElection, isStudentSession } from "../../web/src/auth/guards-core.js";
 
-const projectId = "css-department-voting-system";
+const projectId = "css-department-voting-sy-f46a5";
 const electionId = "css_department_election_2026";
 const authHost = "127.0.0.1:9099";
 const app = initializeApp({

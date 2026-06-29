@@ -27,14 +27,16 @@ canvases.forEach((canvas) => {
   }
 
   function draw() {
-    context.fillStyle = "rgba(10, 14, 15, 0.12)";
+    context.fillStyle = "rgba(10, 14, 15, 0.14)";
     context.fillRect(0, 0, width, height);
-    context.font = `${fontSize}px "JetBrains Mono", monospace`;
+    context.font = `${fontSize}px "JetBrains Mono", ui-monospace, monospace`;
 
     columns.forEach((y, index) => {
       const x = index * fontSize;
       const glyph = glyphs[(Math.random() * glyphs.length) | 0];
-      context.fillStyle = Math.random() > 0.9 ? "#d4f7f1" : "#22b8a0";
+      const roll = Math.random();
+      // teal ramp: bright leading glyphs fade back into the brand/deep-teal body
+      context.fillStyle = roll > 0.93 ? "#3bd6b0" : roll > 0.78 ? "#1cabb8" : "#22b8a0";
       context.fillText(glyph, x, y);
       columns[index] = y > height + Math.random() * 900 ? 0 : y + fontSize;
     });

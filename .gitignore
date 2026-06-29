@@ -1,10 +1,13 @@
 node_modules/
 dist/
 .env
+.env.local
+.env.*.local
 __pycache__/
 *.pyc
 serviceAccountKey.json
 admin-app/serviceAccountKey.json
+*-firebase-adminsdk-*.json
 
 # Firebase local artifacts
 .firebase/
@@ -17,3 +20,8 @@ emulator-phase4.log
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Next.js build artifacts
+voting-app/.next/
+voting-app/out/
+voting-app/node_modules/

@@ -7,83 +7,306 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/ui/theme.css" />
     <link rel="stylesheet" href="/src/ui/components.css" />
   </head>
-  <body>
+  <body class="landing">
     <canvas class="binary-rain" data-binary-rain aria-hidden="true"></canvas>
-    <main class="auth-shell">
-      <section class="auth-panel">
-        <p class="eyebrow">St. Clare College of Caloocan</p>
-        <h1>CSS Department Voting System</h1>
-        <p class="lede">Sign in or register with your official student details.</p>
 
-        <div class="tabs" role="tablist" aria-label="Authentication mode">
-          <button class="tab-button is-active" type="button" data-auth-tab="login">Login</button>
-          <button class="tab-button" type="button" data-auth-tab="register">Register</button>
+    <nav class="site-nav" id="site-nav">
+      <div class="wrap nav-in">
+        <a class="nav-brand" href="#top">
+          <span class="brand-logo scc">
+            <img src="/assets/scc_logo.png" alt="St. Clare College of Caloocan logo" />
+          </span>
+          <span class="nav-brand-text">
+            <strong>CSS Voting</strong>
+            <small>St. Clare College of Caloocan</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a href="#how">How it works</a>
+          <a href="#positions">Positions</a>
+          <a href="#integrity">Integrity</a>
         </div>
+        <a class="btn btn-primary nav-cta" href="#auth">Vote now <span class="arr">&rarr;</span></a>
+      </div>
+    </nav>
 
-        <form class="form-stack" id="login-form" novalidate>
-          <label>
-            Email
-            <input name="email" type="email" autocomplete="email" required />
-            <span class="field-error" data-error-for="login-email"></span>
-          </label>
-          <label>
-            Password
-            <input name="password" type="password" autocomplete="current-password" required />
-            <span class="field-error" data-error-for="login-password"></span>
-          </label>
-          <p class="form-message" id="login-message" role="status"></p>
-          <button class="btn btn-primary" type="submit">Sign in</button>
-        </form>
+    <main id="top">
+      <!-- hero -->
+      <header class="hero">
+        <div class="wrap hero-grid">
+          <div class="hero-copy" data-reveal>
+            <p class="eyebrow">Official Student Election</p>
+            <h1>Your voice.<br /><span class="grad">Your department.</span></h1>
+            <p class="lede">
+              The secure, mobile-first voting system for the Computer Science Department.
+              Register with your official student details and cast a complete, verified
+              ballot in minutes.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#auth">Get started <span class="arr">&rarr;</span></a>
+              <a class="btn btn-ghost" href="#how">How it works</a>
+            </div>
+            <ul class="hero-points">
+              <li><span class="dot"></span> Year-scoped ballots</li>
+              <li><span class="dot"></span> One verified vote per position</li>
+              <li><span class="dot"></span> Results published after polls close</li>
+            </ul>
+          </div>
 
-        <form class="form-stack is-hidden" id="register-form" novalidate>
-          <label>
-            Email
-            <input name="email" type="email" autocomplete="email" placeholder="juan.delacruz.scc@gmail.com" required />
-            <span class="field-error" data-error-for="register-email"></span>
-          </label>
-          <label>
-            Password
-            <input name="password" type="password" autocomplete="new-password" minlength="6" required />
-            <span class="field-error" data-error-for="register-password"></span>
-          </label>
-          <label>
-            Student ID
-            <input name="studentNo" inputmode="numeric" autocomplete="off" required />
-            <span class="field-error" data-error-for="register-studentNo"></span>
-          </label>
-          <label>
-            Full name
-            <input name="fullName" autocomplete="name" required />
-            <span class="field-error" data-error-for="register-fullName"></span>
-          </label>
-          <label>
-            Year level
-            <select name="yearLevel" required>
-              <option value="">Select year</option>
-              <option value="1">1st Year</option>
-              <option value="2">2nd Year</option>
-              <option value="3">3rd Year</option>
-              <option value="4">4th Year</option>
-            </select>
-            <span class="field-error" data-error-for="register-yearLevel"></span>
-          </label>
-          <label>
-            Section
-            <input name="section" placeholder="BSCS 2-A" required />
-            <span class="field-error" data-error-for="register-section"></span>
-          </label>
-          <p class="form-message" id="register-message" role="status"></p>
-          <button class="btn btn-primary" type="submit">Create account</button>
-        </form>
+          <!-- sign-in / register card -->
+          <div class="auth-col">
+            <p class="eyebrow">Official Student Election</p>
+            <section class="auth-card" id="auth" data-reveal data-spot aria-label="Sign in or register">
+            <div class="brand-lockup">
+              <div class="brand-logos">
+                <span class="brand-logo scc">
+                  <img src="/assets/scc_logo.png" alt="St. Clare College of Caloocan logo" />
+                </span>
+                <span class="brand-logo dept">
+                  <img src="/assets/department_logo.png" alt="Computer Science Department logo" />
+                </span>
+              </div>
+              <div class="brand-text">
+                <p class="brand-inst">St. Clare College of Caloocan</p>
+                <p class="brand-sub">Computer Science Department</p>
+              </div>
+            </div>
+
+            <div class="section-divider" aria-hidden="true"></div>
+
+            <div class="tabs" role="group" aria-label="Authentication mode">
+              <button class="tab-button is-active" type="button" data-auth-tab="login">Login</button>
+              <button class="tab-button" type="button" data-auth-tab="register">Register</button>
+            </div>
+
+            <form class="form-stack" id="login-form" novalidate autocomplete="off">
+              <label>
+                Email
+                <input name="email" type="email" autocomplete="off" required />
+                <span class="field-error" data-error-for="login-email"></span>
+              </label>
+              <label>
+                Password
+                <input name="password" type="password" autocomplete="off" required />
+                <span class="field-error" data-error-for="login-password"></span>
+              </label>
+              <p class="form-message" id="login-message" role="status"></p>
+              <button class="btn btn-primary" type="submit">Sign in</button>
+            </form>
+
+            <form class="form-stack is-hidden" id="register-form" novalidate autocomplete="off">
+              <label>
+                Email
+                <input name="email" type="email" autocomplete="off" placeholder="juan.delacruz.scc@gmail.com" required />
+                <span class="field-error" data-error-for="register-email"></span>
+              </label>
+              <label>
+                Password
+                <input name="password" type="password" autocomplete="off" minlength="6" required />
+                <span class="field-error" data-error-for="register-password"></span>
+              </label>
+              <label>
+                Student ID
+                <input name="studentNo" inputmode="numeric" autocomplete="off" required />
+                <span class="field-error" data-error-for="register-studentNo"></span>
+              </label>
+              <label>
+                Full name
+                <input name="fullName" autocomplete="off" required />
+                <span class="field-error" data-error-for="register-fullName"></span>
+              </label>
+              <div class="two-col">
+                <label>
+                  Year level
+                  <select name="yearLevel" required>
+                    <option value="">Select year</option>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                  </select>
+                  <span class="field-error" data-error-for="register-yearLevel"></span>
+                </label>
+                <label>
+                  Section
+                  <input name="section" placeholder="BSCS 2-A" required />
+                  <span class="field-error" data-error-for="register-section"></span>
+                </label>
+              </div>
+              <p class="form-message" id="register-message" role="status"></p>
+              <button class="btn btn-primary" type="submit">Create account</button>
+            </form>
+
+            <p class="auth-note">Use your official <code>name.scc@gmail.com</code> email and 7–9 digit student ID.</p>
+            </section>
+          </div>
+        </div>
+      </header>
+
+      <!-- how it works -->
+      <section class="sec" id="how">
+        <div class="wrap">
+          <div class="sec-head" data-reveal>
+            <p class="eyebrow">The Process</p>
+            <h2>Vote in four simple steps</h2>
+            <p class="lede">Built for phones, designed to be fast and unmistakable from sign-up to confirmation.</p>
+          </div>
+          <div class="steps" data-reveal>
+            <article class="step">
+              <span class="step-no">01</span>
+              <h3>Register</h3>
+              <p>Sign up with your official <code>.scc@gmail.com</code> email and unique student ID. No approval wait.</p>
+            </article>
+            <article class="step">
+              <span class="step-no">02</span>
+              <h3>Get your ballot</h3>
+              <p>See the 16 department positions plus the Representative for your year level — 17 races in all.</p>
+            </article>
+            <article class="step">
+              <span class="step-no">03</span>
+              <h3>Review &amp; confirm</h3>
+              <p>Check every selection on one screen. Submitting is final and is counted exactly once.</p>
+            </article>
+            <article class="step">
+              <span class="step-no">04</span>
+              <h3>See results</h3>
+              <p>Live counts stay private during voting; official tallies publish to students after polls close.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- positions -->
+      <section class="sec" id="positions">
+        <div class="wrap">
+          <div class="sec-head" data-reveal>
+            <p class="eyebrow">On the Ballot</p>
+            <h2>20 department positions</h2>
+            <p class="lede">
+              Independent candidates run for each seat. You vote for every department position plus your
+              own year representative.
+            </p>
+          </div>
+          <ul class="positions-grid" data-reveal>
+            <li class="pos-chip"><span>01</span> President</li>
+            <li class="pos-chip"><span>02</span> Vice President — Internal</li>
+            <li class="pos-chip"><span>03</span> Vice President — External</li>
+            <li class="pos-chip"><span>04</span> Secretary</li>
+            <li class="pos-chip"><span>05</span> Treasurer</li>
+            <li class="pos-chip"><span>06</span> Auditor</li>
+            <li class="pos-chip"><span>07</span> P.R.O</li>
+            <li class="pos-chip"><span>08</span> Business Manager Committee</li>
+            <li class="pos-chip"><span>09</span> Academic Committee Chair</li>
+            <li class="pos-chip"><span>10</span> Research Committee Chair</li>
+            <li class="pos-chip"><span>11</span> ICT Committee Chair</li>
+            <li class="pos-chip"><span>12</span> Events Committee Chair</li>
+            <li class="pos-chip"><span>13</span> Sports Committee Chair</li>
+            <li class="pos-chip"><span>14</span> Environmental Committee Chair</li>
+            <li class="pos-chip"><span>15</span> Membership Committee Chair</li>
+            <li class="pos-chip"><span>16</span> Community Committee Chair</li>
+            <li class="pos-chip year"><span>17</span> 4th Year Representative</li>
+            <li class="pos-chip year"><span>18</span> 3rd Year Representative</li>
+            <li class="pos-chip year"><span>19</span> 2nd Year Representative</li>
+            <li class="pos-chip year"><span>20</span> 1st Year Representative</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- integrity -->
+      <section class="sec" id="integrity">
+        <div class="wrap">
+          <div class="sec-head" data-reveal>
+            <p class="eyebrow">Built-in Integrity</p>
+            <h2>Every vote protected</h2>
+            <p class="lede">Anti-cheating is enforced by the system itself — not by trust.</p>
+          </div>
+          <div class="features" data-reveal>
+            <article class="feature-card" data-spot>
+              <div class="feature-icon" aria-hidden="true">1×</div>
+              <h3>One vote per position</h3>
+              <p>Each ballot record is immutable. Duplicate or after-close votes are rejected at the source.</p>
+            </article>
+            <article class="feature-card" data-spot>
+              <div class="feature-icon" aria-hidden="true">YR</div>
+              <h3>Year-scoped ballots</h3>
+              <p>You can only vote for the Representative of your own year level — no cross-year ballots.</p>
+            </article>
+            <article class="feature-card" data-spot>
+              <div class="feature-icon" aria-hidden="true">✓</div>
+              <h3>All-at-once submission</h3>
+              <p>Your full ballot is cast in a single atomic action — no partial or top-up votes later.</p>
+            </article>
+            <article class="feature-card" data-spot>
+              <div class="feature-icon" aria-hidden="true">@</div>
+              <h3>Verified registration</h3>
+              <p>Strict <code>.scc</code> email format and a unique 7–9 digit student ID keep accounts genuine.</p>
+            </article>
+            <article class="feature-card" data-spot>
+              <div class="feature-icon" aria-hidden="true">🔒</div>
+              <h3>Secret ballot</h3>
+              <p>No student can read another student's vote. Your choices stay private, always.</p>
+            </article>
+            <article class="feature-card" data-spot>
+              <div class="feature-icon" aria-hidden="true">⤓</div>
+              <h3>Auditable results</h3>
+              <p>Final tallies are recomputed from immutable records, so outcomes are fully verifiable.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- stats -->
+      <section class="sec stats-sec">
+        <div class="wrap">
+          <div class="stats" data-reveal>
+            <div class="stat"><div class="num">20</div><div class="stat-lbl">Positions</div></div>
+            <div class="stat"><div class="num">17</div><div class="stat-lbl">Races per ballot</div></div>
+            <div class="stat"><div class="num">4</div><div class="stat-lbl">Year levels</div></div>
+            <div class="stat"><div class="num">1×</div><div class="stat-lbl">Vote, verified</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- closing CTA -->
+      <section class="sec cta-sec">
+        <div class="wrap">
+          <div class="cta" data-reveal data-spot>
+            <h2>Ready to make it count?</h2>
+            <p>Register or sign in to view your ballot. It only takes a minute.</p>
+            <a class="btn btn-primary" href="#auth">Go to sign in <span class="arr">&rarr;</span></a>
+          </div>
+        </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <div class="wrap foot-in">
+        <div class="brand-lockup foot-brand">
+          <div class="brand-logos">
+            <span class="brand-logo scc">
+              <img src="/assets/scc_logo.png" alt="St. Clare College of Caloocan logo" />
+            </span>
+            <span class="brand-logo dept">
+              <img src="/assets/department_logo.png" alt="Computer Science Department logo" />
+            </span>
+          </div>
+          <div class="brand-text">
+            <p class="brand-inst">St. Clare College of Caloocan</p>
+            <p class="brand-sub">Computer Science Department</p>
+          </div>
+        </div>
+        <p class="foot-note">© 2026 CSS Department Voting System · Official student election platform.</p>
+      </div>
+    </footer>
+
     <script type="module" src="/src/ui/binaryRain.js"></script>
+    <script type="module" src="/src/ui/interactions.js"></script>
     <script type="module" src="/src/auth/indexPage.js"></script>
   </body>
 </html>

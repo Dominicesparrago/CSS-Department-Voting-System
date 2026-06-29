@@ -4,8 +4,8 @@ Phase 6 prep is complete, but production writes and deploys require explicit use
 
 ## Pre-Deploy Checks
 
-1. In Firebase Console, add `scc-cs-department-vote.web.app` to Authentication > Settings > Authorized domains.
-2. Confirm `.firebaserc` points to project `css-department-voting-system` and hosting target `scc-cs-department-vote`.
+1. In Firebase Console, add `scc-css-department-vote.web.app` to Authentication > Settings > Authorized domains.
+2. Confirm `.firebaserc` points to project `css-department-voting-sy-f46a5` and hosting target `scc-css-department-vote`.
 3. Confirm `firebase.json`:
    - Hosting public root is `web/`.
    - Firestore rules path is `firebase/firestore.rules`.
@@ -14,7 +14,7 @@ Phase 6 prep is complete, but production writes and deploys require explicit use
 4. Run the full local verification command from the repo root:
 
 ```powershell
-firebase emulators:exec --only auth,firestore,storage --project css-department-voting-system "npm --prefix firebase/rules-tests test && npm --prefix firebase/rules-tests run test:phase2 && npm --prefix firebase/rules-tests run test:phase3 && npm --prefix firebase/rules-tests run test:phase4 && powershell -NoProfile -Command `$env:FIRESTORE_EMULATOR_HOST='127.0.0.1:8081'; `$env:FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099'; `$env:FIREBASE_STORAGE_EMULATOR_HOST='http://127.0.0.1:9199'; `$env:STORAGE_EMULATOR_HOST='http://127.0.0.1:9199'; python admin-app/tests/phase5_admin_app_test.py"
+firebase emulators:exec --only auth,firestore,storage --project css-department-voting-sy-f46a5 "npm --prefix firebase/rules-tests test && npm --prefix firebase/rules-tests run test:phase2 && npm --prefix firebase/rules-tests run test:phase3 && npm --prefix firebase/rules-tests run test:phase4 && powershell -NoProfile -Command `$env:FIRESTORE_EMULATOR_HOST='127.0.0.1:8081'; `$env:FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099'; `$env:FIREBASE_STORAGE_EMULATOR_HOST='http://127.0.0.1:9199'; `$env:STORAGE_EMULATOR_HOST='http://127.0.0.1:9199'; python admin-app/tests/phase5_admin_app_test.py"
 ```
 
 ## Required Production Access-Budget Smoke Test
@@ -61,8 +61,8 @@ python -c "import sys; sys.path.insert(0, 'admin-app'); from api.elections impor
 Run only after explicit user approval:
 
 ```powershell
-firebase deploy --only firestore:rules,firestore:indexes,storage --project css-department-voting-system
-firebase deploy --only hosting:scc-cs-department-vote --project css-department-voting-system
+firebase deploy --only firestore:rules,firestore:indexes,storage --project css-department-voting-sy-f46a5
+firebase deploy --only hosting:scc-css-department-vote --project css-department-voting-sy-f46a5
 ```
 
 ## First Admin Bootstrap

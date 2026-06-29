@@ -2,7 +2,7 @@ import { ELECTION_ID, election, positions } from "./seed-data.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const projectId = process.env.GCLOUD_PROJECT || "css-department-voting-system";
+const projectId = process.env.GCLOUD_PROJECT || "css-department-voting-sy-f46a5";
 const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8081";
 const baseUrl = `http://${firestoreHost}/v1/projects/${projectId}/databases/(default)/documents`;
 

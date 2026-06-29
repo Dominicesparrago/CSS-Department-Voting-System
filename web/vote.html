@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/ui/theme.css" />
@@ -16,7 +16,21 @@
   <body>
     <canvas class="binary-rain" data-binary-rain aria-hidden="true"></canvas>
     <main class="page-shell ballot-page">
-      <section class="status-panel" id="student-route">
+      <section class="status-panel" id="student-route" data-reveal data-spot>
+        <div class="brand-lockup">
+          <div class="brand-logos">
+            <span class="brand-logo scc">
+              <img src="/assets/scc_logo.png" alt="St. Clare College of Caloocan logo" />
+            </span>
+            <span class="brand-logo dept">
+              <img src="/assets/department_logo.png" alt="Computer Science Department logo" />
+            </span>
+          </div>
+          <div class="brand-text">
+            <p class="brand-inst">St. Clare College of Caloocan</p>
+            <p class="brand-sub">Computer Science Department</p>
+          </div>
+        </div>
         <div class="ballot-head">
           <div>
             <p class="eyebrow">Student Ballot</p>
@@ -34,7 +48,12 @@
         </dl>
 
         <div class="ballot-toolbar is-hidden" id="ballot-toolbar">
-          <p id="ballot-progress">0 of 17 races selected</p>
+          <div class="toolbar-progress">
+            <span class="progress-ring" data-progress-ring aria-hidden="true">
+              <span data-progress-value>0%</span>
+            </span>
+            <p id="ballot-progress">0 of 17 races selected</p>
+          </div>
           <button class="btn btn-primary" id="review-button" type="button" disabled>Review ballot</button>
         </div>
 
@@ -55,7 +74,37 @@
         </section>
       </section>
     </main>
+
+    <div class="modal-backdrop" id="candidate-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="candidate-modal-name">
+        <button class="modal-close" type="button" id="candidate-modal-close" aria-label="Close candidate information">&times;</button>
+        <div class="candidate-modal-hero">
+          <img id="candidate-modal-photo" src="" alt="" />
+          <div>
+            <h2 id="candidate-modal-name">Candidate</h2>
+            <p class="candidate-modal-pos" id="candidate-modal-position"></p>
+          </div>
+          <div class="candidate-modal-chips" id="candidate-modal-chips"></div>
+        </div>
+        <div class="candidate-modal-body">
+          <div class="modal-field">
+            <h3>Platform</h3>
+            <p id="candidate-modal-platform"></p>
+          </div>
+          <div class="modal-field">
+            <h3>Goals</h3>
+            <p id="candidate-modal-goals"></p>
+          </div>
+          <div class="modal-field">
+            <h3>Biography</h3>
+            <p id="candidate-modal-bio"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/ui/binaryRain.js"></script>
+    <script type="module" src="/src/ui/interactions.js"></script>
     <script type="module" src="/src/student/studentRoute.js"></script>
   </body>
 </html>

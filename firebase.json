@@ -1,7 +1,7 @@
 {
   "hosting": {
-    "target": "scc-cs-department-vote",
-    "public": "web",
+    "target": "scc-css-department-vote",
+    "public": "voting-app/out",
     "ignore": [
       "firebase.json",
       "**/.*",

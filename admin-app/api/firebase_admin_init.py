@@ -9,8 +9,15 @@ from typing import Any
 import firebase_admin
 from firebase_admin import auth, credentials, firestore, storage
 from google.auth.credentials import AnonymousCredentials
+from dotenv import load_dotenv
 
 from .constants import PROJECT_ID, STORAGE_BUCKET
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+ADMIN_APP_DIR = Path(__file__).resolve().parents[1]
+
+load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ADMIN_APP_DIR / ".env", override=True)
 
 
 class EmulatorCredential(credentials.Base):
@@ -59,10 +66,7 @@ def initialize_firebase() -> firebase_admin.App:
     elif using_emulators():
         cred = EmulatorCredential()
     else:
-        raise RuntimeError(
-            "Set SCC_FIREBASE_SERVICE_ACCOUNT to a local serviceAccountKey.json path, "
-            "or run against emulators with FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST."
-        )
+        cred = credentials.ApplicationDefault()
 
     return firebase_admin.initialize_app(cred, options)
 

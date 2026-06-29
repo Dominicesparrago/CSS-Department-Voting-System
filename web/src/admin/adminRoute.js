@@ -97,7 +97,7 @@ function populatePositionSelects() {
 }
 
 function chartColors(count) {
-  const palette = ["#22B8A0", "#1CABB8", "#3BD6B0", "#1A8FA0", "#A0EDE2", "#0E6E7E", "#115E6E", "#D4F7F1"];
+  const palette = ["#22b8a0", "#1cabb8", "#3bd6b0", "#1a8fa0", "#a0ede2", "#0e6e7e", "#2dc4a2", "#115e6e"];
   return Array.from({ length: count }, (_, index) => palette[index % palette.length]);
 }
 
@@ -110,7 +110,7 @@ function createOrUpdateChart(id, type, labels, data, label) {
         label,
         data,
         backgroundColor: chartColors(labels.length),
-        borderColor: "rgba(212,247,241,.35)",
+        borderColor: "rgba(10,14,15,.55)",
         borderWidth: 1
       }
     ]
@@ -132,13 +132,13 @@ function createOrUpdateChart(id, type, labels, data, label) {
       plugins: {
         legend: {
           display: type !== "bar",
-          labels: { color: "#D4F7F1" }
+          labels: { color: "#f4fcfb" }
         }
       },
       scales: type === "bar"
         ? {
-            x: { ticks: { color: "#A0EDE2" }, grid: { color: "rgba(120,200,190,.12)" } },
-            y: { beginAtZero: true, ticks: { color: "#A0EDE2", precision: 0 }, grid: { color: "rgba(120,200,190,.12)" } }
+            x: { ticks: { color: "#a0ede2" }, grid: { color: "rgba(120,200,190,.12)" } },
+            y: { beginAtZero: true, ticks: { color: "#a0ede2", precision: 0 }, grid: { color: "rgba(120,200,190,.12)" } }
           }
         : undefined
     }
@@ -219,6 +219,15 @@ function renderCandidates() {
   );
 
   list.replaceChildren();
+
+  if (grouped.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "state-block";
+    empty.innerHTML = "<strong>No candidates yet</strong><small>Use the form to add your first candidate. Saved candidates appear here and on the student ballot.</small>";
+    list.append(empty);
+    return;
+  }
+
   grouped.forEach(({ candidate, position }) => {
     const card = document.createElement("article");
     card.className = "candidate-admin-card";
@@ -254,6 +263,17 @@ function renderVoters() {
   });
 
   table.replaceChildren();
+
+  if (filtered.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.innerHTML = `<div class="state-block"><strong>${state.voters.length ? "No matching voters" : "No registered voters yet"}</strong><small>${state.voters.length ? "Try a different search term." : "Voters appear here after they self-register on the web app."}</small></div>`;
+    row.append(cell);
+    table.append(row);
+    return;
+  }
+
   filtered.forEach((voter) => {
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -291,6 +311,17 @@ function renderVoteTable() {
   });
 
   table.replaceChildren();
+
+  if (state.votes.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 5;
+    cell.innerHTML = `<div class="state-block"><strong>No votes recorded yet</strong><small>Vote records appear here in real time once voting opens.</small></div>`;
+    row.append(cell);
+    table.append(row);
+    return;
+  }
+
   state.votes.slice(-250).reverse().forEach((vote) => {
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -312,6 +343,17 @@ function renderAll() {
   renderVoteTable();
 }
 
+function setPhotoPreview(url) {
+  const preview = document.querySelector("#candidate-photo-preview");
+  if (url) {
+    preview.src = url;
+    preview.classList.remove("is-empty");
+  } else {
+    preview.removeAttribute("src");
+    preview.classList.add("is-empty");
+  }
+}
+
 function resetCandidateForm() {
   document.querySelector("#candidate-form").reset();
   document.querySelector("#candidate-id").value = "";
@@ -320,6 +362,7 @@ function resetCandidateForm() {
   document.querySelector("#candidate-order").value = "1";
   document.querySelector("#candidate-position").value = state.selectedPositionId;
   document.querySelector("#candidate-photo-error").textContent = "";
+  setPhotoPreview("");
 }
 
 function fillCandidateForm(candidate) {
@@ -330,10 +373,13 @@ function fillCandidateForm(candidate) {
   document.querySelector("#candidate-section").value = candidate.section;
   document.querySelector("#candidate-year").value = String(candidate.yearLevel);
   document.querySelector("#candidate-platform").value = candidate.platform;
+  document.querySelector("#candidate-goals").value = candidate.goals || "";
+  document.querySelector("#candidate-bio").value = candidate.bio || "";
   document.querySelector("#candidate-party").value = candidate.party || "";
   document.querySelector("#candidate-order").value = String(candidate.order || 1);
   document.querySelector("#candidate-active").checked = candidate.active === true;
   document.querySelector("#candidate-photo").value = "";
+  setPhotoPreview(candidate.photoURL || "");
   document.querySelector("[data-admin-tab='candidates']").click();
 }
 
@@ -367,7 +413,12 @@ function setupEvents() {
   });
 
   document.querySelector("#candidate-photo").addEventListener("change", (event) => {
-    document.querySelector("#candidate-photo-error").textContent = validateCandidatePhoto(event.target.files[0]);
+    const file = event.target.files[0];
+    const error = validateCandidatePhoto(file);
+    document.querySelector("#candidate-photo-error").textContent = error;
+    if (file && !error) {
+      setPhotoPreview(URL.createObjectURL(file));
+    }
   });
 
   document.querySelector("#candidate-reset-button").addEventListener("click", resetCandidateForm);
@@ -398,6 +449,8 @@ function setupEvents() {
           section: document.querySelector("#candidate-section").value,
           yearLevel: Number(document.querySelector("#candidate-year").value),
           platform: document.querySelector("#candidate-platform").value,
+          goals: document.querySelector("#candidate-goals").value,
+          bio: document.querySelector("#candidate-bio").value,
           party: document.querySelector("#candidate-party").value,
           order: Number(document.querySelector("#candidate-order").value),
           active: document.querySelector("#candidate-active").checked

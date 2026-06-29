@@ -6,10 +6,28 @@ Desktop admin console for the St. Clare College of Caloocan Computer Science Dep
 
 This app uses the Firebase Admin SDK. Admin SDK writes bypass Firestore and Storage security rules, so the Python modules re-validate student emails, student IDs, year levels, candidate fields, image type/size, lifecycle order, and tally recomputation before writing.
 
-Never commit a service account key. `serviceAccountKey.json` is ignored by the repo. Prefer an environment variable:
+Never commit a service account key. `serviceAccountKey.json` is ignored by the repo.
+
+If service account key creation is blocked by organization policy, use keyless Application Default Credentials:
+
+```powershell
+gcloud auth application-default login
+gcloud config set project css-department-voting-sy-f46a5
+py admin-app/main.py
+```
+
+Your Google account must have enough IAM/Firebase permissions for Firestore, Auth user management/custom claims, and Storage.
+
+If key creation is allowed, you may use an environment variable:
 
 ```powershell
 $env:SCC_FIREBASE_SERVICE_ACCOUNT="C:\secure\serviceAccountKey.json"
+```
+
+You can also use `admin-app/.env` or the repo-root `.env` file. Both are git-ignored. `admin-app/.env` wins if both exist:
+
+```text
+SCC_FIREBASE_SERVICE_ACCOUNT=C:\secure\serviceAccountKey.json
 ```
 
 For local emulator work:
@@ -18,6 +36,15 @@ For local emulator work:
 $env:FIRESTORE_EMULATOR_HOST="127.0.0.1:8081"
 $env:FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
 $env:FIREBASE_STORAGE_EMULATOR_HOST="http://127.0.0.1:9199"
+```
+
+Or in `admin-app/.env`:
+
+```text
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8081
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
+FIREBASE_STORAGE_EMULATOR_HOST=http://127.0.0.1:9199
+STORAGE_EMULATOR_HOST=http://127.0.0.1:9199
 ```
 
 ## Install

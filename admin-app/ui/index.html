@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
@@ -17,11 +17,21 @@
     <main class="shell">
       <header class="hero">
         <div>
-          <p class="eyebrow">St. Clare College of Caloocan</p>
+          <div class="brand-lockup">
+            <div class="brand-logos">
+              <span class="brand-logo scc"><img src="scc_logo.png" alt="St. Clare College of Caloocan logo" /></span>
+              <span class="brand-logo dept"><img src="department_logo.png" alt="Computer Studies Department logo" /></span>
+            </div>
+            <div class="brand-text">
+              <p class="brand-inst">St. Clare College of Caloocan</p>
+              <p class="brand-sub">Computer Studies Department</p>
+            </div>
+          </div>
+          <p class="eyebrow">Admin Application</p>
           <h1>CSS Department Admin</h1>
           <p id="status-line">Connecting to Firebase Admin SDK...</p>
         </div>
-        <button id="refresh-button">Refresh</button>
+        <button id="refresh-button" class="ghost">Refresh</button>
       </header>
 
       <nav class="tabs">
@@ -54,18 +64,28 @@
       <section class="panel" data-panel="candidates">
         <div class="grid">
           <form id="candidate-form" class="card form">
-            <h2>Add or edit candidate</h2>
+            <h2 id="candidate-form-title">Add candidate</h2>
+            <p id="candidate-message" class="form-message"></p>
             <input type="hidden" id="candidate-id" />
             <label>Name<input id="candidate-name" required /></label>
             <label>Position<select id="candidate-position" required></select></label>
             <label>Section<input id="candidate-section" required /></label>
             <label>Year level<select id="candidate-year"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
             <label>Platform<textarea id="candidate-platform" rows="4" required></textarea></label>
+            <label>Goals<textarea id="candidate-goals" rows="3" placeholder="Optional — campaign goals"></textarea></label>
+            <label>Biography<textarea id="candidate-bio" rows="3" placeholder="Optional — short biography"></textarea></label>
             <label>Party<input id="candidate-party" placeholder="Optional" /></label>
             <label>Order<input id="candidate-order" type="number" min="1" value="1" required /></label>
             <label class="check"><input id="candidate-active" type="checkbox" checked /> Active</label>
+            <label>Candidate photo
+              <div class="photo-field">
+                <img id="candidate-photo-preview" class="image-preview is-empty" alt="" data-empty-text="No image" />
+                <input id="candidate-photo" type="file" accept="image/*" />
+              </div>
+              <span id="candidate-photo-error" class="error"></span>
+            </label>
             <div class="actions">
-              <button type="submit">Save</button>
+              <button type="submit">Save candidate</button>
               <button id="candidate-clear" type="button" class="ghost">Clear</button>
             </div>
           </form>

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
 import { ref, uploadBytes } from "firebase/storage";
 
-const projectId = "css-department-voting-system";
+const projectId = "css-department-voting-sy-f46a5";
 
 const testEnv = await initializeTestEnvironment({
   projectId,
@@ -14,7 +14,7 @@ const testEnv = await initializeTestEnvironment({
 });
 
 function storageFor(uid, token = {}) {
-  return testEnv.authenticatedContext(uid, token).storage("css-department-voting-system.firebasestorage.app");
+  return testEnv.authenticatedContext(uid, token).storage("css-department-voting-sy-f46a5.firebasestorage.app");
 }
 
 try {

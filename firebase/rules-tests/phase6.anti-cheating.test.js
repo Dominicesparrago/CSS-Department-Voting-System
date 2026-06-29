@@ -15,7 +15,7 @@ import {
 import { ELECTION_ID, positions } from "../seed-data.js";
 import { requiredPositionsForVoter } from "../../web/src/student/ballotState.js";
 
-const projectId = "css-department-voting-system";
+const projectId = "css-department-voting-sy-f46a5";
 const uid = "phase6-voter";
 const duplicateUid = "phase6-duplicate";
 const adminUid = "phase6-admin";

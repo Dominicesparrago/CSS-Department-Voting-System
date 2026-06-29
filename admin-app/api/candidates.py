@@ -11,7 +11,29 @@ from firebase_admin import firestore
 
 from .constants import ELECTION_ID
 from .firebase_admin_init import get_bucket, get_db, write_audit
-from .validation import validate_candidate_payload, validate_image_file
+from .validation import validate_candidate_payload, validate_image_data_url, validate_image_file
+
+
+def _store_image_bytes(candidate_id: str, raw: bytes, content_type: str) -> dict[str, str]:
+    extension = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/webp": "webp",
+        "image/gif": "gif",
+    }.get(content_type, "img")
+    token = str(uuid4())
+    storage_path = f"candidates/{candidate_id}-{uuid4().hex}.{extension}"
+    blob = get_bucket().blob(storage_path)
+    blob.metadata = {"firebaseStorageDownloadTokens": token}
+    blob.upload_from_string(raw, content_type=content_type)
+
+    bucket_name = get_bucket().name
+    photo_url = (
+        f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/"
+        f"{quote(storage_path, safe='')}?alt=media&token={token}"
+    )
+    return {"photoPath": storage_path, "photoURL": photo_url}
 
 
 def _doc_to_dict(snapshot) -> dict[str, Any]:
@@ -30,13 +52,26 @@ def save_candidate(data: dict[str, Any], actor_uid: str = "desktop-admin") -> di
     db = get_db()
     candidate_id = str(data.get("id") or "").strip()
     doc_ref = db.collection("candidates").document(candidate_id) if candidate_id else db.collection("candidates").document()
-    exists = doc_ref.get().exists
+    existing = doc_ref.get()
+    exists = existing.exists
+
+    # Decode an in-form image (base64 data URL) up front so a bad image fails before any write.
+    image_data_url = str(data.get("image") or "").strip()
+    image_fields: dict[str, str] = {}
+    if image_data_url:
+        content_type, raw = validate_image_data_url(image_data_url)
+        image_fields = _store_image_bytes(doc_ref.id, raw, content_type)
+
+    # Preserve any existing photo when editing without uploading a new one.
+    existing_data = existing.to_dict() if exists else {}
+    photo_url = image_fields.get("photoURL") or str(data.get("photoURL") or existing_data.get("photoURL") or "")
+    photo_path = image_fields.get("photoPath") or str(data.get("photoPath") or existing_data.get("photoPath") or "")
 
     write_payload = {
         **payload,
         "electionId": str(data.get("electionId") or ELECTION_ID),
-        "photoURL": str(data.get("photoURL") or ""),
-        "photoPath": str(data.get("photoPath") or ""),
+        "photoURL": photo_url,
+        "photoPath": photo_path,
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
     if exists:

@@ -9,7 +9,7 @@ import {
   setDoc
 } from "firebase/firestore";
 
-const projectId = "css-department-voting-system";
+const projectId = "css-department-voting-sy-f46a5";
 const electionId = "css_department_election_2026";
 
 const testEnv = await initializeTestEnvironment({

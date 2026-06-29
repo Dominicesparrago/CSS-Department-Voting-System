@@ -1,15 +1,15 @@
 {
   "projects": {
-    "default": "css-department-voting-system"
+    "default": "css-department-voting-sy-f46a5"
   },
   "targets": {
-    "css-department-voting-system": {
+    "css-department-voting-sy-f46a5": {
       "hosting": {
-        "scc-cs-department-vote": [
-          "scc-cs-department-vote"
+        "scc-css-department-vote": [
+          "scc-css-department-vote"
         ]
       }
     }
-  }
+  },
+  "etags": {}
 }
-

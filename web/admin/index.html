@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@600;700;800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230A0E0F'/%3E%3Cpath d='M9 17.2 13.2 21 23 10.5' fill='none' stroke='%2322B8A0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
@@ -29,8 +29,22 @@
       </section>
 
       <section id="admin-dashboard" class="admin-dashboard" hidden>
-        <header class="admin-header">
+        <header class="admin-header" data-spot>
           <div>
+            <div class="brand-lockup">
+              <div class="brand-logos">
+                <span class="brand-logo scc">
+                  <img src="/assets/scc_logo.png" alt="St. Clare College of Caloocan logo" />
+                </span>
+                <span class="brand-logo dept">
+                  <img src="/assets/department_logo.png" alt="Computer Science Department logo" />
+                </span>
+              </div>
+              <div class="brand-text">
+                <p class="brand-inst">St. Clare College of Caloocan</p>
+                <p class="brand-sub">Computer Science Department</p>
+              </div>
+            </div>
             <p class="eyebrow">CSS Department Admin</p>
             <h1>Election command center</h1>
             <p id="admin-status" class="lede">Loading live election data...</p>
@@ -76,19 +90,19 @@
           </div>
 
           <div class="chart-grid">
-            <article class="admin-card chart-card">
+            <article class="admin-card chart-card" data-spot>
               <h2>Live vote counts</h2>
               <canvas id="candidate-counts-chart" aria-label="Live vote counts per candidate"></canvas>
             </article>
-            <article class="admin-card chart-card">
+            <article class="admin-card chart-card" data-spot>
               <h2>Vote distribution</h2>
               <canvas id="distribution-chart" aria-label="Vote distribution per position"></canvas>
             </article>
-            <article class="admin-card chart-card">
+            <article class="admin-card chart-card" data-spot>
               <h2>Turnout by year</h2>
               <canvas id="turnout-chart" aria-label="Turnout by year level"></canvas>
             </article>
-            <article class="admin-card chart-card">
+            <article class="admin-card chart-card" data-spot>
               <h2>Leaderboard</h2>
               <canvas id="leaderboard-chart" aria-label="Candidate ranking by selected position"></canvas>
             </article>
@@ -131,6 +145,14 @@
                 <textarea id="candidate-platform" required rows="4"></textarea>
               </label>
               <label>
+                Goals
+                <textarea id="candidate-goals" rows="3" placeholder="Optional — campaign goals"></textarea>
+              </label>
+              <label>
+                Biography
+                <textarea id="candidate-bio" rows="3" placeholder="Optional — short biography"></textarea>
+              </label>
+              <label>
                 Party
                 <input id="candidate-party" autocomplete="off" placeholder="Optional" />
               </label>
@@ -146,7 +168,10 @@
               </div>
               <label>
                 Candidate photo
-                <input id="candidate-photo" type="file" accept="image/*" />
+                <div class="photo-field">
+                  <img id="candidate-photo-preview" class="image-preview is-empty" alt="" data-empty-text="No image" />
+                  <input id="candidate-photo" type="file" accept="image/*" />
+                </div>
                 <span class="field-error" id="candidate-photo-error"></span>
               </label>
               <div class="action-row">
@@ -237,6 +262,7 @@
       </section>
     </main>
     <script type="module" src="/src/ui/binaryRain.js"></script>
+    <script type="module" src="/src/ui/interactions.js"></script>
     <script type="module" src="/src/admin/adminRoute.js"></script>
   </body>
 </html>

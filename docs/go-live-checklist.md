@@ -2,9 +2,9 @@
 
 Do not start until Phase 6 verification is green and the user has approved production actions.
 
-1. Add `scc-cs-department-vote.web.app` to Firebase Auth authorized domains.
+1. Add `scc-css-department-vote.web.app` to Firebase Auth authorized domains.
 2. Deploy Firestore rules, Firestore indexes, and Storage rules.
-3. Deploy Hosting to target `scc-cs-department-vote`.
+3. Deploy Hosting to target `scc-css-department-vote`.
 4. Seed production with only the 20 positions and one draft election.
 5. Bootstrap the first admin claim with the Python Admin app.
 6. Sign in to `/admin/` with the admin account and confirm access.

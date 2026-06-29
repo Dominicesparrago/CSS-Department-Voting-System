@@ -18,7 +18,7 @@ import {
   votesToCsv
 } from "../../web/src/admin/adminCore.js";
 
-const projectId = "css-department-voting-system";
+const projectId = "css-department-voting-sy-f46a5";
 const adminUid = "phase4-admin";
 const studentUid = "phase4-student";
 
@@ -41,7 +41,7 @@ function dbFor(uid, token = {}) {
 }
 
 function storageFor(uid, token = {}) {
-  return testEnv.authenticatedContext(uid, token).storage("css-department-voting-system.firebasestorage.app");
+  return testEnv.authenticatedContext(uid, token).storage("css-department-voting-sy-f46a5.firebasestorage.app");
 }
 
 async function readCollection(path) {

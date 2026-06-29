@@ -68,10 +68,33 @@ def validate_candidate_payload(data: dict[str, Any]) -> dict[str, Any]:
         "section": require_non_empty(data.get("section"), "section"),
         "yearLevel": validate_year_level(data.get("yearLevel")),
         "platform": require_non_empty(data.get("platform"), "platform"),
+        "goals": (str(data.get("goals") or "").strip() or None),
+        "bio": (str(data.get("bio") or "").strip() or None),
         "party": (str(data.get("party") or "").strip() or None),
         "order": order,
         "active": bool(data.get("active", True)),
     }
+
+
+def validate_image_data_url(data_url: str) -> tuple[str, bytes]:
+    """Validate an in-form base64 image data URL; return (content_type, raw_bytes)."""
+    import base64
+    import re
+
+    match = re.fullmatch(r"data:(image/[\w.+-]+);base64,(.+)", str(data_url or ""), re.DOTALL)
+    if not match:
+        raise ValidationError("Candidate photo must be an image file.")
+
+    content_type = match.group(1)
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ValidationError("Candidate photo could not be read.") from exc
+
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise ValidationError("Image must be 2MB or smaller.")
+
+    return content_type, raw
 
 
 def validate_voter_payload(data: dict[str, Any]) -> dict[str, Any]:

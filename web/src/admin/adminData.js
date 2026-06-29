@@ -129,6 +129,8 @@ export async function saveCandidate({ candidate, photoFile, actorUid }) {
     section: candidate.section.trim(),
     yearLevel: Number(candidate.yearLevel),
     platform: candidate.platform.trim(),
+    goals: candidate.goals?.trim() || null,
+    bio: candidate.bio?.trim() || null,
     party: candidate.party?.trim() || null,
     order: Number(candidate.order),
     active: candidate.active === true,

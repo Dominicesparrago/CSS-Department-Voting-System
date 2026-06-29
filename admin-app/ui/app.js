@@ -4,8 +4,11 @@ const state = {
   candidates: [],
   voters: [],
   tallies: null,
-  charts: {}
+  charts: {},
+  candidateImage: null
 };
+
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -13,6 +16,44 @@ function setStatus(message, isError = false) {
   const line = $("#status-line");
   line.textContent = message;
   line.classList.toggle("error", isError);
+}
+
+function setCandidateMessage(message, isError = false) {
+  const line = $("#candidate-message");
+  line.textContent = message;
+  line.style.color = isError ? "var(--danger)" : "var(--teal-200)";
+}
+
+function setPhotoPreview(url) {
+  const preview = $("#candidate-photo-preview");
+  if (url) {
+    preview.src = url;
+    preview.classList.remove("is-empty");
+  } else {
+    preview.removeAttribute("src");
+    preview.classList.add("is-empty");
+  }
+}
+
+function resetCandidateForm() {
+  $("#candidate-form").reset();
+  $("#candidate-id").value = "";
+  $("#candidate-form-title").textContent = "Add candidate";
+  $("#candidate-active").checked = true;
+  $("#candidate-order").value = "1";
+  $("#candidate-photo-error").textContent = "";
+  state.candidateImage = null;
+  setPhotoPreview("");
+  setCandidateMessage("");
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read the image file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function api(name, ...args) {
@@ -26,7 +67,7 @@ async function api(name, ...args) {
 function chart(id, type, labels, data, label) {
   const chartData = {
     labels,
-    datasets: [{ label, data, backgroundColor: ["#22B8A0", "#1CABB8", "#3BD6B0", "#1A8FA0", "#A0EDE2", "#0E6E7E"] }]
+    datasets: [{ label, data, backgroundColor: ["#d325e6", "#7c5cff", "#a3e635", "#ec5cf6", "#9a82ff", "#fb7185"] }]
   };
   if (state.charts[id]) {
     state.charts[id].data = chartData;
@@ -39,10 +80,10 @@ function chart(id, type, labels, data, label) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: "#D4F7F1" } } },
+      plugins: { legend: { labels: { color: "#f2eeff" } } },
       scales: type === "bar" ? {
-        x: { ticks: { color: "#A0EDE2" }, grid: { color: "rgba(120,200,190,.12)" } },
-        y: { beginAtZero: true, ticks: { color: "#A0EDE2", precision: 0 }, grid: { color: "rgba(120,200,190,.12)" } }
+        x: { ticks: { color: "#b8a8ff" }, grid: { color: "rgba(168,142,255,.12)" } },
+        y: { beginAtZero: true, ticks: { color: "#b8a8ff", precision: 0 }, grid: { color: "rgba(168,142,255,.12)" } }
       } : undefined
     }
   });
@@ -59,22 +100,46 @@ function renderPositions() {
   });
 }
 
+function positionName(positionId) {
+  return state.positions.find((position) => position.id === positionId)?.name || positionId;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function renderCandidates() {
   const list = $("#candidate-list");
   list.replaceChildren();
+
+  if (state.candidates.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "state-block";
+    empty.innerHTML = "<strong>No candidates yet</strong><span>Add your first candidate with the form. Saved candidates and photos appear instantly on the student ballot.</span>";
+    list.append(empty);
+    return;
+  }
+
   state.candidates.forEach((candidate) => {
     const item = document.createElement("article");
-    item.className = "item";
+    item.className = "item with-photo";
+    const avatar = candidate.photoURL
+      ? `<img class="item-photo" src="${escapeHtml(candidate.photoURL)}" alt="" />`
+      : `<span class="item-photo-empty" aria-hidden="true">${escapeHtml((candidate.name || "?").slice(0, 1).toUpperCase())}</span>`;
     item.innerHTML = `
+      ${avatar}
       <div>
-        <strong>${candidate.name}</strong>
-        <small>${candidate.positionId} · ${candidate.section} · Year ${candidate.yearLevel}</small>
-        <small>${candidate.active ? "Active" : "Inactive"} · order ${candidate.order}</small>
+        <strong>${escapeHtml(candidate.name)}</strong>
+        <small>${escapeHtml(positionName(candidate.positionId))} · ${escapeHtml(candidate.section)} · Year ${escapeHtml(candidate.yearLevel)}</small>
+        <small>${candidate.active ? "Active" : "Inactive"} · order ${escapeHtml(candidate.order)}${candidate.goals ? " · has goals" : ""}</small>
       </div>
-      <div class="actions">
-        <button class="ghost" data-edit="${candidate.id}">Edit</button>
-        <button class="ghost" data-active="${candidate.id}">${candidate.active ? "Deactivate" : "Activate"}</button>
-        <button class="ghost" data-upload="${candidate.id}">Upload image</button>
+      <div class="actions stack">
+        <button type="button" class="ghost" data-edit="${escapeHtml(candidate.id)}">Edit</button>
+        <button type="button" class="ghost" data-active="${escapeHtml(candidate.id)}">${candidate.active ? "Deactivate" : "Activate"}</button>
       </div>
     `;
     list.append(item);
@@ -84,6 +149,15 @@ function renderCandidates() {
 function renderVoters() {
   const list = $("#voter-list");
   list.replaceChildren();
+
+  if (state.voters.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "state-block";
+    empty.innerHTML = "<strong>No voters found</strong><span>Voters appear here after they self-register, or create one with the form.</span>";
+    list.append(empty);
+    return;
+  }
+
   state.voters.forEach((voter) => {
     const item = document.createElement("article");
     item.className = "item";
@@ -142,10 +216,46 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 
 $("#refresh-button").addEventListener("click", refresh);
 
-$("#candidate-clear").addEventListener("click", () => $("#candidate-form").reset());
+$("#candidate-clear").addEventListener("click", resetCandidateForm);
+
+$("#candidate-photo").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  const errorLine = $("#candidate-photo-error");
+
+  if (!file) {
+    state.candidateImage = null;
+    setPhotoPreview("");
+    errorLine.textContent = "";
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    errorLine.textContent = "Upload an image file.";
+    event.target.value = "";
+    return;
+  }
+
+  if (file.size > MAX_IMAGE_BYTES) {
+    errorLine.textContent = "Image must be 2MB or smaller.";
+    event.target.value = "";
+    return;
+  }
+
+  errorLine.textContent = "";
+  try {
+    state.candidateImage = await readFileAsDataUrl(file);
+    setPhotoPreview(state.candidateImage);
+  } catch (error) {
+    errorLine.textContent = error.message;
+  }
+});
 
 $("#candidate-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const button = event.submitter || $("#candidate-form button[type='submit']");
+  if (button) button.disabled = true;
+  setCandidateMessage("Saving candidate...");
+
   try {
     await api("save_candidate", {
       id: $("#candidate-id").value,
@@ -154,40 +264,49 @@ $("#candidate-form").addEventListener("submit", async (event) => {
       section: $("#candidate-section").value,
       yearLevel: $("#candidate-year").value,
       platform: $("#candidate-platform").value,
+      goals: $("#candidate-goals").value,
+      bio: $("#candidate-bio").value,
       party: $("#candidate-party").value,
       order: $("#candidate-order").value,
-      active: $("#candidate-active").checked
+      active: $("#candidate-active").checked,
+      image: state.candidateImage || ""
     });
-    $("#candidate-form").reset();
+    resetCandidateForm();
+    setCandidateMessage("Candidate saved.");
     await refresh();
   } catch (error) {
-    setStatus(error.message, true);
+    setCandidateMessage(error.message, true);
+  } finally {
+    if (button) button.disabled = false;
   }
 });
 
 $("#candidate-list").addEventListener("click", async (event) => {
   const editId = event.target.dataset.edit;
   const activeId = event.target.dataset.active;
-  const uploadId = event.target.dataset.upload;
   if (editId) {
     const candidate = state.candidates.find((item) => item.id === editId);
+    if (!candidate) return;
     $("#candidate-id").value = candidate.id;
+    $("#candidate-form-title").textContent = "Edit candidate";
     $("#candidate-name").value = candidate.name;
     $("#candidate-position").value = candidate.positionId;
     $("#candidate-section").value = candidate.section;
     $("#candidate-year").value = String(candidate.yearLevel);
     $("#candidate-platform").value = candidate.platform;
+    $("#candidate-goals").value = candidate.goals || "";
+    $("#candidate-bio").value = candidate.bio || "";
     $("#candidate-party").value = candidate.party || "";
     $("#candidate-order").value = candidate.order || 1;
     $("#candidate-active").checked = candidate.active;
+    $("#candidate-photo").value = "";
+    state.candidateImage = null;
+    setPhotoPreview(candidate.photoURL || "");
+    setCandidateMessage("Editing — leave photo empty to keep the current image.");
   }
   if (activeId) {
     const candidate = state.candidates.find((item) => item.id === activeId);
     await api("set_candidate_active", activeId, !candidate.active);
-    await refresh();
-  }
-  if (uploadId) {
-    await api("select_and_upload_candidate_image", uploadId);
     await refresh();
   }
 });
