@@ -6,6 +6,29 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn()
+        && (
+          ("superadmin" in request.auth.token && request.auth.token.superadmin == true)
+          || ("role" in request.auth.token && request.auth.token.role == "superadmin")
+        );
+    }
+
+    // Guard before touching token.email: anonymous (guest) sessions have no email,
+    // and referencing a missing token field errors the whole rule evaluation.
+    function hasEmailToken() {
+      return isSignedIn()
+        && "email" in request.auth.token
+        && request.auth.token.email is string;
+    }
+
+    // Admins granted by the superadmin at runtime, keyed by sign-in email.
+    // Checked last so claim-based admins never pay the exists() read.
+    function isRegistryAdmin() {
+      return hasEmailToken()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
     function isAdmin() {
       return isSignedIn()
         && (
@@ -13,6 +36,7 @@ service cloud.firestore {
           || ("superadmin" in request.auth.token && request.auth.token.superadmin == true)
           || ("role" in request.auth.token && request.auth.token.role == "admin")
           || ("role" in request.auth.token && request.auth.token.role == "superadmin")
+          || isRegistryAdmin()
         );
     }
 
@@ -106,9 +130,15 @@ service cloud.firestore {
         && !("votedAt" in request.resource.data);
     }
 
+    function guestSignupAllowed() {
+      return !exists(/databases/$(database)/documents/config/app)
+        || get(/databases/$(database)/documents/config/app).data.get("allowGuestVoters", true) == true;
+    }
+
     function validGuestVoterCreate(uid) {
       return isSelf(uid)
         && registrationOpen("css_department_election_2026")
+        && guestSignupAllowed()
         && request.resource.data.keys().hasOnly([
           "fullName",
           "email",
@@ -294,6 +324,25 @@ service cloud.firestore {
         && request.resource.data.ts == request.time;
     }
 
+    function validAdminGrant(email) {
+      return request.resource.data.keys().hasOnly(["email", "role", "addedBy", "reason", "createdAt"])
+        && request.resource.data.keys().hasAll(["email", "role", "addedBy", "reason", "createdAt"])
+        && request.resource.data.email == email
+        && request.resource.data.role == "admin"
+        && request.resource.data.addedBy == request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 8
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function validConfigWrite() {
+      return request.resource.data.keys().hasOnly(["allowGuestVoters", "maintenanceMode", "updatedAt", "updatedBy"])
+        && request.resource.data.allowGuestVoters is bool
+        && request.resource.data.maintenanceMode is bool
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+
     match /elections/{electionId} {
       allow read: if isSignedIn() || electionPublished(electionId);
       allow create, update, delete: if isAdmin();
@@ -347,8 +396,28 @@ service cloud.firestore {
 
     match /audit/{auditId} {
       allow read: if isAdmin();
-      allow create: if isAdmin() || validAuditCreate();
+      // audit entries come only from admin/superadmin actions; students must not
+      // be able to spam or forge the trail
+      allow create: if isAdmin() && validAuditCreate();
       allow update, delete: if false;
+    }
+
+    // Runtime-managed admin registry, keyed by sign-in email. Superadmin grants
+    // and revokes; each admin can read (only) their own entry so the client can
+    // resolve access without custom claims.
+    match /admins/{email} {
+      allow read: if isSuperAdmin() || (hasEmailToken() && request.auth.token.email == email);
+      allow create: if isSuperAdmin() && validAdminGrant(email);
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // App-wide policy flags. Publicly readable (the signed-out landing page needs
+    // them); writable only by the superadmin with a validated shape.
+    match /config/{configId} {
+      allow read: if true;
+      allow create, update: if isSuperAdmin() && validConfigWrite();
+      allow delete: if isSuperAdmin();
     }
 
     match /{document=**} {

@@ -20,9 +20,13 @@ import {
   Vote,
 } from 'lucide-react';
 import AuthCard from '@/components/auth/AuthCard';
+import { watchAppConfig } from '@/lib/appConfig';
 
 export default function LandingPage() {
   const [positionFilter, setPositionFilter] = useState<'all' | 'exec' | 'cmte' | 'year'>('all');
+  const [maintenance, setMaintenance] = useState(false);
+
+  useEffect(() => watchAppConfig((config) => setMaintenance(config.maintenanceMode)), []);
   const positions = useMemo(() => [
     ['01', 'President', 'exec'],
     ['02', 'VP - Internal', 'exec'],
@@ -54,6 +58,12 @@ export default function LandingPage() {
 
   return (
     <>
+      {maintenance && (
+        <div className="maintenance-banner" role="status">
+          <span className="d" aria-hidden="true" />
+          The platform is temporarily offline for maintenance — voting is paused until the committee finishes.
+        </div>
+      )}
       <nav className="site-nav console-nav" id="site-nav">
         <div className="wrap nav-in">
           <a className="nav-brand terminal-brand" href="#top">

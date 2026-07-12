@@ -2,31 +2,11 @@
 
 import { useState } from 'react';
 import { publishElection, setElectionStatus, setRegistrationOpen } from '@/lib/admin/adminData';
+import { AUDIT_ACTION_LABELS, auditDetail } from '@/lib/admin/auditPresentation';
 import { formatTimestamp } from '@/lib/format';
 import type { AuditEntry, Election } from '@/lib/types';
 import NoticeLine, { type Notice } from './NoticeLine';
 import type { ConfirmState } from './ConfirmDialog';
-
-const AUDIT_ACTION_LABELS: Record<string, string> = {
-  'candidate.create': 'Added candidate',
-  'candidate.update': 'Updated candidate',
-  'candidate.delete': 'Removed candidate',
-  'candidate.active.set': 'Changed candidate visibility',
-  'voter.eligible.set': 'Changed voter eligibility',
-  'election.status.set': 'Changed voting status',
-  'election.registration.set': 'Toggled registration',
-  'election.publish': 'Published results',
-};
-
-function auditDetail(entry: AuditEntry): string {
-  const details = entry.details ?? {};
-  if (typeof details.status === 'string') return `→ ${details.status}`;
-  if (typeof details.registrationOpen === 'boolean') return details.registrationOpen ? '→ open' : '→ closed';
-  if (typeof details.active === 'boolean') return details.active ? '→ shown' : '→ hidden';
-  if (typeof details.eligible === 'boolean') return details.eligible ? '→ eligible' : '→ ineligible';
-  if (typeof details.turnout === 'number') return `turnout ${details.turnout}`;
-  return '';
-}
 
 interface LifecyclePanelProps {
   active: boolean;

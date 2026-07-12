@@ -8,6 +8,11 @@ export function hasSuperAdminClaim(claims: Record<string, unknown> | null): bool
   return claims?.superadmin === true || claims?.role === 'superadmin';
 }
 
+/** Admin console access: a custom claim OR membership in the admins registry. */
+export function hasAdminAccess(session: Session): boolean {
+  return hasAdminClaim(session.claims) || session.adminViaRegistry === true;
+}
+
 export function hasVotedInElection(voterProfile: VoterProfile | null, electionId: string): boolean {
   return voterProfile?.hasVoted?.[electionId] === true;
 }

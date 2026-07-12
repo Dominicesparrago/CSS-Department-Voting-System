@@ -7,7 +7,8 @@ import { loginGuest, loginStudent, registerStudent } from '@/lib/auth/authServic
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { hasErrors, validateGuest, validateLogin, validateRegistration, type FieldErrors } from '@/lib/auth/validation';
 import { watchSession } from '@/lib/auth/session';
-import { hasAdminClaim } from '@/lib/auth/guards-core';
+import { hasAdminAccess } from '@/lib/auth/guards-core';
+import { watchAppConfig } from '@/lib/appConfig';
 
 type Tab = 'login' | 'register' | 'guest';
 
@@ -24,6 +25,16 @@ const SECTION_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode
 export default function AuthCard() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('login');
+  const [guestVotingEnabled, setGuestVotingEnabled] = useState(true);
+
+  // superadmin can disable one-time (guest) voting; the tab disappears live
+  useEffect(() => {
+    const unsubscribe = watchAppConfig((config) => {
+      setGuestVotingEnabled(config.allowGuestVoters);
+      if (!config.allowGuestVoters) setTab((current) => (current === 'guest' ? 'login' : current));
+    });
+    return unsubscribe;
+  }, []);
 
   // login form state
   const [loginValues, setLoginValues] = useState({ email: '', password: '' });
@@ -56,7 +67,13 @@ export default function AuthCard() {
       }))
     : [];
 
-  const tabIndex = tab === 'login' ? 0 : tab === 'register' ? 1 : 2;
+  const tabDefs: Array<[Tab, string, string]> = [
+    ['login', 'Sign in', 'login-form'],
+    ['register', 'Register', 'register-form'],
+    ...(guestVotingEnabled ? [['guest', 'One-time', 'guest-form'] as [Tab, string, string]] : []),
+  ];
+  const tabOrder = tabDefs.map(([key]) => key);
+  const tabIndex = Math.max(0, tabOrder.indexOf(tab));
 
   // watch session for redirect (same logic as indexPage.js)
   const redirected = useRef(false);
@@ -64,7 +81,7 @@ export default function AuthCard() {
     const unsubscribe = watchSession((session) => {
       if (!session.user || redirected.current) return;
       redirected.current = true;
-      if (hasAdminClaim(session.claims)) {
+      if (hasAdminAccess(session)) {
         router.replace('/admin');
         return;
       }
@@ -154,21 +171,20 @@ export default function AuthCard() {
         <p className="sub">Choose how you&apos;d like to continue.</p>
 
         <div
-          className="switch"
+          className={`switch${tabDefs.length === 2 ? ' two' : ''}`}
           role="tablist"
           aria-label="Authentication mode"
           onKeyDown={(event) => {
             if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
             event.preventDefault();
-            const order: Tab[] = ['login', 'register', 'guest'];
             const delta = event.key === 'ArrowRight' ? 1 : -1;
-            const next = order[(order.indexOf(tab) + delta + order.length) % order.length];
+            const next = tabOrder[(tabOrder.indexOf(tab) + delta + tabOrder.length) % tabOrder.length];
             setTab(next);
-            (event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[order.indexOf(next)])?.focus();
+            (event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[tabOrder.indexOf(next)])?.focus();
           }}
         >
           <span className="ind" style={{ transform: `translateX(${tabIndex * 100}%)` }} />
-          {([['login', 'Sign in', 'login-form'], ['register', 'Register', 'register-form'], ['guest', 'One-time', 'guest-form']] as const).map(([key, label, panelId]) => (
+          {tabDefs.map(([key, label, panelId]) => (
             <button
               key={key}
               id={`auth-tab-${key}`}
@@ -320,6 +336,7 @@ export default function AuthCard() {
           <p className="auth-note">No approval wait — verify and head straight to your ballot.</p>
         </form>
 
+        {guestVotingEnabled && (
         <form
           className={`pane${tab === 'guest' ? ' show' : ''}`}
           id="guest-form"
@@ -380,6 +397,7 @@ export default function AuthCard() {
           </button>
           <p className="auth-note">Fast one-time access for students who need to go straight to the ballot.</p>
         </form>
+        )}
       </section>
     </div>
   );

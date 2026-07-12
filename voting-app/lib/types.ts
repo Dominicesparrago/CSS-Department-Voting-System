@@ -20,6 +20,26 @@ export interface Session {
   user: User | null;
   voterProfile: VoterProfile | null;
   claims: Record<string, unknown> | null;
+  /** True when the signed-in email has an entry in the admins registry. */
+  adminViaRegistry?: boolean;
+}
+
+/** Runtime-managed admin grant, stored at admins/{email}. */
+export interface AdminEntry {
+  id: string;
+  email: string;
+  role: 'admin';
+  addedBy: string;
+  reason: string;
+  createdAt?: Timestamp;
+}
+
+/** App-wide policy flags, stored at config/app. */
+export interface AppConfig {
+  allowGuestVoters: boolean;
+  maintenanceMode: boolean;
+  updatedBy?: string;
+  updatedAt?: Timestamp;
 }
 
 export interface Election {

@@ -11,13 +11,16 @@ export function watchSession(callback: (session: Session) => void, onError?: (er
     return onAuthStateChanged(auth, async (user) => {
       try {
         if (!user) {
-          callback({ user: null, voterProfile: null, claims: null });
+          callback({ user: null, voterProfile: null, claims: null, adminViaRegistry: false });
           return;
         }
 
-        const [tokenResult, voterSnapshot] = await Promise.all([
+        const email = user.email?.toLowerCase() ?? '';
+        const [tokenResult, voterSnapshot, adminSnapshot] = await Promise.all([
           user.getIdTokenResult(true),
           getDoc(doc(db, 'voters', user.uid)),
+          // registry lookup is best-effort: a failure here must not break sign-in
+          email ? getDoc(doc(db, 'admins', email)).catch(() => null) : Promise.resolve(null),
         ]);
 
         callback({
@@ -26,6 +29,7 @@ export function watchSession(callback: (session: Session) => void, onError?: (er
             ? { uid: user.uid, ...(voterSnapshot.data() as Omit<import('../types').VoterProfile, 'uid'>) }
             : null,
           claims: tokenResult.claims as Record<string, unknown>,
+          adminViaRegistry: adminSnapshot?.exists() ?? false,
         });
       } catch (error) {
         onError?.(error instanceof Error ? error : new Error('Unable to load the current session.'));

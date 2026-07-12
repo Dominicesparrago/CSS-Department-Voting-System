@@ -22,3 +22,23 @@ PASS public results page shows published winners
 PASS PROBE: signed-out /dashboard redirects to landing
 
 18/18 PASS. No page errors captured (pageerror listener attached throughout).
+
+--- Superadmin backend E2E — 2026-07-12 (same stack; superadmin claim set via set-superadmin.mjs) ---
+PASS superadmin signs in, lands on /admin (claim ⊂ admin), opens /superadmin
+PASS admins tab shows root superadmin row and empty registry state
+PASS grant admin: reason dialog, rules-backed write, live row
+PASS PROBE: reason under 8 chars keeps confirm disabled
+PASS PROBE: duplicate email shows inline error and blocks grant
+PASS audit tab shows the grant with superadmin role tag
+PASS elections tab lists real election; rename persists
+PASS settings: disable one-time voters + enable maintenance
+PASS signed-out landing: maintenance banner shown, One-time tab gone
+PASS settings: restore one-time voters + disable maintenance (live on landing)
+PASS registry admin (no claims) signs in → redirected to /admin, console loads
+PASS registry admin can perform a real admin write (close/reopen registration)
+PASS PROBE: registry admin cannot open /superadmin
+PASS revoke admin, then fresh sign-in is denied the console
+PASS audit trail shows grant, revoke, config, and rename entries
+
+15/15 PASS. Original 18-step election-lifecycle E2E re-run afterwards: 18/18 PASS (regression clean).
+Rules tests: full suite incl. new phase7.superadmin.test.js (15 assertions) pass.

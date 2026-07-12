@@ -5696,3 +5696,33 @@ textarea:focus-visible {
   color: var(--muted-soft);
   font-size: 0.86rem;
 }
+
+/* Two-tab auth switch (one-time voting disabled by superadmin) */
+.switch.two .ind {
+  width: calc((100% - 10px) / 2);
+}
+
+/* Maintenance-mode banner (config/app.maintenanceMode) */
+.maintenance-banner {
+  position: relative;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: color-mix(in srgb, var(--amber, #e8b341) 16%, var(--panel, #10191a));
+  border-bottom: 1px solid color-mix(in srgb, var(--amber, #e8b341) 45%, transparent);
+  color: var(--light, #eaf6f3);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.maintenance-banner .d {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber, #e8b341);
+  box-shadow: 0 0 10px var(--amber, #e8b341);
+  flex: 0 0 auto;
+}

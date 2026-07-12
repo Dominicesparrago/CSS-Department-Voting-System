@@ -16,7 +16,7 @@ import BrandMark from '@/components/BrandMark';
 import RouteLoading from '@/components/RouteLoading';
 import { useGuardedSession } from '@/hooks/useGuardedSession';
 import { aggregateVotes } from '@/lib/admin/adminCore';
-import { hasAdminClaim } from '@/lib/auth/guards-core';
+import { hasAdminAccess } from '@/lib/auth/guards-core';
 import { positionGroup } from '@/lib/election/candidates';
 import { initials } from '@/lib/initials';
 import CandidatesPanel from './console/CandidatesPanel';
@@ -45,7 +45,7 @@ const NAV_ITEMS: Array<{ key: AdminPanel; label: string; icon: typeof LayoutDash
 export default function AdminRedesignConsole() {
   const { session, status, deniedReason, signOutToHome } = useGuardedSession((current) => {
     if (!current.user) return { kind: 'deny', reason: 'Please sign in with an admin account.' };
-    if (!hasAdminClaim(current.claims)) return { kind: 'deny', reason: 'This account does not have admin access.' };
+    if (!hasAdminAccess(current)) return { kind: 'deny', reason: 'This account does not have admin access.' };
     return { kind: 'allow' };
   }, 'Unable to verify admin credentials.');
 

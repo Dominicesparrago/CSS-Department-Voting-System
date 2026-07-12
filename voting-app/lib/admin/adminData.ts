@@ -216,12 +216,18 @@ export async function publishElection(params: { actorUid: string; electionId?: s
   return tallies;
 }
 
-export async function createAudit(actorUid: string, action: string, target: string, details: Record<string, unknown> = {}) {
+export async function createAudit(
+  actorUid: string,
+  action: string,
+  target: string,
+  details: Record<string, unknown> = {},
+  actorRole: 'admin' | 'superadmin' = 'admin',
+) {
   const db = getFirebaseDb();
   await addDoc(collection(db, 'audit'), {
     ts: serverTimestamp(),
     actorUid,
-    actorRole: 'admin',
+    actorRole,
     action,
     target,
     details,

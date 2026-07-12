@@ -51,7 +51,17 @@ revisit /vote → already-voted screen; admin login → /admin panels (add candi
 table, results bars); Lifecycle → close polls → publish (both behind confirm dialogs);
 /results shows winners after publish.
 
+Superadmin flows: bootstrap the claim with the real script (also tests it):
+`FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 node firebase/rules-tests/set-superadmin.mjs <email>`
+(user must already exist in the auth emulator). Runtime admins live in the
+`admins/{email}` Firestore registry, granted/revoked from /superadmin; app
+policy flags live at `config/app` (guest voting, maintenance mode).
+
 Gotchas that produce false FAILs:
+- **Never run `next build` while `next dev` is serving** — they share `.next/`,
+  the dev server starts 404ing its own chunks, React never hydrates, and forms
+  fall back to native GET submits (password lands in the URL). Fix: kill dev,
+  `rm -rf .next`, restart.
 - **All admin/dashboard panels stay mounted**; only CSS class `.on` toggles visibility.
   Scope selectors to `.panel.on` or you'll click an invisible duplicate (e.g. the
   hidden Overview "Position" select shadows the Candidates form one).
