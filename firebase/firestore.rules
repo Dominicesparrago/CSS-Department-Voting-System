@@ -10,7 +10,9 @@ service cloud.firestore {
       return isSignedIn()
         && (
           ("admin" in request.auth.token && request.auth.token.admin == true)
+          || ("superadmin" in request.auth.token && request.auth.token.superadmin == true)
           || ("role" in request.auth.token && request.auth.token.role == "admin")
+          || ("role" in request.auth.token && request.auth.token.role == "superadmin")
         );
     }
 
@@ -30,12 +32,20 @@ service cloud.firestore {
       return /databases/$(database)/documents/voters/$(uid);
     }
 
+    function emailIndexPath(email) {
+      return /databases/$(database)/documents/emailIndex/$(email);
+    }
+
     function electionOpen(electionId) {
       return get(electionPath(electionId)).data.status == "open";
     }
 
     function electionPublished(electionId) {
       return get(electionPath(electionId)).data.status == "published";
+    }
+
+    function registrationOpen(electionId) {
+      return get(electionPath(electionId)).data.get("registrationOpen", true) == true;
     }
 
     function voterIsEligible(uid) {
@@ -65,6 +75,7 @@ service cloud.firestore {
 
     function validVoterCreate(uid) {
       return isSelf(uid)
+        && registrationOpen("css_department_election_2026")
         && request.resource.data.keys().hasOnly([
           "studentNo",
           "fullName",
@@ -95,8 +106,45 @@ service cloud.firestore {
         && !("votedAt" in request.resource.data);
     }
 
+    function validGuestVoterCreate(uid) {
+      return isSelf(uid)
+        && registrationOpen("css_department_election_2026")
+        && request.resource.data.keys().hasOnly([
+          "fullName",
+          "email",
+          "yearLevel",
+          "section",
+          "eligible",
+          "guest",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.keys().hasAll([
+          "fullName",
+          "email",
+          "yearLevel",
+          "section",
+          "eligible",
+          "guest",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.guest == true
+        && validStudentEmail(request.resource.data.email)
+        && validYearLevel(request.resource.data.yearLevel)
+        && request.resource.data.eligible == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(emailIndexPath(request.resource.data.email)).data.uid == uid
+        && !("hasVoted" in request.resource.data)
+        && !("votedAt" in request.resource.data);
+    }
+
     function unchangedLockedVoterFields() {
-      return request.resource.data.studentNo == resource.data.studentNo
+      return (
+          (!("studentNo" in resource.data) && !("studentNo" in request.resource.data))
+          || request.resource.data.studentNo == resource.data.studentNo
+        )
         && request.resource.data.email == resource.data.email
         && request.resource.data.eligible == resource.data.eligible
         && request.resource.data.createdAt == resource.data.createdAt;
@@ -141,6 +189,25 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.createdAt == request.time
         && getAfter(voterPath(request.auth.uid)).data.studentNo == studentNo;
+    }
+
+    function validEmailIndexCreate(email) {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly(["uid", "createdAt"])
+        && request.resource.data.keys().hasAll(["uid", "createdAt"])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && getAfter(voterPath(request.auth.uid)).data.email == email
+        && getAfter(voterPath(request.auth.uid)).data.guest == true;
+    }
+
+    function voterIsGuest(uid) {
+      let voter = get(voterPath(uid)).data;
+      return "guest" in voter && voter.guest == true;
+    }
+
+    function guestEmailLocked(uid) {
+      return getAfter(emailIndexPath(get(voterPath(uid)).data.email)).data.uid == uid;
     }
 
     function voteIdMatches(voteId) {
@@ -216,6 +283,7 @@ service cloud.firestore {
           request.resource.data.electionId,
           request.resource.data.positionId
         )
+        && (!voterIsGuest(request.auth.uid) || guestEmailLocked(request.auth.uid))
         && !exists(/databases/$(database)/documents/votes/$(voteId));
     }
 
@@ -227,23 +295,23 @@ service cloud.firestore {
     }
 
     match /elections/{electionId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || electionPublished(electionId);
       allow create, update, delete: if isAdmin();
     }
 
     match /positions/{positionId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
     match /candidates/{candidateId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || electionPublished(resource.data.electionId);
       allow create, update, delete: if isAdmin();
     }
 
     match /voters/{uid} {
       allow read: if isSelf(uid) || isAdmin();
-      allow create: if isAdmin() || validVoterCreate(uid);
+      allow create: if isAdmin() || validVoterCreate(uid) || validGuestVoterCreate(uid);
       allow update: if isAdmin()
         || validVoterProfileUpdate(uid)
         || validVoterVoteCompletionUpdate(uid);
@@ -257,6 +325,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /emailIndex/{email} {
+      allow read: if isAdmin();
+      allow create: if validEmailIndexCreate(email);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     match /votes/{voteId} {
       allow read: if isAdmin();
       allow create: if validVoteCreate(voteId);
@@ -264,7 +339,7 @@ service cloud.firestore {
     }
 
     match /tallies/{electionId} {
-      allow read: if isAdmin() || (isSignedIn() && electionPublished(electionId));
+      allow read: if isAdmin() || electionPublished(electionId);
       allow create: if isAdmin();
       allow update: if isAdmin();
       allow delete: if isAdmin();

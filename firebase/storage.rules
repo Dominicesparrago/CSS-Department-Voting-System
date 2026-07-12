@@ -10,7 +10,9 @@ service firebase.storage {
       return isSignedIn()
         && (
           ("admin" in request.auth.token && request.auth.token.admin == true)
+          || ("superadmin" in request.auth.token && request.auth.token.superadmin == true)
           || ("role" in request.auth.token && request.auth.token.role == "admin")
+          || ("role" in request.auth.token && request.auth.token.role == "superadmin")
         );
     }
 

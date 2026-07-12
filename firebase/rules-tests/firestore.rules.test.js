@@ -6,7 +6,8 @@ import {
   getDoc,
   runTransaction,
   serverTimestamp,
-  setDoc
+  setDoc,
+  writeBatch
 } from "firebase/firestore";
 
 const projectId = "css-department-voting-sy-f46a5";
@@ -21,7 +22,7 @@ const testEnv = await initializeTestEnvironment({
   }
 });
 
-async function seedBaseData(status = "open") {
+async function seedBaseData(status = "open", registrationOpen = true) {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -42,6 +43,7 @@ async function seedBaseData(status = "open") {
     await setDoc(doc(db, "elections", electionId), {
       title: "CSS Department Election 2026",
       status,
+      registrationOpen,
       positions: ["president", "year_rep_3"],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -159,6 +161,30 @@ async function createVoterWithMismatchedStudentIndex(db, uid, voterStudentNo, in
   });
 }
 
+async function createGuestWithEmailIndex(db, uid, overrides = {}) {
+  const email = overrides.email ?? "guest.one.scc@gmail.com";
+  const yearLevel = overrides.yearLevel ?? 3;
+  const section = overrides.section ?? "BSCS 3-D";
+  const batch = writeBatch(db);
+
+  batch.set(doc(db, "voters", uid), {
+    fullName: overrides.fullName ?? "Guest One",
+    email,
+    yearLevel,
+    section,
+    eligible: true,
+    guest: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  batch.set(doc(db, "emailIndex", email), {
+    uid,
+    createdAt: serverTimestamp()
+  });
+
+  await batch.commit();
+}
+
 async function castVote(db, uid, positionId, candidateId, yearLevel) {
   await runTransaction(db, async (tx) => {
     tx.set(doc(db, "votes", `${electionId}__${uid}__${positionId}`), {
@@ -220,6 +246,35 @@ async function testDuplicateStudentNoRejected() {
     )
   );
   await assertFails(createVoterWithStudentIndex(authedDb("second"), "second", "9998887"));
+}
+
+async function testGuestOneTimeRegistration() {
+  await seedBaseData();
+
+  await assertSucceeds(createGuestWithEmailIndex(authedDb("guest1"), "guest1"));
+  await assertFails(createGuestWithEmailIndex(authedDb("guest2"), "guest2"));
+  await assertFails(
+    setDoc(doc(authedDb("guestNoIndex"), "voters/guestNoIndex"), {
+      fullName: "Guest No Index",
+      email: "guest.noindex.scc@gmail.com",
+      yearLevel: 2,
+      section: "BSCS 2-A",
+      eligible: true,
+      guest: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    })
+  );
+}
+
+async function testRegistrationGate() {
+  await seedBaseData("draft", false);
+  await assertFails(createVoterWithStudentIndex(authedDb("closedStudent"), "closedStudent", "1112225"));
+  await assertFails(createGuestWithEmailIndex(authedDb("closedGuest"), "closedGuest"));
+
+  await seedBaseData("draft", true);
+  await assertSucceeds(createVoterWithStudentIndex(authedDb("openStudent"), "openStudent", "1112226"));
+  await assertSucceeds(createGuestWithEmailIndex(authedDb("openGuest"), "openGuest"));
 }
 
 async function testCandidateAdminOnly() {
@@ -337,6 +392,8 @@ async function testTallyWritesAdminOnly() {
 try {
   await testVoterSelfRegistration();
   await testDuplicateStudentNoRejected();
+  await testGuestOneTimeRegistration();
+  await testRegistrationGate();
   await testCandidateAdminOnly();
   await testVoteRules();
   await testReadVisibility();

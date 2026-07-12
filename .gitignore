@@ -25,3 +25,8 @@ Thumbs.db
 voting-app/.next/
 voting-app/out/
 voting-app/node_modules/
+
+# Local tool state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+voting-app/tsconfig.tsbuildinfo
