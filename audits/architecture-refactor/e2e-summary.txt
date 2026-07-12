@@ -61,3 +61,25 @@ trail complete.
 
 Rules suite: phase0 integrity (17-position batch) + full suite + phase7 PASS.
 Unit tests 59/59, tsc/lint/build clean.
+
+--- Cloud Functions secret-ballot rewrite — 2026-07-12 (emulator suite incl. functions:5001) ---
+Architecture: ballots are cast/tallied/published only through callable Cloud
+Functions (submitBallot, getResults, publishTally). ballots/{randomId} are
+anonymous (no uid, no timestamp); voters.hasVoted is the participation lock;
+rules deny ALL client reads/writes of ballots and client writes of the lock.
+
+Functions unit tests (ballotLogic): 7/7 PASS.
+Rules suite: phase0 secret-ballot integrity (student+admin cannot write/read
+ballots, cannot forge lock, cannot write tallies; published tally public) +
+firestore.rules + phase7 + storage — all PASS.
+App unit tests: 56/56. tsc/lint/build clean.
+
+Cloud Functions E2E (13 steps, real browser + emulated functions): PASS —
+register → cast full 17-race ballot through submitBallot → revisit /vote shows
+already-voted → admin console (turnout from lock, results from getResults,
+voter marked Voted) → close + publishTally → signed-out public results show
+winners (President: 1 vote, 100%, winner).
+SECRECY assertions (direct Firestore inspection): 17 ballots stored, NONE carry
+a uid or timestamp — fields are exactly {electionId, positionId, candidateId,
+yearLevel}; participation lock set on the voter; published tally totals 17
+computed server-side. No stored document links any ballot to any voter.

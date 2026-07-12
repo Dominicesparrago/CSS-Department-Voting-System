@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import type { Candidate, Position, Vote, Voter } from '../types';
+import type { Timestamp } from 'firebase/firestore';
+import type { Candidate, Position, Voter } from '../types';
 import {
-  aggregateVotes,
-  buildTallies,
+  buildAggregate,
   byId,
-  cumulativeTurnout,
+  cumulativeTurnoutFromVoters,
   rankedCandidatesForPosition,
+  resultsToCsv,
   votersToCsv,
-  votesToCsv,
 } from './adminCore';
 
 const E = 'css_department_election_2026';
 
-function ts(ms: number) {
-  return { toMillis: () => ms, toDate: () => new Date(ms) } as unknown as Vote['createdAt'];
+function ts(ms: number): Timestamp {
+  return { toMillis: () => ms, toDate: () => new Date(ms) } as unknown as Timestamp;
 }
 
 function candidate(overrides: Partial<Candidate>): Candidate {
@@ -44,19 +44,6 @@ function voter(overrides: Partial<Voter>): Voter {
   };
 }
 
-function vote(overrides: Partial<Vote>): Vote {
-  return {
-    id: `${E}__v1__president`,
-    electionId: E,
-    uid: 'v1',
-    positionId: 'president',
-    candidateId: 'c1',
-    yearLevel: 3,
-    createdAt: ts(1000),
-    ...overrides,
-  };
-}
-
 const positions: Position[] = [
   { id: 'president', name: 'President', scope: 'department', order: 1 },
   { id: 'year_rep_3', name: '3rd Year Rep', scope: 'year', yearLevel: 3, order: 18 },
@@ -70,52 +57,50 @@ describe('byId', () => {
   });
 });
 
-describe('aggregateVotes', () => {
+describe('buildAggregate', () => {
   const candidates = [candidate({ id: 'c1' }), candidate({ id: 'c2', name: 'Candidate Two', order: 2 })];
   const voters = [
-    voter({ id: 'v1', uid: 'v1', yearLevel: 3 }),
-    voter({ id: 'v2', uid: 'v2', yearLevel: 2 }),
-    voter({ id: 'v3', uid: 'v3', yearLevel: 2, eligible: false }),
+    voter({ id: 'v1', uid: 'v1', yearLevel: 3, hasVoted: { [E]: true } }),
+    voter({ id: 'v2', uid: 'v2', yearLevel: 2, hasVoted: { [E]: true } }),
+    voter({ id: 'v3', uid: 'v3', yearLevel: 2 }), // eligible, not voted
+    voter({ id: 'v4', uid: 'v4', yearLevel: 2, eligible: false }),
   ];
-  const votes = [
-    vote({ id: '1', uid: 'v1', candidateId: 'c1' }),
-    vote({ id: '2', uid: 'v1', candidateId: 'c2', positionId: 'year_rep_3' }),
-    vote({ id: '3', uid: 'v2', candidateId: 'c1', yearLevel: 2 }),
-  ];
-  const agg = aggregateVotes({ votes, candidates, positions, voters });
+  // per-candidate / per-position come from the trusted getResults function
+  const results = { perCandidate: { c1: 2, c2: 1 }, perPosition: { president: 2, year_rep_3: 1 } };
+  const agg = buildAggregate({ results, candidates, positions, voters, electionId: E });
 
-  it('counts votes per candidate and per position', () => {
+  it('passes through server-computed per-candidate/per-position counts', () => {
     expect(agg.perCandidate).toEqual({ c1: 2, c2: 1 });
     expect(agg.perPosition).toEqual({ president: 2, year_rep_3: 1 });
-    expect(agg.byPositionCandidate.president).toEqual({ c1: 2 });
   });
 
-  it('turnout counts unique voters, bucketed by their first ballot year', () => {
-    expect(agg.turnout.total).toBe(2); // v1 voted twice but counts once
+  it('derives turnout from the participation lock, not from ballots', () => {
+    expect(agg.turnout.total).toBe(2);
     expect(agg.turnout.byYear).toEqual({ '1': 0, '2': 1, '3': 1, '4': 0 });
   });
 
-  it('eligible counts exclude ineligible voters', () => {
-    expect(agg.eligible.total).toBe(2);
-    expect(agg.eligible.byYear).toEqual({ '1': 0, '2': 1, '3': 1, '4': 0 });
+  it('counts eligible voters excluding ineligible ones', () => {
+    expect(agg.eligible.total).toBe(3);
+    expect(agg.eligible.byYear).toEqual({ '1': 0, '2': 2, '3': 1, '4': 0 });
   });
 });
 
-describe('cumulativeTurnout', () => {
-  it('adds one point per unique voter, in time order, even from unsorted input', () => {
-    const votes = [
-      vote({ id: 'late', uid: 'v2', createdAt: ts(3000) }),
-      vote({ id: 'early', uid: 'v1', createdAt: ts(1000) }),
-      vote({ id: 'same-voter', uid: 'v1', createdAt: ts(2000), positionId: 'year_rep_3' }),
+describe('cumulativeTurnoutFromVoters', () => {
+  it('builds one point per voter, ordered by votedAt', () => {
+    const voters = [
+      voter({ id: 'v2', uid: 'v2', hasVoted: { [E]: true }, votedAt: { [E]: ts(3000) } }),
+      voter({ id: 'v1', uid: 'v1', hasVoted: { [E]: true }, votedAt: { [E]: ts(1000) } }),
+      voter({ id: 'v3', uid: 'v3' }), // not voted → excluded
     ];
-    expect(cumulativeTurnout(votes)).toEqual([
+    expect(cumulativeTurnoutFromVoters(voters, E)).toEqual([
       { t: 1000, count: 1 },
       { t: 3000, count: 2 },
     ]);
   });
 
-  it('returns an empty series for no votes', () => {
-    expect(cumulativeTurnout([])).toEqual([]);
+  it('ignores voted rows with no readable votedAt timestamp', () => {
+    const voters = [voter({ id: 'v1', uid: 'v1', hasVoted: { [E]: true } })];
+    expect(cumulativeTurnoutFromVoters(voters, E)).toEqual([]);
   });
 });
 
@@ -126,45 +111,35 @@ describe('rankedCandidatesForPosition', () => {
       candidate({ id: 'top', name: 'Top', order: 2 }),
       candidate({ id: 'zero-a', name: 'Alpha', order: 3 }),
     ];
-    const agg = aggregateVotes({
-      votes: [vote({ id: '1', candidateId: 'top' })],
+    const agg = buildAggregate({
+      results: { perCandidate: { top: 5 }, perPosition: { president: 5 } },
       candidates,
       positions,
-      voters: [voter({})],
+      voters: [],
+      electionId: E,
     });
     const ranked = rankedCandidatesForPosition(candidates, agg, 'president');
     expect(ranked.map((c) => c.id)).toEqual(['top', 'zero-a', 'zero-b']);
-    expect(ranked[0].votes).toBe(1);
+    expect(ranked[0].votes).toBe(5);
   });
 });
 
-describe('buildTallies', () => {
-  it('only counts votes belonging to the election', () => {
-    const votes = [
-      vote({ id: '1', uid: 'v1' }),
-      vote({ id: '2', uid: 'v9', electionId: 'other_election' }),
-    ];
-    const tallies = buildTallies(E, votes);
-    expect(tallies.perCandidate).toEqual({ c1: 1 });
-    expect(tallies.turnout.total).toBe(1);
-    expect(tallies.turnout.byYear['3']).toBe(1);
-  });
-});
-
-describe('CSV export', () => {
-  it('votesToCsv resolves names and quotes every cell', () => {
-    const csv = votesToCsv({
-      votes: [vote({ id: '1' })],
-      candidates: [candidate({ id: 'c1', name: 'Says "Hi", loudly' })],
+describe('resultsToCsv', () => {
+  it('exports candidate counts (no per-ballot rows) and quotes every cell', () => {
+    const csv = resultsToCsv({
+      results: { perCandidate: { c1: 3 }, perPosition: { president: 3 } },
+      candidates: [candidate({ id: 'c1', name: 'Says "Hi"' })],
       positions,
     });
     const [header, row] = csv.split('\n');
-    expect(header).toContain('"candidate"');
-    expect(row).toContain('"Says ""Hi"", loudly"'); // embedded quotes doubled
-    expect(row).toContain('"President"');
+    expect(header).toContain('"votes"');
+    expect(row).toContain('"Says ""Hi"""');
+    expect(row).toContain('"3"');
   });
+});
 
-  it('votersToCsv reports voted status against the election id', () => {
+describe('votersToCsv', () => {
+  it('reports voted status against the election id', () => {
     const csv = votersToCsv(
       [
         voter({ id: 'v1', fullName: 'Has Voted', hasVoted: { [E]: true } }),

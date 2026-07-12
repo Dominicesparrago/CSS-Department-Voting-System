@@ -15,8 +15,9 @@ import BinaryRain from '@/components/BinaryRain';
 import BrandMark from '@/components/BrandMark';
 import RouteLoading from '@/components/RouteLoading';
 import { useGuardedSession } from '@/hooks/useGuardedSession';
-import { aggregateVotes } from '@/lib/admin/adminCore';
+import { buildAggregate } from '@/lib/admin/adminCore';
 import { hasAdminAccess } from '@/lib/auth/guards-core';
+import { ELECTION_ID } from '@/lib/constants';
 import { positionGroup } from '@/lib/election/candidates';
 import { initials } from '@/lib/initials';
 import CandidatesPanel from './console/CandidatesPanel';
@@ -64,11 +65,12 @@ export default function AdminRedesignConsole() {
     positions,
     candidates,
     voters,
-    votes,
+    results,
     auditEntries,
     loading: dataLoading,
     errorMessage,
     refreshCandidates,
+    refreshResults,
   } = useAdminElectionData(status === 'ready');
 
   useEffect(() => {
@@ -114,8 +116,8 @@ export default function AdminRedesignConsole() {
   }, [drawerOpen]);
 
   const aggregate = useMemo(
-    () => aggregateVotes({ candidates, positions, votes, voters }),
-    [candidates, positions, votes, voters],
+    () => buildAggregate({ results, candidates, positions, voters, electionId: ELECTION_ID }),
+    [results, candidates, positions, voters],
   );
 
   const positionOptions = useMemo(
@@ -222,7 +224,7 @@ export default function AdminRedesignConsole() {
             aggregate={aggregate}
             candidates={candidates}
             positions={positions}
-            votes={votes}
+            voters={voters}
             positionOptions={positionOptions}
             onNavigate={switchPanel}
           />
@@ -240,9 +242,10 @@ export default function AdminRedesignConsole() {
             active={activePanel === 'results'}
             candidates={candidates}
             positions={positions}
-            votes={votes}
+            results={results}
             aggregate={aggregate}
             positionOptions={positionOptions}
+            onRefresh={refreshResults}
           />
           <LifecyclePanel
             active={activePanel === 'lifecycle'}

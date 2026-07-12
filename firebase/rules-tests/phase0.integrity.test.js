@@ -1,37 +1,15 @@
-import assert from "node:assert/strict";
+// Phase 0: secret-ballot integrity. Ballots are anonymous and written only by
+// the trusted submitBallot function (Admin SDK, which bypasses these rules).
+// These tests assert the rules layer alone makes ballots unlinkable to voters:
+// no client can write a ballot, read a ballot, forge the participation lock, or
+// write a tally. The happy-path submission itself is covered by the functions
+// unit tests (firebase/functions/ballotLogic.test.js) and the browser E2E.
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import {
-  doc,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  writeBatch
-} from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 
 const projectId = "css-department-voting-sy-f46a5";
 const electionId = "css_department_election_2026";
-const uid = "phase0-voter";
-const yearLevel = 2;
-const requiredPositionIds = [
-  "president",
-  "vp_internal",
-  "vp_external",
-  "secretary",
-  "treasurer",
-  "auditor",
-  "pro",
-  "business_manager_committee",
-  "academic_committee_chair",
-  "research_committee_chair",
-  "ict_committee_chair",
-  "events_committee_chair",
-  "sports_committee_chair",
-  "environmental_committee_chair",
-  "membership_committee_chair",
-  "community_committee_chair",
-  "year_rep_2"
-];
 
 const testEnv = await initializeTestEnvironment({
   projectId,
@@ -42,107 +20,120 @@ const testEnv = await initializeTestEnvironment({
   }
 });
 
-function authedDb(userId = uid) {
-  return testEnv.authenticatedContext(userId).firestore();
-}
-
-function voteId(positionId) {
-  return `${electionId}__${uid}__${positionId}`;
-}
+const studentCtx = () => testEnv.authenticatedContext("student", { email: "student.scc@gmail.com" });
+const adminCtx = () => testEnv.authenticatedContext("admin_uid", { email: "admin.scc@gmail.com", admin: true });
 
 async function seed() {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     await setDoc(doc(db, "elections", electionId), {
-      title: "Phase 0 election",
+      title: "Test Election",
       status: "open",
-      positions: requiredPositionIds,
+      registrationOpen: true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    await setDoc(doc(db, "voters", uid), {
-      studentNo: "7000001",
-      fullName: "Phase Zero Voter",
-      email: "phase.zero.scc@gmail.com",
-      yearLevel,
-      section: "BSCS-2A",
+    await setDoc(doc(db, "voters", "student"), {
+      studentNo: "1112223",
+      fullName: "Student One",
+      email: "student.scc@gmail.com",
+      yearLevel: 3,
+      section: "BSCS-3A",
       eligible: true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    await setDoc(doc(db, "candidates", "phase0-president"), {
+    // A ballot as the submitBallot function would write it: anonymous, no uid.
+    await setDoc(doc(db, "ballots", "seeded_ballot"), {
       electionId,
       positionId: "president",
-      name: "President Candidate",
-      active: true
+      candidateId: "cand_president",
+      yearLevel: 3
+    });
+    await setDoc(doc(db, "tallies", electionId), {
+      perCandidate: { cand_president: 1 },
+      perPosition: { president: 1 },
+      turnout: { total: 1, byYear: { "3": 1 } },
+      updatedAt: serverTimestamp()
     });
   });
 }
 
-function completionUpdate(db) {
-  return updateDoc(doc(db, "voters", uid), {
+await seed();
+
+// --- ballots are unwritable by clients ---
+await assertFails(
+  setDoc(doc(studentCtx().firestore(), "ballots/forged"), {
+    electionId,
+    positionId: "president",
+    candidateId: "cand_president",
+    yearLevel: 3
+  })
+);
+console.log("PASS student cannot create a ballot");
+
+await assertFails(
+  setDoc(doc(adminCtx().firestore(), "ballots/forged_by_admin"), {
+    electionId,
+    positionId: "president",
+    candidateId: "cand_president",
+    yearLevel: 3
+  })
+);
+console.log("PASS admin cannot create a ballot");
+
+await assertFails(updateDoc(doc(adminCtx().firestore(), "ballots/seeded_ballot"), { candidateId: "swapped" }));
+console.log("PASS admin cannot tamper with an existing ballot");
+
+// --- ballots are unreadable by everyone (the secret ballot) ---
+await assertFails(getDoc(doc(studentCtx().firestore(), "ballots/seeded_ballot")));
+console.log("PASS student cannot read a ballot");
+
+await assertFails(getDoc(doc(adminCtx().firestore(), "ballots/seeded_ballot")));
+console.log("PASS admin cannot read a ballot — no vote can be traced to a voter");
+
+// --- participation lock cannot be forged ---
+await assertFails(
+  updateDoc(doc(studentCtx().firestore(), "voters/student"), {
     [`hasVoted.${electionId}`]: true,
     [`votedAt.${electionId}`]: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
-}
+  })
+);
+console.log("PASS voter cannot forge their participation lock");
 
-function presidentVote(db) {
-  return setDoc(doc(db, "votes", voteId("president")), {
-    electionId,
-    uid,
-    positionId: "president",
-    candidateId: "phase0-president",
-    yearLevel,
-    createdAt: serverTimestamp()
-  });
-}
+// profile edits still work (proves it's the lock fields, not the doc, that are frozen)
+await assertSucceeds(
+  updateDoc(doc(studentCtx().firestore(), "voters/student"), {
+    fullName: "Student One Renamed",
+    updatedAt: serverTimestamp()
+  })
+);
+console.log("PASS voter can still edit their own profile fields");
 
-async function testStandaloneWritesAreRejected() {
-  await seed();
-  const db = authedDb();
+// --- tallies are function-only ---
+await assertFails(
+  setDoc(doc(adminCtx().firestore(), "tallies", electionId), {
+    perCandidate: { cand_president: 999 },
+    perPosition: { president: 999 },
+    turnout: { total: 999, byYear: { "3": 999 } },
+    updatedAt: serverTimestamp()
+  })
+);
+console.log("PASS admin cannot write tallies directly (publishTally function only)");
 
-  await assertFails(presidentVote(db));
-  await assertFails(completionUpdate(db));
-}
-
-async function testAtomicLockAndVoteAreAccepted() {
-  await seed();
-  const db = authedDb();
-  const batch = writeBatch(db);
-  batch.set(doc(db, "votes", voteId("president")), {
-    electionId,
-    uid,
-    positionId: "president",
-    candidateId: "phase0-president",
-    yearLevel,
-    createdAt: serverTimestamp()
-  });
-  batch.update(doc(db, "voters", uid), {
-    [`hasVoted.${electionId}`]: true,
-    [`votedAt.${electionId}`]: serverTimestamp(),
+// published tallies remain publicly readable
+await testEnv.withSecurityRulesDisabled(async (context) => {
+  await setDoc(doc(context.firestore(), "elections", electionId), {
+    title: "Test Election",
+    status: "published",
+    createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
+});
+await assertSucceeds(getDoc(doc(testEnv.unauthenticatedContext().firestore(), "tallies", electionId)));
+console.log("PASS published tally is publicly readable");
 
-  await assertSucceeds(batch.commit());
-}
-
-async function testForgedParticipationMapIsRejected() {
-  await seed();
-  const db = authedDb();
-  await assertFails(updateDoc(doc(db, "voters", uid), {
-    hasVoted: { [electionId]: true, forgedElection: true },
-    votedAt: { [electionId]: serverTimestamp() },
-    updatedAt: serverTimestamp()
-  }));
-}
-
-try {
-  await testStandaloneWritesAreRejected();
-  await testAtomicLockAndVoteAreAccepted();
-  await testForgedParticipationMapIsRejected();
-  console.log("Phase 0 integrity rules tests passed.");
-} finally {
-  await testEnv.cleanup();
-}
+await testEnv.cleanup();
+console.log("Phase 0 integrity rules tests passed.");

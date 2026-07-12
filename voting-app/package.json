@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "next build && cd .. && firebase deploy --only hosting,firestore,storage",
+    "deploy": "next build && cd .. && firebase deploy --only hosting,functions,firestore,storage",
     "test": "vitest run",
     "test:watch": "vitest",
     "deploy:hosting": "next build && cd .. && firebase deploy --only hosting"

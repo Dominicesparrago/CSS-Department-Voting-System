@@ -15,11 +15,12 @@ import {
   where,
 } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { getFirebaseDb, getFirebaseStorage } from '../firebase/init';
+import { httpsCallable } from 'firebase/functions';
+import { getFirebaseDb, getFirebaseFunctions, getFirebaseStorage } from '../firebase/init';
 import { snapshotRecords } from '../firebase/firestore';
 import { ELECTION_ID } from '../constants';
-import type { AuditEntry, Candidate, Vote, Voter } from '../types';
-import { buildTallies } from './adminCore';
+import type { AuditEntry, Candidate, Voter } from '../types';
+import type { ResultsCounts } from './adminCore';
 
 export { loadElection, loadCandidates, watchElection, loadScopedPositions as loadPositions } from '../election/electionRepo';
 
@@ -31,23 +32,18 @@ export async function loadVoters(): Promise<Voter[]> {
   return snapshotRecords<Voter>(snapshot);
 }
 
-export async function loadVotes(electionId = ELECTION_ID): Promise<Vote[]> {
-  const db = getFirebaseDb();
-  const snapshot = await getDocs(query(
-    collection(db, 'votes'),
-    where('electionId', '==', electionId),
-    orderBy('createdAt', 'asc'),
-  ));
-  return snapshotRecords<Vote>(snapshot);
-}
-
-export function watchVotes(onChange: (votes: Vote[]) => void, onError: (e: Error) => void, electionId = ELECTION_ID): () => void {
-  const db = getFirebaseDb();
-  return onSnapshot(
-    query(collection(db, 'votes'), where('electionId', '==', electionId), orderBy('createdAt', 'asc')),
-    (snapshot) => onChange(snapshotRecords<Vote>(snapshot)),
-    onError,
+/**
+ * Aggregate vote counts from the trusted getResults function. Raw ballots are
+ * never readable by the client — the server returns only per-candidate and
+ * per-position totals, so no ballot can be traced to a voter.
+ */
+export async function loadResults(electionId = ELECTION_ID): Promise<ResultsCounts> {
+  const call = httpsCallable<{ electionId: string }, ResultsCounts & { ballotCount: number }>(
+    getFirebaseFunctions(),
+    'getResults',
   );
+  const { data } = await call({ electionId });
+  return { perCandidate: data.perCandidate ?? {}, perPosition: data.perPosition ?? {} };
 }
 
 export function watchCandidates(
@@ -196,24 +192,29 @@ export async function setRegistrationOpen(registrationOpen: boolean, actorUid: s
   await createAudit(actorUid, 'election.registration.set', `elections/${electionId}`, { registrationOpen });
 }
 
+/**
+ * Publish official results through the trusted publishTally function, which
+ * recomputes the tally from immutable ballots server-side and flips the election
+ * to published. The audit entry is written client-side after the callable
+ * succeeds so it carries the acting admin's uid.
+ */
 export async function publishElection(params: { actorUid: string; electionId?: string }) {
-  const db = getFirebaseDb();
   const { actorUid, electionId = ELECTION_ID } = params;
-  const electionSnapshot = await getDoc(doc(db, 'elections', electionId));
-  const election = electionSnapshot.exists() ? electionSnapshot.data() : null;
-  if (election?.status !== 'closed') throw new Error('Close the election before publishing results.');
+  const call = httpsCallable<{ electionId: string }, { ok: boolean; turnout: number }>(
+    getFirebaseFunctions(),
+    'publishTally',
+  );
 
-  const freshVotes = await loadVotes();
-  const tallies = buildTallies(electionId, freshVotes);
+  let turnout = 0;
+  try {
+    const { data } = await call({ electionId });
+    turnout = data.turnout ?? 0;
+  } catch (error) {
+    throw new Error((error as { message?: string }).message || 'Unable to publish results.');
+  }
 
-  await setDoc(doc(db, 'tallies', electionId), { ...tallies, updatedAt: serverTimestamp() });
-  await updateDoc(doc(db, 'elections', electionId), { status: 'published', updatedAt: serverTimestamp() });
-  await createAudit(actorUid, 'election.publish', `elections/${electionId}`, {
-    voteDocs: freshVotes.filter((v) => v.electionId === electionId).length,
-    turnout: tallies.turnout.total,
-  });
-
-  return tallies;
+  await createAudit(actorUid, 'election.publish', `elections/${electionId}`, { turnout });
+  return { turnout };
 }
 
 export async function createAudit(

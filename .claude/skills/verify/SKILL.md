@@ -11,10 +11,14 @@ and has no emulator flag. Always force `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`
 ## Bring the stack up
 
 ```bash
-# 1. Emulators (auth 9099, firestore 8081, storage 9199; needs Java — preinstalled)
+# 1. Emulators (auth 9099, firestore 8081, functions 5001, storage 9199; needs Java — preinstalled).
+#    Include functions — ballots are cast/tallied/published through callables.
+#    First run: cd firebase/functions && npm install
 cd /workspaces/CSS-Department-Voting-System
-npx --prefix voting-app firebase emulators:start --only auth,firestore,storage \
-  --project css-department-voting-sy-f46a5 &   # ~25s until ready
+npx --prefix voting-app firebase emulators:start \
+  --only auth,firestore,functions,storage --project css-department-voting-sy-f46a5 &   # ~30s until ready
+# Long-lived processes don't survive across turns here — start via the harness
+# background runner (run_in_background) and poll ports, don't rely on shell `&`.
 
 # 2. Seed: 20 positions + draft election, then 40 candidates (also flips election to "open")
 node firebase/seed-emulator.js

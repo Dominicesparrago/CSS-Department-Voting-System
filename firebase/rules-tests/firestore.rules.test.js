@@ -7,6 +7,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
+  updateDoc,
   writeBatch
 } from "firebase/firestore";
 
@@ -193,24 +194,6 @@ async function createGuestWithEmailIndex(db, uid, overrides = {}) {
   await batch.commit();
 }
 
-async function castVote(db, uid, positionId, candidateId, yearLevel) {
-  await runTransaction(db, async (tx) => {
-    tx.set(doc(db, "votes", `${electionId}__${uid}__${positionId}`), {
-      electionId,
-      uid,
-      positionId,
-      candidateId,
-      yearLevel,
-      createdAt: serverTimestamp()
-    });
-    tx.update(doc(db, "voters", uid), {
-      [`hasVoted.${electionId}`]: true,
-      [`votedAt.${electionId}`]: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-  });
-}
-
 async function testVoterSelfRegistration() {
   await seedBaseData();
   await assertSucceeds(createVoterWithStudentIndex(authedDb("newStudent"), "newStudent", "1112223"));
@@ -317,32 +300,35 @@ async function testCandidateAdminOnly() {
   );
 }
 
-async function testVoteRules() {
+// Ballots are written only by the trusted submitBallot function (Admin SDK).
+// No client may write a ballot or forge the participation lock.
+async function testBallotsAreFunctionOnly() {
   await seedBaseData("open");
-  await assertSucceeds(castVote(authedDb("student3"), "student3", "president", "cand_president", 3));
-
   await assertFails(
-    setDoc(doc(authedDb("student3"), `votes/${electionId}__student3__president`), {
+    setDoc(doc(authedDb("student3"), "ballots/forged1"), {
       electionId,
-      uid: "student3",
       positionId: "president",
       candidateId: "cand_president",
-      yearLevel: 3,
-      createdAt: serverTimestamp()
+      yearLevel: 3
     })
   );
 
-  await seedBaseData("open");
-  await assertFails(castVote(authedDb("student2"), "student2", "year_rep_3", "cand_year_3", 2));
-
-  await seedBaseData("draft");
-  await assertFails(castVote(authedDb("student3"), "student3", "president", "cand_president", 3));
+  // A voter cannot mark themselves as having voted without casting a ballot.
+  await assertFails(
+    updateDoc(doc(authedDb("student3"), "voters/student3"), {
+      [`hasVoted.${electionId}`]: true,
+      [`votedAt.${electionId}`]: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    })
+  );
 }
 
 async function testReadVisibility() {
   await seedBaseData("open");
   await assertSucceeds(getDoc(doc(authedDb("student2"), "positions/president")));
-  await assertFails(getDoc(doc(authedDb("student2"), `votes/${electionId}__student3__president`)));
+  // The secret ballot: ballots are never client-readable — not even by an admin.
+  await assertFails(getDoc(doc(authedDb("student2"), "ballots/anything")));
+  await assertFails(getDoc(doc(authedDb("admin", { admin: true }), "ballots/anything")));
   await assertFails(getDoc(doc(authedDb("student2"), `tallies/${electionId}`)));
 
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -358,43 +344,18 @@ async function testReadVisibility() {
   await assertSucceeds(getDoc(doc(authedDb("student2"), `tallies/${electionId}`)));
 }
 
-async function testTallyWritesAdminOnly() {
+// Tallies are written only by the publishTally function (Admin SDK) — no client,
+// not even an admin, may write them directly.
+async function testTallyWritesDenied() {
   await seedBaseData("open");
-  await assertFails(
-    setDoc(doc(authedDb("student2"), `tallies/${electionId}`), {
-      perCandidate: {
-        forged: 999
-      },
-      perPosition: {
-        president: 999
-      },
-      turnout: {
-        total: 999,
-        byYear: {
-          "2": 999
-        }
-      },
-      updatedAt: serverTimestamp()
-    })
-  );
-
-  await assertSucceeds(
-    setDoc(doc(authedDb("admin", { admin: true }), `tallies/${electionId}`), {
-      perCandidate: {
-        cand_president: 1
-      },
-      perPosition: {
-        president: 1
-      },
-      turnout: {
-        total: 1,
-        byYear: {
-          "3": 1
-        }
-      },
-      updatedAt: serverTimestamp()
-    })
-  );
+  const forged = {
+    perCandidate: { forged: 999 },
+    perPosition: { president: 999 },
+    turnout: { total: 999, byYear: { "2": 999 } },
+    updatedAt: serverTimestamp()
+  };
+  await assertFails(setDoc(doc(authedDb("student2"), `tallies/${electionId}`), forged));
+  await assertFails(setDoc(doc(authedDb("admin", { admin: true }), `tallies/${electionId}`), forged));
 }
 
 try {
@@ -403,9 +364,9 @@ try {
   await testGuestOneTimeRegistration();
   await testRegistrationGate();
   await testCandidateAdminOnly();
-  await testVoteRules();
+  await testBallotsAreFunctionOnly();
   await testReadVisibility();
-  await testTallyWritesAdminOnly();
+  await testTallyWritesDenied();
   console.log("Firestore rules tests passed.");
 } finally {
   await testEnv.cleanup();

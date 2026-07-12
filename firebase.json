@@ -39,6 +39,10 @@
     "rules": "firebase/firestore.rules",
     "indexes": "firebase/firestore.indexes.json"
   },
+  "functions": {
+    "source": "firebase/functions",
+    "runtime": "nodejs20"
+  },
   "storage": {
     "rules": "firebase/storage.rules"
   },
@@ -48,6 +52,9 @@
     },
     "firestore": {
       "port": 8081
+    },
+    "functions": {
+      "port": 5001
     },
     "storage": {
       "port": 9199

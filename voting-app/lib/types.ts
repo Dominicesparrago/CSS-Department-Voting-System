@@ -78,14 +78,16 @@ export interface Candidate {
   updatedAt?: Timestamp;
 }
 
-export interface Vote {
-  id: string;
+/**
+ * Anonymous ballot record (collection `ballots`). Written only by the trusted
+ * submitBallot function — random id, no uid, no timestamp — and never read by
+ * the client. Present here to document the stored shape.
+ */
+export interface Ballot {
   electionId: string;
-  uid: string;
   positionId: string;
   candidateId: string;
   yearLevel: number;
-  createdAt?: Timestamp;
 }
 
 export interface Voter extends VoterProfile {

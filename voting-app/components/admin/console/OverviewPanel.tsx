@@ -5,10 +5,10 @@ import { BarChart3, CheckSquare, Contact, Users } from 'lucide-react';
 import AnimatedBarFill from '@/components/admin/AnimatedBarFill';
 import CountUp from '@/components/CountUp';
 import CustomSelect, { type CustomSelectOption } from '@/components/ui/CustomSelect';
-import { cumulativeTurnout, votesToCsv, type Aggregate } from '@/lib/admin/adminCore';
+import { cumulativeTurnoutFromVoters, resultsToCsv, type Aggregate } from '@/lib/admin/adminCore';
 import { ELECTION_ID } from '@/lib/constants';
 import { percent, yearLabel } from '@/lib/format';
-import type { Candidate, Election, Position, Vote } from '@/lib/types';
+import type { Candidate, Election, Position, Voter } from '@/lib/types';
 import MomentumArea from './MomentumArea';
 import ResultsBars from './ResultsBars';
 import { downloadFile, type AdminPanel } from './shared';
@@ -26,7 +26,7 @@ interface OverviewPanelProps {
   aggregate: Aggregate;
   candidates: Candidate[];
   positions: Position[];
-  votes: Vote[];
+  voters: Voter[];
   positionOptions: CustomSelectOption[];
   onNavigate: (panel: AdminPanel) => void;
 }
@@ -37,7 +37,7 @@ export default function OverviewPanel({
   aggregate,
   candidates,
   positions,
-  votes,
+  voters,
   positionOptions,
   onNavigate,
 }: OverviewPanelProps) {
@@ -51,7 +51,7 @@ export default function OverviewPanel({
   const activeCandidates = candidates.filter((candidate) => candidate.active).length;
   const overviewPosition = positions.find((position) => position.id === positionId);
   const statusMeta = STATUS_META[election?.status ?? 'draft'];
-  const momentum = useMemo(() => cumulativeTurnout(votes), [votes]);
+  const momentum = useMemo(() => cumulativeTurnoutFromVoters(voters, ELECTION_ID), [voters]);
   const turnoutByYear = useMemo(
     () => [1, 2, 3, 4].map((year) => ({
       year,
@@ -85,7 +85,7 @@ export default function OverviewPanel({
           <button
             className="btn btn-ghost btn-sm"
             type="button"
-            onClick={() => downloadFile(`css-overview-${ELECTION_ID}.csv`, votesToCsv({ votes, candidates, positions }), 'text/csv;charset=utf-8')}
+            onClick={() => downloadFile(`css-results-${ELECTION_ID}.csv`, resultsToCsv({ results: { perCandidate: aggregate.perCandidate, perPosition: aggregate.perPosition }, candidates, positions }), 'text/csv;charset=utf-8')}
           >
             Export CSV
           </button>

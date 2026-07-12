@@ -1,9 +1,15 @@
-import type { Candidate, Position, Vote, Voter } from '../types';
+import type { Candidate, Position, Voter } from '../types';
 import { candidatesForPosition } from '../election/candidates';
-import { formatTimestamp, toMillis } from '../format';
+import { toMillis } from '../format';
 
 export function byId<T extends { id: string }>(records: T[]): Record<string, T> {
   return Object.fromEntries(records.map((r) => [r.id, r]));
+}
+
+/** Per-candidate / per-position counts, computed server-side by the getResults function. */
+export interface ResultsCounts {
+  perCandidate: Record<string, number>;
+  perPosition: Record<string, number>;
 }
 
 export interface Aggregate {
@@ -12,75 +18,66 @@ export interface Aggregate {
   votersById: Record<string, Voter>;
   perCandidate: Record<string, number>;
   perPosition: Record<string, number>;
-  byPositionCandidate: Record<string, Record<string, number>>;
   turnout: { total: number; byYear: Record<string, number> };
   eligible: { total: number; byYear: Record<string, number> };
-  voteDocTotal: number;
 }
 
-export function aggregateVotes(params: {
-  votes: Vote[];
+function hasVoted(voter: Voter, electionId: string): boolean {
+  return voter.hasVoted?.[electionId] === true;
+}
+
+/**
+ * Combine anonymous per-candidate/per-position counts (from the trusted
+ * getResults function) with turnout and eligibility derived from the voter
+ * registry. Ballots themselves are never read by the client, so turnout comes
+ * from the participation lock (`hasVoted`), never from ballot documents.
+ */
+export function buildAggregate(params: {
+  results: ResultsCounts;
   candidates: Candidate[];
   positions: Position[];
   voters: Voter[];
+  electionId: string;
 }): Aggregate {
-  const { votes, candidates, positions, voters } = params;
-  const candidatesById = byId(candidates);
-  const positionsById = byId(positions);
-  const votersById = byId(voters);
-  const perCandidate: Record<string, number> = {};
-  const perPosition: Record<string, number> = {};
-  const byPositionCandidate: Record<string, Record<string, number>> = {};
-  const voterYears = new Map<string, number>();
-
-  votes.forEach((vote) => {
-    perCandidate[vote.candidateId] = (perCandidate[vote.candidateId] ?? 0) + 1;
-    perPosition[vote.positionId] = (perPosition[vote.positionId] ?? 0) + 1;
-    byPositionCandidate[vote.positionId] ??= {};
-    byPositionCandidate[vote.positionId][vote.candidateId] =
-      (byPositionCandidate[vote.positionId][vote.candidateId] ?? 0) + 1;
-    if (!voterYears.has(vote.uid)) voterYears.set(vote.uid, Number(vote.yearLevel));
-  });
+  const { results, candidates, positions, voters, electionId } = params;
 
   const turnoutByYear: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0 };
-  for (const yr of voterYears.values()) {
-    if (yr >= 1 && yr <= 4) turnoutByYear[String(yr)] += 1;
-  }
-
   const eligibleByYear: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0 };
+  let turnoutTotal = 0;
+
   voters.forEach((voter) => {
-    if (voter.eligible && voter.yearLevel >= 1 && voter.yearLevel <= 4)
-      eligibleByYear[String(voter.yearLevel)] += 1;
+    const year = Number(voter.yearLevel);
+    const inRange = year >= 1 && year <= 4;
+    if (voter.eligible && inRange) eligibleByYear[String(year)] += 1;
+    if (hasVoted(voter, electionId)) {
+      turnoutTotal += 1;
+      if (inRange) turnoutByYear[String(year)] += 1;
+    }
   });
 
   return {
-    candidatesById,
-    positionsById,
-    votersById,
-    perCandidate,
-    perPosition,
-    byPositionCandidate,
-    turnout: { total: voterYears.size, byYear: turnoutByYear },
+    candidatesById: byId(candidates),
+    positionsById: byId(positions),
+    votersById: byId(voters),
+    perCandidate: results.perCandidate,
+    perPosition: results.perPosition,
+    turnout: { total: turnoutTotal, byYear: turnoutByYear },
     eligible: { total: voters.filter((v) => v.eligible).length, byYear: eligibleByYear },
-    voteDocTotal: votes.length,
   };
 }
 
 /**
- * Cumulative unique-voter turnout over time. Each point marks the moment a new
- * voter cast their first ballot, so the running count === ballots cast so far.
- * Votes arrive ordered by createdAt, but we sort defensively for safety.
+ * Cumulative turnout over time, derived from the participation lock. Each point
+ * marks the moment a voter's ballot was recorded (`votedAt`), so the running
+ * count equals unique voters so far — with no dependency on ballot contents.
  */
-export function cumulativeTurnout(votes: Vote[]): { t: number; count: number }[] {
-  const ordered = [...votes].sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
-  const seen = new Set<string>();
-  const points: { t: number; count: number }[] = [];
-  for (const vote of ordered) {
-    if (seen.has(vote.uid)) continue;
-    seen.add(vote.uid);
-    points.push({ t: toMillis(vote.createdAt), count: seen.size });
-  }
-  return points;
+export function cumulativeTurnoutFromVoters(voters: Voter[], electionId: string): { t: number; count: number }[] {
+  const stamped = voters
+    .filter((voter) => hasVoted(voter, electionId))
+    .map((voter) => toMillis(voter.votedAt?.[electionId]))
+    .filter((t) => t > 0)
+    .sort((a, b) => a - b);
+  return stamped.map((t, i) => ({ t, count: i + 1 }));
 }
 
 export function rankedCandidatesForPosition(
@@ -93,49 +90,26 @@ export function rankedCandidatesForPosition(
     .sort((a, b) => b.votes - a.votes || (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
 }
 
-export function buildTallies(electionId: string, votes: Vote[]) {
-  const perCandidate: Record<string, number> = {};
-  const perPosition: Record<string, number> = {};
-  const voterYears = new Map<string, number>();
-
-  votes
-    .filter((v) => v.electionId === electionId)
-    .forEach((vote) => {
-      perCandidate[vote.candidateId] = (perCandidate[vote.candidateId] ?? 0) + 1;
-      perPosition[vote.positionId] = (perPosition[vote.positionId] ?? 0) + 1;
-      if (!voterYears.has(vote.uid)) voterYears.set(vote.uid, Number(vote.yearLevel));
-    });
-
-  const byYear: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0 };
-  for (const yr of voterYears.values()) {
-    if (yr >= 1 && yr <= 4) byYear[String(yr)] += 1;
-  }
-
-  return { perCandidate, perPosition, turnout: { total: voterYears.size, byYear } };
-}
-
 function csvCell(value: unknown): string {
   const text = value == null ? '' : String(value);
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function votesToCsv(params: {
-  votes: Vote[];
+/** Anonymized results export: candidate vote counts, no per-ballot data. */
+export function resultsToCsv(params: {
+  results: ResultsCounts;
   candidates: Candidate[];
   positions: Position[];
 }): string {
-  const { votes, candidates, positions } = params;
-  const candidatesById = byId(candidates);
+  const { results, candidates, positions } = params;
   const positionsById = byId(positions);
-  const header = ['electionId', 'positionId', 'position', 'candidateId', 'candidate', 'yearLevel', 'createdAt'];
-  const rows = votes.map((vote) => [
-    vote.electionId,
-    vote.positionId,
-    positionsById[vote.positionId]?.name ?? vote.positionId,
-    vote.candidateId,
-    candidatesById[vote.candidateId]?.name ?? vote.candidateId,
-    vote.yearLevel,
-    formatTimestamp(vote.createdAt),
+  const header = ['positionId', 'position', 'candidateId', 'candidate', 'votes'];
+  const rows = candidates.map((candidate) => [
+    candidate.positionId,
+    positionsById[candidate.positionId]?.name ?? candidate.positionId,
+    candidate.id,
+    candidate.name,
+    results.perCandidate[candidate.id] ?? 0,
   ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
 }
@@ -149,7 +123,7 @@ export function votersToCsv(voters: Voter[], electionId: string): string {
     voter.yearLevel,
     voter.section,
     voter.eligible ? 'yes' : 'no',
-    voter.hasVoted?.[electionId] === true ? 'voted' : 'not yet',
+    hasVoted(voter, electionId) ? 'voted' : 'not yet',
   ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
 }

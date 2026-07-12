@@ -1,0 +1,17 @@
+{
+  "name": "css-voting-functions",
+  "description": "Trusted vote-ingestion and tally functions for the CSS Department Voting System",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.1"
+  }
+}

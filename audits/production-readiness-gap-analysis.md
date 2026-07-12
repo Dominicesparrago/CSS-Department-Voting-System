@@ -4,6 +4,25 @@ Date: 2026-07-12
 Scope: repository at `/workspaces/CSS-Department-Voting-System`  
 Reviewer mode: source, rules, tests, build, dependency, and operational-document review
 
+> **Resolution addendum (2026-07-12, post-audit).** The Phase 0 election-integrity
+> blockers have since been closed by a Cloud Functions rewrite (commit "Cast, tally,
+> and publish ballots through trusted Cloud Functions"):
+> - **C-01 (secret ballot)** — RESOLVED. Ballots now live in `ballots/{randomId}`
+>   with no uid and no timestamp; security rules deny all client (and admin) reads
+>   and writes. Admins see only server-aggregated counts via the `getResults`
+>   function. Verified by direct Firestore inspection in E2E: 17 stored ballots,
+>   none carrying identity.
+> - **C-02 (all-at-once ballot)** — RESOLVED. Submission is a single server-side
+>   transaction in `submitBallot`; a partial or direct client write is impossible
+>   (clients cannot write `ballots` at all).
+> - **C-03 (forged participation)** — RESOLVED. The `hasVoted`/`votedAt` lock is
+>   set only by the function; rules deny client writes to those fields.
+> - **C-04 (guest abuse)** — MITIGATED, not fully resolved. Guest voting is
+>   fail-closed and superadmin-gated; rate-limiting/App Check (H-07) remain open.
+>
+> Remaining items below (H-05, H-07–H-13, most M/L findings, operations) are
+> still open and unaffected by this addendum. Blaze plan is now required.
+
 ## Evidence and limits
 
 Verified commands:

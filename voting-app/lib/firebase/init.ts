@@ -1,10 +1,12 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 import { connectStorageEmulator, getStorage } from 'firebase/storage';
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
+import type { Functions } from 'firebase/functions';
 import type { FirebaseStorage } from 'firebase/storage';
 import { firebaseConfig } from './config';
 
@@ -12,6 +14,7 @@ let app: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
+let functionsInstance: Functions | null = null;
 
 function assertFirebaseConfig() {
   const required = [
@@ -36,21 +39,23 @@ function getFirebaseServices() {
   authInstance ??= getAuth(app);
   dbInstance ??= getFirestore(app);
   storageInstance ??= getStorage(app);
+  functionsInstance ??= getFunctions(app);
 
   if (typeof window !== 'undefined') {
-    connectLocalEmulators(authInstance, dbInstance, storageInstance);
+    connectLocalEmulators(authInstance, dbInstance, storageInstance, functionsInstance);
   }
 
-  return { app, auth: authInstance, db: dbInstance, storage: storageInstance };
+  return { app, auth: authInstance, db: dbInstance, storage: storageInstance, functions: functionsInstance };
 }
 
-function connectLocalEmulators(auth: Auth, db: Firestore, storage: FirebaseStorage) {
+function connectLocalEmulators(auth: Auth, db: Firestore, storage: FirebaseStorage, functions: Functions) {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   if (useEmulators && !(globalThis as Record<string, unknown>).__CSS_VOTE_EMULATORS_CONNECTED__) {
     const firestorePort = Number(process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT ?? 8081);
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     connectFirestoreEmulator(db, '127.0.0.1', firestorePort);
     connectStorageEmulator(storage, '127.0.0.1', 9199);
+    connectFunctionsEmulator(functions, '127.0.0.1', 5001);
     (globalThis as Record<string, unknown>).__CSS_VOTE_EMULATORS_CONNECTED__ = true;
   }
 }
@@ -65,4 +70,8 @@ export function getFirebaseDb(): Firestore {
 
 export function getFirebaseStorage(): FirebaseStorage {
   return getFirebaseServices().storage;
+}
+
+export function getFirebaseFunctions(): Functions {
+  return getFirebaseServices().functions;
 }
