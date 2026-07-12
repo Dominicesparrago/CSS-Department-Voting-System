@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS Voting — Loading &amp; State Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0A0E0F;--black-2:#0d1314;--teal-900:#0B2B3C;--teal-dark:#0F4C5C;--teal-600:#115E6E;
+  --teal-glow:#1CABB8;--brand:#22B8A0;--teal-300:#2DC4A2;--teal-200:#3BD6B0;--tint-400:#A0EDE2;--tint-200:#D4F7F1;
+  --white:#FFFFFF;--light:#F4FCFB;--muted:rgba(234,250,247,.62);--muted-soft:rgba(234,250,247,.45);
+  --line:rgba(120,200,190,.12);--line-2:rgba(120,200,190,.22);
+  --surface:rgba(18,30,32,.55);--surface-2:rgba(28,43,45,.55);
+  --grad-action:linear-gradient(118deg,var(--teal-glow),var(--brand) 60%,var(--teal-200));
+  --grad-ink:linear-gradient(100deg,var(--tint-200),var(--teal-glow) 42%,var(--brand) 72%,var(--teal-200));
+  --grad-mark:conic-gradient(from 140deg,var(--teal-200),var(--teal-glow),var(--teal-600),var(--brand),var(--teal-200));
+  --glow:0 0 40px rgba(34,184,160,.28);--glow-strong:0 0 66px rgba(34,184,160,.45);--shadow:0 30px 80px rgba(0,0,0,.55);
+  --radius-md:14px;--radius-lg:18px;--radius-xl:24px;--pill:999px;--ease:cubic-bezier(.2,.7,.2,1);
+  --font:'Figtree','Segoe UI',Arial,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;color:var(--light);font-family:var(--font);font-weight:300;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(ellipse 60% 50% at 6% -8%,rgba(28,171,184,.18),transparent 62%),radial-gradient(ellipse 84% 66% at 50% 116%,rgba(15,76,92,.28),transparent 64%),var(--black)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:64px 64px;opacity:.4;-webkit-mask-image:radial-gradient(ellipse 90% 80% at 50% 20%,#000 10%,transparent 82%);mask-image:radial-gradient(ellipse 90% 80% at 50% 20%,#000 10%,transparent 82%)}
+.grad{background:var(--grad-ink);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--brand);font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.eyebrow::before{content:"";width:16px;height:2px;border-radius:99px;background:var(--grad-action)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+
+/* ---- control panel ---- */
+.panel{max-width:960px;margin:0 auto;padding:56px 20px 80px}
+.panel h1{font-size:clamp(1.8rem,5vw,2.6rem);font-weight:800;letter-spacing:-.03em;margin:12px 0 8px}
+.panel .lead{color:var(--muted);max-width:60ch;margin-bottom:34px}
+.cards{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:720px){.cards{grid-template-columns:repeat(3,1fr)}}
+.pcard{display:grid;gap:10px;padding:22px;border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(165deg,var(--surface),rgba(10,14,15,.82));box-shadow:var(--shadow)}
+.pcard .tag{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+.pcard h3{font-size:1.15rem;font-weight:700}
+.pcard p{color:var(--muted);font-size:.9rem;flex:1}
+.btn{margin-top:6px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border:1px solid transparent;border-radius:var(--radius-md);font-family:var(--font);font-weight:600;font-size:.92rem;cursor:pointer;transition:transform .2s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease),border-color .2s var(--ease)}
+.btn-primary{background:var(--brand);color:var(--black);box-shadow:var(--glow)}
+.btn-primary:hover{transform:translateY(-2px);background:var(--teal-200)}
+.btn-ghost{color:var(--light);border-color:var(--line-2);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:var(--brand);background:rgba(34,184,160,.1)}
+
+/* ================= SHARED OVERLAY ================= */
+.screen{position:fixed;inset:0;z-index:100;display:none;justify-items:center;align-content:safe center;overflow:auto;
+  padding:max(24px,env(safe-area-inset-top)) 20px max(24px,env(safe-area-inset-bottom));text-align:center;
+  background:radial-gradient(ellipse 70% 60% at 50% 42%,rgba(28,171,184,.16),transparent 70%),var(--black)}
+.screen.show{display:grid;animation:scrFade .4s var(--ease)}
+@keyframes scrFade{from{opacity:0}}
+body.no-scroll{overflow:hidden}
+.screen .exit{position:fixed;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));z-index:101;font-family:var(--mono);font-size:.72rem;color:var(--muted);background:rgba(10,14,15,.6);border:1px solid var(--line-2);border-radius:var(--pill);padding:8px 14px;cursor:pointer}
+.screen .exit:hover{border-color:var(--brand);color:var(--light)}
+.mark{width:66px;height:66px;border-radius:17px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-family:var(--mono);font-weight:800;font-size:1.5rem;box-shadow:var(--glow-strong)}
+
+/* ---- A. OPENING (boot sequence) ---- */
+.open2{display:grid;gap:15px;justify-items:center;width:min(90vw,420px)}
+.orb{position:relative;width:104px;height:104px;display:grid;place-items:center;margin-bottom:2px}
+.orb .mark{position:relative;z-index:2;width:60px;height:60px;border-radius:16px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-family:var(--mono);font-weight:800;font-size:1.35rem;box-shadow:var(--glow-strong);animation:plPulse 1.8s var(--ease) infinite}
+@keyframes plPulse{0%,100%{transform:translateY(0);box-shadow:0 0 40px rgba(34,184,160,.3)}50%{transform:translateY(-5px);box-shadow:0 0 70px rgba(34,184,160,.55)}}
+.orb .sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 68%,rgba(34,184,160,.5) 88%,var(--teal-200));
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 4px));animation:spin 1.1s linear infinite}
+.orb .ring{position:absolute;border-radius:50%}
+.orb .ring.r1{inset:-11px;border:1px dashed rgba(34,184,160,.24);animation:spin 6s linear infinite}
+.orb .ring.r2{inset:-24px;border:1px solid rgba(34,184,160,.1);animation:spin 11s linear infinite reverse}
+.open2 .title{font-weight:800;font-size:1.5rem;letter-spacing:-.02em}
+.open2 .sub{color:var(--muted-soft);font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase}
+.term{width:100%;min-height:104px;text-align:left;font-family:var(--mono);font-size:.74rem;line-height:1.75;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.55);padding:12px 14px;overflow:hidden}
+.term .ln{opacity:0;transform:translateY(4px);animation:lnIn .24s var(--ease) forwards}
+@keyframes lnIn{to{opacity:1;transform:none}}
+.term .pr{color:var(--teal-200)}
+.term .ok{color:var(--brand);float:right}
+.term .cur{display:inline-block;width:7px;height:.95em;vertical-align:-2px;margin-left:2px;background:var(--brand);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.bar{width:100%;height:6px;border-radius:99px;background:rgba(120,200,190,.14);overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--grad-action);box-shadow:0 0 14px rgba(34,184,160,.6);transition:width .15s linear}
+.meta{width:100%;display:flex;justify-content:space-between;font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+.meta .pct{color:var(--brand);font-weight:600}
+
+/* ---- B. PROCEEDING ---- */
+.proc-in{display:grid;gap:22px;justify-items:center;width:min(90vw,420px)}
+.ring{position:relative;width:120px;height:120px;display:grid;place-items:center}
+.ring .spin{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 25%,var(--brand) 90%,var(--teal-200));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 calc(100% - 6px));mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 calc(100% - 6px));animation:spin 1s linear infinite}
+.ring .track{position:absolute;inset:0;border-radius:50%;border:6px solid rgba(120,200,190,.12)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ring .ic{width:48px;height:48px;color:var(--brand)}
+.icon{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.proc-in h2{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.proc-in .desc{color:var(--muted);font-size:.92rem;margin-top:-10px}
+.checks{display:grid;gap:10px;width:100%;text-align:left;margin-top:4px}
+.chk{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.4);color:var(--muted-soft);font-size:.9rem;transition:.3s var(--ease)}
+.chk .box{flex:0 0 auto;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line-2);display:grid;place-items:center;color:transparent;transition:.3s var(--ease)}
+.chk.done{color:var(--light);border-color:var(--line-2);background:rgba(34,184,160,.06)}
+.chk.done .box{background:var(--brand);border-color:transparent;color:var(--black)}
+
+/* ---- C. SUCCESS ---- */
+.suc-in{display:grid;gap:16px;justify-items:center;width:min(92vw,460px)}
+.checkwrap{position:relative;width:118px;height:118px}
+.checkwrap .glow{position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,rgba(34,184,160,.4),transparent 65%);animation:sucGlow 2.2s var(--ease) infinite}
+@keyframes sucGlow{0%,100%{opacity:.5;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
+.checkwrap svg{position:relative;width:118px;height:118px}
+.checkwrap .cc{fill:none;stroke:var(--brand);stroke-width:5;stroke-dasharray:326;stroke-dashoffset:326;animation:draw .6s var(--ease) forwards}
+.checkwrap .ck{fill:none;stroke:var(--brand);stroke-width:7;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:80;stroke-dashoffset:80;animation:draw .4s .55s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.suc-in .eyebrow{margin-bottom:2px}
+.suc-in h2{font-size:clamp(1.8rem,5vw,2.4rem);font-weight:800;letter-spacing:-.03em}
+.suc-in p{color:var(--muted);max-width:44ch}
+.receipt{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:.72rem;color:var(--tint-400);border:1px dashed var(--line-2);border-radius:var(--pill);padding:7px 16px;background:rgba(34,184,160,.05)}
+.suc-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:8px}
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;opacity:0;animation:fall linear forwards}
+@keyframes fall{0%{opacity:0;transform:translateY(-10px) rotate(0)}10%{opacity:1}100%{opacity:0;transform:translateY(102vh) rotate(540deg)}}
+
+/* ---- D. TERMINAL / BLOCKED STATES (static) ---- */
+.state{display:grid;justify-items:center;gap:8px;width:min(92vw,520px);text-align:center;animation:scrFade .4s var(--ease)}
+.state .badge-ic{width:92px;height:92px;border-radius:26px;display:grid;place-items:center;margin-bottom:8px}
+.state .badge-ic .icon{width:42px;height:42px}
+.state .badge-ic.info{background:rgba(28,171,184,.1);border:1px solid var(--line-2);color:var(--teal-glow)}
+.state .badge-ic.warn{background:rgba(245,196,81,.1);border:1px solid rgba(245,196,81,.5);color:#f5c451}
+.state .badge-ic.err{background:rgba(255,107,129,.1);border:1px solid rgba(255,107,129,.5);color:#ff6b81}
+.state h2{font-size:clamp(1.7rem,5vw,2.3rem);font-weight:800;letter-spacing:-.03em;line-height:1.06}
+.state p{color:var(--muted);max-width:46ch}
+.state .ref{margin-top:4px;font-family:var(--mono);font-size:.74rem;color:var(--tint-400);border:1px dashed var(--line-2);border-radius:var(--pill);padding:7px 16px;background:rgba(34,184,160,.05)}
+.state .acts{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:10px}
+.state.warn-t .eyebrow{color:#f5c451}
+.state.err-t .eyebrow{color:#ff6b81}
+/* index group divider */
+.group-label{margin:42px 0 16px;display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-soft)}
+.group-label::after{content:"";flex:1;height:1px;background:var(--line)}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .checkwrap .cc,.checkwrap .ck{stroke-dashoffset:0}
+  .confetti{display:none}
+}
+</style>
+</head>
+<body>
+
+<main class="panel">
+  <span class="eyebrow">Reference</span>
+  <h1>Loading &amp; <span class="grad">state screens</span></h1>
+  <p class="lead">Every loading, confirmation, and blocked state a voter can land on. Click any to preview it full-screen; Opening and Proceeding auto-advance, Success waits for you.</p>
+  <div class="cards">
+    <div class="pcard">
+      <span class="tag">01 · app boot</span><h3>Opening</h3>
+      <p>Shown once when the app first loads. Brand pulse + progress bar while the platform initializes.</p>
+      <button class="btn btn-primary" data-run="open">Preview opening</button>
+    </div>
+    <div class="pcard">
+      <span class="tag">02 · interstitial</span><h3>Proceeding to vote</h3>
+      <p>After sign-in / verify, while your year-scoped ballot is built and your session is secured.</p>
+      <button class="btn btn-primary" data-run="proceed">Preview proceeding</button>
+    </div>
+    <div class="pcard">
+      <span class="tag">03 · confirmation</span><h3>Vote successful</h3>
+      <p>The destination after submitting — animated check, receipt reference, and next actions.</p>
+      <button class="btn btn-primary" data-run="success">Preview success</button>
+    </div>
+  </div>
+
+  <div class="group-label">Terminal &amp; blocked states</div>
+  <div class="cards">
+    <div class="pcard"><span class="tag">04 · returning</span><h3>Already voted</h3><p>A verified voter who has already cast their ballot returns to the app.</p><button class="btn btn-primary" data-show="already">Preview</button></div>
+    <div class="pcard"><span class="tag">05 · lifecycle</span><h3>Voting not open</h3><p>Registered, but the polls haven't opened yet.</p><button class="btn btn-primary" data-show="notopen">Preview</button></div>
+    <div class="pcard"><span class="tag">06 · lifecycle</span><h3>Polls closed</h3><p>The voting window has ended.</p><button class="btn btn-primary" data-show="closed">Preview</button></div>
+    <div class="pcard"><span class="tag">07 · access</span><h3>Access denied</h3><p>The account isn't an eligible enrolled CS student.</p><button class="btn btn-primary" data-show="denied">Preview</button></div>
+  </div>
+</main>
+
+<!-- A. OPENING -->
+<div class="screen" id="scr-open" role="status" aria-live="polite">
+  <button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="open2">
+    <div class="orb"><span class="ring r2"></span><span class="ring r1"></span><span class="sweep"></span><span class="mark">&gt;_</span></div>
+    <div class="title">CSS Voting</div>
+    <div class="sub">Secure Student Election Platform</div>
+    <div class="term" id="openTerm"></div>
+    <div class="bar"><i id="openFill"></i></div>
+    <div class="meta"><span id="openStatus">boot</span><span class="pct" id="openPct">0%</span></div>
+  </div>
+</div>
+
+<!-- B. PROCEEDING -->
+<div class="screen" id="scr-proceed" role="status" aria-live="polite">
+  <button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="proc-in">
+    <div class="ring"><span class="track"></span><span class="spin"></span>
+      <svg class="icon ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg></div>
+    <div><h2>Preparing your ballot</h2><p class="desc">Hang tight — this only takes a moment.</p></div>
+    <div class="checks" id="procChecks">
+      <div class="chk" data-i="0"><span class="box">✓</span> Verifying your voter record</div>
+      <div class="chk" data-i="1"><span class="box">✓</span> Building your 17-race ballot</div>
+      <div class="chk" data-i="2"><span class="box">✓</span> Securing your session</div>
+    </div>
+  </div>
+</div>
+
+<!-- C. SUCCESS -->
+<div class="screen" id="scr-success">
+  <div class="confetti" id="confetti"></div>
+  <button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="suc-in">
+    <div class="checkwrap"><span class="glow"></span>
+      <svg viewBox="0 0 120 120"><circle class="cc" cx="60" cy="60" r="52"/><path class="ck" d="M38 62 L54 78 L84 44"/></svg></div>
+    <span class="eyebrow">Ballot submitted</span>
+    <h2>Your vote is <span class="grad">recorded</span></h2>
+    <p>Thanks for voting! Your ballot was submitted and counted exactly once. Official results publish to students after polls close.</p>
+    <div class="receipt">REF · CSS-2026-<span id="ref">A1B2C3</span></div>
+    <div class="suc-actions">
+      <a class="btn btn-primary" href="dashboard-redesign.html">Back to dashboard</a>
+      <a class="btn btn-ghost" href="results-redesign.html">View results</a>
+    </div>
+  </div>
+</div>
+
+<!-- D. ALREADY VOTED -->
+<div class="screen" id="scr-already"><button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="state">
+    <div class="badge-ic info"><svg class="icon" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg></div>
+    <span class="eyebrow">Already voted</span><h2>You’ve already voted.</h2>
+    <p>Our records show you’ve already cast your ballot for this election. Each student may vote once, so there’s nothing more to do here.</p>
+    <div class="ref">Voted 22 Sep 2026, 10:14 AM</div>
+    <div class="acts"><a class="btn btn-primary" href="results-redesign.html">View results</a><a class="btn btn-ghost" href="dashboard-redesign.html">Back to dashboard</a></div>
+  </div>
+</div>
+
+<!-- E. VOTING NOT OPEN -->
+<div class="screen" id="scr-notopen"><button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="state warn-t">
+    <div class="badge-ic warn"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></svg></div>
+    <span class="eyebrow">Voting not open</span><h2>Voting hasn’t started yet.</h2>
+    <p>The polls open on Monday, Sep 22 at 8:00 AM. You’re registered and ready — come back then to cast your ballot.</p>
+    <div class="ref">Opens Mon, Sep 22 · 8:00 AM (PST)</div>
+    <div class="acts"><a class="btn btn-primary" href="dashboard-redesign.html">Go to dashboard</a></div>
+  </div>
+</div>
+
+<!-- F. POLLS CLOSED -->
+<div class="screen" id="scr-closed"><button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="state warn-t">
+    <div class="badge-ic warn"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.2 2"/></svg></div>
+    <span class="eyebrow">Polls closed</span><h2>Voting has ended.</h2>
+    <p>The voting period for this election has closed. Thanks to everyone who participated — official results will be published shortly.</p>
+    <div class="ref">Closed Tue, Sep 23 · 6:00 PM (PST)</div>
+    <div class="acts"><a class="btn btn-primary" href="results-redesign.html">See results</a></div>
+  </div>
+</div>
+
+<!-- G. ACCESS DENIED -->
+<div class="screen" id="scr-denied"><button class="exit" data-exit aria-label="Close screen">esc ✕</button>
+  <div class="state err-t">
+    <div class="badge-ic err"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M6.2 6.2l11.6 11.6"/></svg></div>
+    <span class="eyebrow">Access denied</span><h2>You’re not eligible to vote here.</h2>
+    <p>This account isn’t recognised as an enrolled CS student for the 2026 election. If you believe this is a mistake, please visit the election committee desk to verify your details.</p>
+    <div class="acts"><a class="btn btn-primary" href="console-redesign.html">Back to sign in</a></div>
+  </div>
+</div>
+
+<script>
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=s=>document.querySelector(s);
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));$(id).classList.add('show');document.body.classList.add('no-scroll');}
+function hideAll(){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));document.body.classList.remove('no-scroll');}
+
+/* A. opening — boot log + progress over a random 1.5–2.5s */
+let openRAF,openTs=[];
+const BOOT=[['booting css-vote','v2.6'],['connecting to election node','ok'],['loading 20 positions · 17 races','ok'],['verifying ballot integrity','ok'],['securing your session','ok']];
+function runOpen(){
+  show('#scr-open');
+  const fill=$('#openFill'),pct=$('#openPct'),status=$('#openStatus'),term=$('#openTerm');
+  term.innerHTML='';openTs.forEach(clearTimeout);openTs=[];
+  const dur=reduce?900:(1500+Math.random()*1000),start=performance.now();
+  const gap=dur/(BOOT.length+1);
+  BOOT.forEach((l,i)=>openTs.push(setTimeout(()=>{
+    const d=document.createElement('div');d.className='ln';
+    d.innerHTML=`<span class="pr">&gt;</span> ${l[0]} <span class="ok">${l[1]}</span>`;
+    term.querySelector('.live')?.remove();
+    term.appendChild(d);
+    if(i<BOOT.length-1){const c=document.createElement('div');c.className='ln live';c.innerHTML='<span class="pr">&gt;</span> <span class="cur"></span>';term.appendChild(c);}
+    term.scrollTop=term.scrollHeight;
+  }, reduce?0:gap*i)));
+  cancelAnimationFrame(openRAF);
+  (function t(now){const k=Math.min(1,((now||performance.now())-start)/dur),p=Math.round(k*100);
+    fill.style.width=p+'%';pct.textContent=p+'%';status.textContent=k<1?'booting…':'ready';
+    if(k<1)openRAF=requestAnimationFrame(t);else setTimeout(hideAll,420);})();
+}
+
+/* B. proceeding — tick each check, then (in real use) redirect */
+let procTs=[];
+function runProceed(){
+  show('#scr-proceed');
+  const chks=[...document.querySelectorAll('#procChecks .chk')];chks.forEach(c=>c.classList.remove('done'));
+  procTs.forEach(clearTimeout);procTs=[];
+  const step=reduce?180:520;   // ~1.5–2.5s total
+  chks.forEach((c,i)=>procTs.push(setTimeout(()=>c.classList.add('done'),step*(i+1))));
+  procTs.push(setTimeout(hideAll,step*(chks.length+1)+400));   // real flow: location.href='ballot-redesign.html'
+}
+
+/* C. success — random ref + confetti burst */
+function runSuccess(){
+  $('#ref').textContent=Array.from({length:6},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');
+  show('#scr-success');
+  if(reduce)return;
+  const wrap=$('#confetti');wrap.innerHTML='';
+  const cols=['#22B8A0','#3BD6B0','#1CABB8','#A0EDE2'];
+  for(let i=0;i<70;i++){const s=document.createElement('i');
+    s.style.left=Math.random()*100+'vw';s.style.background=cols[i%cols.length];
+    s.style.animationDuration=(2.4+Math.random()*1.8)+'s';s.style.animationDelay=(Math.random()*.5)+'s';
+    s.style.transform=`translateY(-10px) rotate(${Math.random()*360}deg)`;wrap.appendChild(s);}
+  setTimeout(()=>wrap.innerHTML='',4600);
+}
+
+document.querySelectorAll('[data-run]').forEach(b=>b.addEventListener('click',()=>({open:runOpen,proceed:runProceed,success:runSuccess})[b.dataset.run]()));
+document.querySelectorAll('[data-show]').forEach(b=>b.addEventListener('click',()=>show('#scr-'+b.dataset.show)));   // static terminal states
+document.addEventListener('click',e=>{if(e.target.closest('[data-exit]'))hideAll();});
+addEventListener('keydown',e=>{if(e.key==='Escape')hideAll();});
+
+/* deep-link: loading-states.html?screen=success|proceed|open|already|notopen|closed|denied
+   lets the ballot/flow land straight on a confirmation/state screen */
+(function(){
+  const key=new URLSearchParams(location.search).get('screen');
+  if(!key)return;
+  const runners={open:runOpen,proceed:runProceed,success:runSuccess};
+  if(runners[key])runners[key]();
+  else if(document.getElementById('scr-'+key))show('#scr-'+key);
+})();
+</script>
+</body>
+</html>

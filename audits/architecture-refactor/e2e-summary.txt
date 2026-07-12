@@ -1,0 +1,24 @@
+Runtime E2E verification — 2026-07-12 — Firebase emulators + Playwright (Chromium 1280x900)
+Stack: emulators (auth 9099 / firestore 8081 / storage 9199), seeded 20 positions + 40 candidates,
+admin user with admin claim, next dev -p 3100 with NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true.
+
+PASS landing renders hero + auth card
+PASS auth tabs: arrow-key moves to Register panel
+PASS register student → redirected to /dashboard
+PASS vote: ballot renders 17 year-scoped races
+PASS vote: select all races, review, submit
+PASS PROBE bug-fix: revisit /vote after voting → already-voted screen (was a crash)
+PASS PROBE: student hitting /admin gets Access denied (403 screen)
+PASS results: unpublished lock screen
+PASS sign out student, sign in admin → /admin console
+PASS admin: overview shows live metrics
+PASS admin: candidates panel — add candidate via form
+PASS admin: roster search filters
+PASS admin: voters panel lists registered student as Voted
+PASS admin: results panel shows tally bars
+PASS admin: lifecycle — close polls + publish (both via confirm dialog)
+PASS PROBE: confirm dialog Escape cancels without deleting
+PASS public results page shows published winners
+PASS PROBE: signed-out /dashboard redirects to landing
+
+18/18 PASS. No page errors captured (pageerror listener attached throughout).

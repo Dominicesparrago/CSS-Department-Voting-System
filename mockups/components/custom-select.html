@@ -1,0 +1,135 @@
+<!-- ============================================================
+     CUSTOM SELECT — reusable component (Console design system)
+     Accessible listbox popover replacement for native <select>.
+     Save/reuse this across every dropdown in the app.
+
+     Contents:
+       1. CSS            — paste into the stylesheet (uses theme.css tokens)
+       2. Markup         — how to write one by hand
+       3. customSelect() — JS API for a hand-written custom select
+       4. upgradeSelect()— turn an existing native <select> into a custom one
+                           (keeps a hidden native <select> in sync for forms)
+       5. Dependent selects — pattern used in the one-time pane (Year → Section)
+
+     Tokens required: --brand --line --line-2 --muted --muted-soft --light
+       --surface-2 --radius-md --shadow --grad-action --ease
+     ============================================================ -->
+
+<!-- ─────────────── 1. CSS ─────────────── -->
+<style>
+.cselect{position:relative}
+.cselect-btn{width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border:1.5px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.6);color:var(--light);font-family:var(--font);font-size:.98rem;text-align:left;cursor:pointer;transition:border-color .2s var(--ease),box-shadow .2s var(--ease),background .2s var(--ease)}
+.cselect-btn:hover:not(:disabled){border-color:var(--line-2)}
+.cselect-btn:disabled{opacity:.5;cursor:not-allowed}
+.cselect.open .cselect-btn,.cselect-btn:focus-visible{border-color:var(--brand);box-shadow:0 0 0 2px rgba(34,184,160,.35);background:rgba(13,19,20,.82);outline:none}
+.cselect-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cselect-val.placeholder{color:var(--muted-soft)}
+.cselect .chev{flex:0 0 auto;width:20px;height:20px;color:var(--muted);transition:transform .25s var(--ease),color .25s var(--ease)}
+.cselect.open .chev{transform:rotate(180deg);color:var(--brand)}
+/* menu is moved to <body> and positioned fixed so it never clips inside overflow:hidden cards */
+.cselect-menu{margin:0;padding:6px;list-style:none;max-height:244px;overflow:auto;border:1px solid var(--line-2);border-radius:var(--radius-md);
+  background:linear-gradient(165deg,var(--surface-2),rgba(13,19,20,.98));box-shadow:var(--shadow);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);z-index:1000;animation:cselIn .16s var(--ease)}
+.cselect-menu[hidden]{display:none}
+@keyframes cselIn{from{opacity:0;transform:translateY(-6px)}}
+.copt{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;padding:10px 12px;border-radius:8px;color:var(--muted);font-size:.94rem;cursor:pointer;transition:background .15s var(--ease),color .15s var(--ease)}
+.copt:hover,.copt.active{background:rgba(34,184,160,.1);color:var(--light)}
+.copt[aria-selected="true"]{color:var(--brand);font-weight:600}
+.copt[aria-selected="true"]::after{content:"\2713";font-size:.85rem}
+.copt.empty{color:var(--muted-soft);cursor:default}
+.copt.empty:hover{background:none;color:var(--muted-soft)}
+</style>
+
+<!-- ─────────────── 2. MARKUP (hand-written) ─────────────── -->
+<!--
+<div class="field"><span id="mySel-lbl">Label</span>
+  <div class="cselect" id="mySel">
+    <button type="button" class="cselect-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="mySel-lbl">
+      <span class="cselect-val placeholder">Placeholder</span>
+      <svg class="icon chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <ul class="cselect-menu" role="listbox" aria-label="Label" hidden>
+      <li class="copt" role="option" data-value="a" aria-selected="false">Option A</li>
+      <li class="copt" role="option" data-value="b" aria-selected="false">Option B</li>
+    </ul>
+  </div>
+</div>
+
+  const sel = customSelect(document.getElementById('mySel'), {placeholder:'Placeholder', onChange:(v,label)=>{...}});
+  sel.value();                 // -> current value
+  sel.setOptions([{value,label},...]);  // replace options (also resets to placeholder)
+  sel.enable(true|false);      // enable/disable
+-->
+
+<!-- ─────────────── 3 + 4. JS ─────────────── -->
+<script>
+/* Accessible custom listbox. Keyboard: Enter/Space/↑/↓ open · ↑↓ Home End move · Enter pick · Esc close. */
+function customSelect(root,{onChange,placeholder='Select'}={}){
+  const btn=root.querySelector('.cselect-btn'),val=root.querySelector('.cselect-val'),menu=root.querySelector('.cselect-menu');
+  document.body.appendChild(menu);                     // pop out of clipping ancestors
+  let open=false,ai=-1;
+  const opts=()=>[...menu.querySelectorAll('.copt:not(.empty)')];
+  const idify=()=>opts().forEach((o,i)=>{if(!o.id)o.id=(root.id||'cs')+'-opt'+i;});
+  function place(){const r=btn.getBoundingClientRect();menu.style.position='fixed';menu.style.left=r.left+'px';menu.style.width=r.width+'px';
+    const mh=Math.min(menu.scrollHeight,244);
+    menu.style.top=(r.bottom+6+mh>innerHeight&&r.top-6-mh>0?r.top-6-mh:r.bottom+6)+'px';}
+  function setPlaceholder(text){val.textContent=text||placeholder;val.classList.add('placeholder');root.dataset.value='';}
+  function hi(){opts().forEach((o,i)=>o.classList.toggle('active',i===ai));const a=opts()[ai];if(a){menu.setAttribute('aria-activedescendant',a.id);a.scrollIntoView({block:'nearest'});}}
+  function openM(){if(btn.disabled||open)return;idify();open=true;menu.hidden=false;root.classList.add('open');btn.setAttribute('aria-expanded','true');place();
+    ai=opts().findIndex(o=>o.getAttribute('aria-selected')==='true');if(ai<0)ai=0;hi();
+    document.addEventListener('mousedown',outside,true);addEventListener('resize',place);addEventListener('scroll',place,true);}
+  function closeM(){if(!open)return;open=false;menu.hidden=true;root.classList.remove('open');btn.setAttribute('aria-expanded','false');
+    document.removeEventListener('mousedown',outside,true);removeEventListener('resize',place);removeEventListener('scroll',place,true);}
+  function outside(e){if(!menu.contains(e.target)&&!root.contains(e.target))closeM();}
+  function choose(o){opts().forEach(x=>x.setAttribute('aria-selected','false'));o.setAttribute('aria-selected','true');
+    root.dataset.value=o.dataset.value;val.textContent=o.textContent;val.classList.remove('placeholder');closeM();btn.focus();onChange&&onChange(o.dataset.value,o.textContent);}
+  btn.addEventListener('click',()=>open?closeM():openM());
+  btn.addEventListener('keydown',e=>{if(!open&&['ArrowDown','ArrowUp','Enter',' '].includes(e.key)){e.preventDefault();openM();}});
+  menu.addEventListener('click',e=>{const o=e.target.closest('.copt:not(.empty)');if(o)choose(o);});
+  addEventListener('keydown',e=>{if(!open)return;const l=opts();
+    if(e.key==='Escape'){e.preventDefault();closeM();btn.focus();}
+    else if(e.key==='ArrowDown'){e.preventDefault();ai=Math.min(l.length-1,ai+1);hi();}
+    else if(e.key==='ArrowUp'){e.preventDefault();ai=Math.max(0,ai-1);hi();}
+    else if(e.key==='Home'){e.preventDefault();ai=0;hi();}
+    else if(e.key==='End'){e.preventDefault();ai=l.length-1;hi();}
+    else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(l[ai])choose(l[ai]);}});
+  idify();
+  return {
+    setOptions(items){menu.innerHTML=items.length?items.map(it=>`<li class="copt" role="option" data-value="${it.value}" aria-selected="false">${it.label}</li>`).join(''):'<li class="copt empty" role="option" aria-disabled="true">No options</li>';idify();setPlaceholder();},
+    enable(on){btn.disabled=!on;if(!on)setPlaceholder(placeholder);},
+    value:()=>root.dataset.value||''
+  };
+}
+
+/* Drop-in upgrade: replace ANY native <select> with a custom one and keep the
+   native element hidden + in sync (so existing form logic keeps working).
+   Usage: document.querySelectorAll('select').forEach(upgradeSelect); */
+function upgradeSelect(nativeSel){
+  if(nativeSel.dataset.upgraded)return; nativeSel.dataset.upgraded='1';
+  const id=nativeSel.id||('sel'+Math.random().toString(36).slice(2,7));
+  const label=nativeSel.getAttribute('aria-label')||nativeSel.dataset.label||'Select';
+  const ph=nativeSel.dataset.placeholder||(nativeSel.querySelector('option[value=""]')?.textContent)||'Select';
+  const items=[...nativeSel.options].filter(o=>o.value!=='').map(o=>({value:o.value,label:o.textContent}));
+  const root=document.createElement('div'); root.className='cselect'; root.id=id+'-cs';
+  root.innerHTML=`<button type="button" class="cselect-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="${label}">
+      <span class="cselect-val placeholder">${ph}</span>
+      <svg class="icon chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    <ul class="cselect-menu" role="listbox" aria-label="${label}" hidden></ul>`;
+  nativeSel.style.display='none'; nativeSel.setAttribute('tabindex','-1'); nativeSel.setAttribute('aria-hidden','true');
+  nativeSel.parentNode.insertBefore(root,nativeSel.nextSibling);
+  const cs=customSelect(root,{placeholder:ph,onChange:v=>{nativeSel.value=v;nativeSel.dispatchEvent(new Event('change',{bubbles:true}));}});
+  cs.setOptions(items);
+  if(nativeSel.value){const o=[...root.parentNode.querySelectorAll(`#${root.id}-opt0`)];/* pre-select current */
+    const opt=[...document.querySelectorAll(`.copt[data-value="${CSS.escape(nativeSel.value)}"]`)][0];}
+  return cs;
+}
+</script>
+
+<!-- ─────────────── 5. DEPENDENT SELECTS (Year → Section) ─────────────── -->
+<!--
+  const sectionSel = customSelect(document.getElementById('ot-section'), {placeholder:'Select section'});
+  const SECTIONS = ['A','B','C','D'];            // sections per year (adjust as needed)
+  customSelect(document.getElementById('ot-year'), {placeholder:'Select year', onChange:(year)=>{
+    sectionSel.setOptions(SECTIONS.map(l => ({value:`BSCS ${year}-${l}`, label:`BSCS ${year}-${l}`})));
+    sectionSel.enable(true);
+  }});
+-->

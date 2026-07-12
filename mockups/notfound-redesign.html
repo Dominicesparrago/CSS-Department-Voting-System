@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS Voting — Page not found</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0A0E0F;--black-2:#0d1314;--teal-dark:#0F4C5C;--teal-600:#115E6E;--teal-glow:#1CABB8;--brand:#22B8A0;--teal-200:#3BD6B0;--tint-400:#A0EDE2;--tint-200:#D4F7F1;
+  --white:#FFFFFF;--light:#F4FCFB;--muted:rgba(234,250,247,.62);--muted-soft:rgba(234,250,247,.45);
+  --line:rgba(120,200,190,.12);--line-2:rgba(120,200,190,.22);
+  --grad-action:linear-gradient(118deg,var(--teal-glow),var(--brand) 60%,var(--teal-200));
+  --grad-ink:linear-gradient(100deg,var(--tint-200),var(--teal-glow) 42%,var(--brand) 72%,var(--teal-200));
+  --grad-mark:conic-gradient(from 140deg,var(--teal-200),var(--teal-glow),var(--teal-600),var(--brand),var(--teal-200));
+  --glow:0 0 40px rgba(34,184,160,.28);--glow-strong:0 0 64px rgba(34,184,160,.4);
+  --radius-md:14px;--pill:999px;--ease:cubic-bezier(.2,.7,.2,1);
+  --font:'Figtree','Segoe UI',Arial,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;color:var(--light);font-family:var(--font);font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased;
+  display:grid;justify-items:center;align-content:safe center;gap:8px;text-align:center;overflow:auto;
+  padding:max(28px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom));
+  background:radial-gradient(ellipse 70% 60% at 50% 38%,rgba(28,171,184,.16),transparent 70%),var(--black)}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:64px 64px;opacity:.4;-webkit-mask-image:radial-gradient(ellipse 90% 80% at 50% 30%,#000 10%,transparent 82%);mask-image:radial-gradient(ellipse 90% 80% at 50% 30%,#000 10%,transparent 82%)}
+#rain{position:fixed;inset:0;z-index:-1;width:100%;height:100%;opacity:.26;pointer-events:none;-webkit-mask-image:radial-gradient(ellipse 90% 90% at 50% 40%,#000 30%,transparent 92%);mask-image:radial-gradient(ellipse 90% 90% at 50% 40%,#000 30%,transparent 92%)}
+::selection{background:rgba(34,184,160,.3)}:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+a{color:inherit;text-decoration:none}svg{display:block}
+.mark{width:60px;height:60px;border-radius:16px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-family:var(--mono);font-weight:800;font-size:1.35rem;box-shadow:var(--glow-strong);margin-bottom:10px}
+.code{font-family:var(--font);font-weight:800;font-size:clamp(4.5rem,22vw,9rem);line-height:.9;letter-spacing:-.04em;
+  background:var(--grad-ink);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.eyebrow{font-family:var(--mono);font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--brand)}
+h1{font-size:clamp(1.5rem,5vw,2.1rem);font-weight:800;letter-spacing:-.03em;margin:6px 0 4px}
+p{color:var(--muted);max-width:46ch}
+.term{margin-top:6px;font-family:var(--mono);font-size:.74rem;color:var(--muted-soft);border:1px dashed var(--line-2);border-radius:var(--pill);padding:7px 16px;background:rgba(34,184,160,.05)}
+.term b{color:var(--tint-400)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:20px}
+.btn{position:relative;min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border:1px solid transparent;border-radius:var(--radius-md);font-family:var(--font);font-weight:600;font-size:.94rem;cursor:pointer;transition:transform .22s var(--ease),background .22s,border-color .22s,box-shadow .22s}
+.btn-primary{background:var(--brand);color:var(--black);box-shadow:var(--glow)}.btn-primary:hover{transform:translateY(-2px);background:var(--teal-200);box-shadow:var(--glow-strong)}
+.btn-ghost{color:var(--light);border-color:var(--line-2);background:rgba(255,255,255,.02)}.btn-ghost:hover{border-color:var(--brand);background:rgba(34,184,160,.1);transform:translateY(-2px)}
+.arr{transition:transform .25s var(--ease)}.btn:hover .arr{transform:translateX(4px)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}#rain{display:none}}
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+<a class="mark" href="console-redesign.html" aria-label="CSS Voting home">&gt;_</a>
+<div class="code">404</div>
+<span class="eyebrow">Page not found</span>
+<h1>This ballot box doesn’t exist.</h1>
+<p>The page you’re looking for was moved, removed, or never existed. Let’s get you back to somewhere that counts.</p>
+<div class="term">&gt; route <b>not found</b> — returning to a safe page</div>
+<div class="actions">
+  <a class="btn btn-primary" href="dashboard-redesign.html">Go to dashboard <span class="arr">→</span></a>
+  <a class="btn btn-ghost" href="console-redesign.html">Back to sign in</a>
+</div>
+<script>
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+(function(){if(reduce)return;const cv=document.getElementById('rain'),ctx=cv.getContext('2d');let W,H,cols,drops;const F=15;
+  function s(){W=cv.width=innerWidth;H=cv.height=innerHeight;cols=Math.ceil(W/F);drops=Array(cols).fill(0).map(()=>Math.random()*-H/F);}
+  s();addEventListener('resize',s);ctx.font=F+'px "JetBrains Mono",monospace';let last=0;
+  function f(t){if(t-last>66){last=t;ctx.fillStyle='rgba(10,14,15,.2)';ctx.fillRect(0,0,W,H);
+    for(let i=0;i<cols;i++){const ch=Math.random()<.5?'0':'1',x=i*F,y=drops[i]*F;ctx.fillStyle=Math.random()<.04?'#A0EDE2':'rgba(34,184,160,.45)';ctx.fillText(ch,x,y);if(y>H&&Math.random()>.975)drops[i]=0;else drops[i]++;}}
+    requestAnimationFrame(f);}requestAnimationFrame(f);})();
+</script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS Voting — Ballot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0A0E0F;--black-2:#0d1314;--teal-900:#0B2B3C;--teal-dark:#0F4C5C;--teal-600:#115E6E;
+  --teal-glow:#1CABB8;--brand:#22B8A0;--teal-300:#2DC4A2;--teal-200:#3BD6B0;--tint-400:#A0EDE2;--tint-200:#D4F7F1;
+  --white:#FFFFFF;--light:#F4FCFB;--muted:rgba(234,250,247,.62);--muted-soft:rgba(234,250,247,.45);
+  --line:rgba(120,200,190,.12);--line-2:rgba(120,200,190,.22);
+  --surface:rgba(18,30,32,.55);--surface-2:rgba(28,43,45,.55);--surface-3:rgba(40,58,60,.6);
+  --grad-action:linear-gradient(118deg,var(--teal-glow),var(--brand) 60%,var(--teal-200));
+  --grad-ink:linear-gradient(100deg,var(--tint-200),var(--teal-glow) 42%,var(--brand) 72%,var(--teal-200));
+  --grad-mark:conic-gradient(from 140deg,var(--teal-200),var(--teal-glow),var(--teal-600),var(--brand),var(--teal-200));
+  --glow:0 0 40px rgba(34,184,160,.28);--glow-strong:0 0 64px rgba(34,184,160,.45);--shadow:0 30px 80px rgba(0,0,0,.55);--shadow-soft:0 16px 44px rgba(0,0,0,.42);
+  --radius-sm:10px;--radius-md:14px;--radius-lg:18px;--radius-xl:24px;--pill:999px;
+  --ease:cubic-bezier(.2,.7,.2,1);--font:'Figtree','Segoe UI',Arial,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;--maxw:1280px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{min-height:100vh;color:var(--light);font-family:var(--font);font-weight:300;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(ellipse 60% 50% at 6% -8%,rgba(28,171,184,.18),transparent 62%),
+    radial-gradient(ellipse 54% 48% at 106% 2%,rgba(34,184,160,.14),transparent 60%),
+    radial-gradient(ellipse 84% 66% at 50% 116%,rgba(15,76,92,.28),transparent 64%),var(--black)}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;opacity:.4;-webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 8%,transparent 78%);mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 8%,transparent 78%)}
+/* kept subtle and concentrated near the very top so it never competes with candidate
+   photos/platform copy while scrolling the ballot (audit: rain vs. readability) */
+#rain{position:fixed;inset:0;z-index:-1;width:100%;height:100%;opacity:.12;pointer-events:none;
+  -webkit-mask-image:radial-gradient(ellipse 70% 40% at 50% 6%,#000 0%,transparent 55%);mask-image:radial-gradient(ellipse 70% 40% at 50% 6%,#000 0%,transparent 55%)}
+::selection{background:rgba(34,184,160,.3);color:var(--white)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+a{color:inherit;text-decoration:none}
+svg{display:block}.icon{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 18px}
+@media(min-width:720px){.wrap{padding:0 40px}}
+.grad{background:var(--grad-ink);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--brand);font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.eyebrow::before{content:"";width:16px;height:2px;border-radius:99px;background:var(--grad-action)}
+
+/* nav */
+.nav{position:relative;z-index:40;background:rgba(10,14,15,.72);border-bottom:1px solid var(--line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px}
+@media(min-width:720px){.nav-in{padding:12px 40px}}
+.brand{display:flex;align-items:center;gap:11px}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--grad-mark);box-shadow:var(--glow);display:grid;place-items:center;color:var(--black);font-weight:800;font-family:var(--mono);font-size:.78rem;flex:0 0 auto}
+.brand b{font-weight:800;font-size:.98rem;letter-spacing:-.02em;display:block;line-height:1.1}
+.brand small{color:var(--muted-soft);font-size:.64rem}
+.btn{position:relative;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 20px;border:1px solid transparent;border-radius:var(--radius-md);font-family:var(--font);font-weight:600;font-size:.92rem;cursor:pointer;overflow:hidden;transition:transform .22s var(--ease),box-shadow .22s var(--ease),background .22s var(--ease),border-color .22s var(--ease)}
+.btn-primary{background:var(--brand);color:var(--black);box-shadow:var(--glow)}
+.btn-primary:hover:not(:disabled){transform:translateY(-2px);background:var(--teal-200);box-shadow:var(--glow-strong)}
+.btn-ghost{color:var(--light);border-color:var(--line-2);background:rgba(255,255,255,.02)}
+.btn-ghost:hover:not(:disabled){border-color:var(--brand);background:rgba(34,184,160,.1);transform:translateY(-2px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.btn-sm{min-height:40px;padding:8px 14px;font-size:.82rem}
+.arr{transition:transform .25s var(--ease)}.btn:hover .arr{transform:translateX(4px)}
+
+.page{padding:24px 0 120px}
+@media(max-width:719px){.page{padding-bottom:calc(108px + env(safe-area-inset-bottom))}}
+
+/* ===== intro as NAMED SECTIONS (no cards) ===== */
+.intro{display:grid;gap:8px;padding-bottom:26px;border-bottom:1px solid var(--line)}
+.intro h1{font-size:clamp(1.7rem,5vw,2.6rem);font-weight:800;letter-spacing:-.03em;margin:8px 0 2px}
+.intro p{color:var(--muted);max-width:64ch}
+.facts{display:grid;grid-template-columns:repeat(2,1fr);margin-top:18px}
+.fact{padding:14px 12px}
+@media(max-width:679px){.fact:nth-child(odd){padding-left:0}.fact:nth-child(even){padding-left:22px;border-left:1px solid var(--line)}.fact:nth-child(n+3){border-top:1px solid var(--line)}}
+@media(min-width:680px){.facts{grid-template-columns:repeat(4,1fr)}.fact{padding:6px 22px;border-left:1px solid var(--line)}.fact:first-child{padding-left:0;border-left:0}}
+.fact dt{color:var(--muted-soft);font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase}
+.fact dd{margin-top:5px;font-weight:600;font-size:1.02rem}
+.fact dd.ok{color:var(--teal-200)}
+
+.section-label{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:30px 0 4px}
+.section-label .eyebrow{margin:0}
+.section-label small{font-family:var(--mono);font-size:.66rem;color:var(--muted)}
+
+/* ===== two-pane: rail + races ===== */
+.layout{display:grid;gap:18px;grid-template-columns:1fr;margin-top:18px}
+@media(min-width:960px){.layout{grid-template-columns:236px 1fr;gap:40px;align-items:start}}
+.rail{display:none}
+@media(min-width:960px){.rail{display:grid;position:sticky;top:84px;gap:2px;max-height:calc(100vh - 110px);overflow:auto;padding-right:6px}}
+.rail .rh{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-soft);padding:2px 6px 10px}
+.rail a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:.85rem;color:var(--muted);transition:.18s var(--ease);cursor:pointer}
+.rail a:hover{background:rgba(34,184,160,.07);color:var(--light)}
+.rail a.on{background:rgba(34,184,160,.1);color:var(--light)}
+.rail a .st{flex:0 0 auto;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--line-2);transition:.2s var(--ease)}
+.rail a.done .st{background:var(--brand);border-color:var(--brand);box-shadow:0 0 8px var(--brand)}
+
+/* ===== race = named section (no card) ===== */
+.races{display:grid;gap:8px}
+.race{padding:26px 0;border-top:1px solid var(--line);scroll-margin-top:90px}
+.race:first-child{border-top:0}
+.race-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.race-top .rl{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.race-top h2{font-size:1.4rem;font-weight:800;letter-spacing:-.02em}
+.race-top .ix{font-family:var(--mono);font-size:.7rem;color:var(--brand)}
+.race-status{font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:inline-flex;align-items:center;gap:7px}
+.race-status .d{width:8px;height:8px;border-radius:50%;background:var(--line-2)}
+.race.done .race-status{color:var(--brand)}.race.done .race-status .d{background:var(--brand);box-shadow:0 0 8px var(--brand)}
+.race-hint{color:var(--muted-soft);font-size:.86rem;margin-bottom:18px}
+
+/* candidates: vertical stacked, NO card */
+.cands{display:grid;gap:0}
+@media(min-width:760px){.cands{grid-template-columns:repeat(2,1fr);gap:0 36px}}
+.cand{position:relative;display:grid;gap:10px;padding:22px 14px 22px 18px;border-top:1px solid var(--line);cursor:pointer;transition:padding .2s var(--ease),background .2s var(--ease)}
+.cand:hover{background:rgba(34,184,160,.04)}
+.cand::before{content:"";position:absolute;left:0;top:22px;bottom:22px;width:3px;border-radius:99px;background:transparent;transition:.25s var(--ease)}
+.cand.sel::before{background:var(--brand);box-shadow:0 0 14px rgba(34,184,160,.6)}
+/* full-width square candidate image (real <img> gets object-fit:cover on implementation) */
+.cand .photo{width:100%;aspect-ratio:1/1;border-radius:20px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-weight:800;font-size:clamp(2.6rem,14vw,4.5rem);box-shadow:var(--shadow-soft);overflow:hidden}
+.cand .photo img{width:100%;height:100%;object-fit:cover;display:block}
+.cand .nm{font-size:1.18rem;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;margin-top:6px}
+.cand .dept{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--brand);text-align:center}
+.cand .plat-lbl,.cand .det-lbl{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-soft);margin-top:4px}
+.cand .plat{color:var(--muted);font-size:.94rem;max-width:60ch}
+.cand .dets{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+.cand .dets span{font-size:.76rem;color:var(--muted);border:1px solid var(--line-2);border-radius:var(--pill);padding:3px 11px}
+.cand .pick{display:inline-flex;align-items:center;gap:9px;margin-top:6px;font-family:var(--font);font-weight:600;font-size:.85rem;color:var(--muted)}
+.cand .radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--line-2);display:grid;place-items:center;transition:.2s var(--ease)}
+.cand .radio::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--brand);transform:scale(0);transition:transform .25s var(--ease)}
+.cand.sel .radio{border-color:var(--brand)}
+.cand.sel .radio::after{transform:scale(1)}
+.cand.sel .pick{color:var(--brand)}
+.cand .badge-sel{position:absolute;top:22px;right:14px;display:none;align-items:center;gap:6px;padding:4px 11px;border-radius:var(--pill);background:var(--brand);color:var(--black);font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.cand.sel .badge-sel{display:inline-flex;animation:pop .3s var(--ease)}
+@keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.viewmore{justify-self:start;margin-top:2px;font-family:var(--mono);font-size:.72rem;color:var(--tint-400);border:1px solid var(--line-2);border-radius:var(--pill);padding:5px 12px;background:rgba(34,184,160,.06);cursor:pointer;transition:.18s var(--ease)}
+.viewmore:hover{border-color:var(--brand);background:rgba(34,184,160,.14)}
+
+/* ===== end-of-ballot actions ===== */
+.ballot-end{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px;padding-top:24px;border-top:1px solid var(--line)}
+.ballot-end .btn{flex:1;min-width:150px}
+@media(min-width:560px){.ballot-end{justify-content:space-between}.ballot-end .btn{flex:0 0 auto;min-width:180px}}
+.ballot-end .btn-primary:disabled::after{content:none}
+
+/* ===== circular FAB progress ===== */
+.fab{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:55;width:74px;height:74px;border-radius:50%;border:0;cursor:pointer;padding:0;
+  background:conic-gradient(var(--brand) calc(var(--p,0)*1%),rgba(120,200,190,.18) 0);display:grid;place-items:center;
+  box-shadow:0 12px 34px rgba(0,0,0,.5);transition:transform .25s var(--ease),box-shadow .3s var(--ease)}
+@media(min-width:720px){.fab{right:max(32px,env(safe-area-inset-right));bottom:max(32px,env(safe-area-inset-bottom));width:84px;height:84px}}
+body.no-scroll{overflow:hidden}
+.fab:hover{transform:translateY(-3px) scale(1.04)}
+.fab .inner{width:60px;height:60px;border-radius:50%;background:var(--black-2);display:grid;place-items:center;text-align:center;line-height:1.05;transition:background .35s var(--ease),color .35s var(--ease)}
+@media(min-width:720px){.fab .inner{width:68px;height:68px}}
+.fab .pct{font-family:var(--font);font-weight:800;font-size:1.05rem;color:var(--light)}
+.fab .lbl{font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fab.ready{background:var(--brand);box-shadow:var(--glow-strong);animation:fabpulse 2s var(--ease) infinite}
+.fab.ready .inner{background:var(--brand);color:var(--black)}
+.fab.ready .pct,.fab.ready .lbl{color:var(--black)}
+@keyframes fabpulse{0%,100%{box-shadow:0 0 0 0 rgba(34,184,160,.5)}50%{box-shadow:0 0 0 14px rgba(34,184,160,0)}}
+.fab-tip{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:calc(100px + env(safe-area-inset-bottom));z-index:55;max-width:220px;padding:10px 14px;border:1px solid var(--line-2);border-radius:var(--radius-md);background:rgba(10,14,15,.92);color:var(--muted);font-size:.78rem;box-shadow:var(--shadow-soft);opacity:0;transform:translateY(8px);pointer-events:none;transition:.25s var(--ease)}
+@media(min-width:720px){.fab-tip{right:max(32px,env(safe-area-inset-right));bottom:calc(128px + env(safe-area-inset-bottom))}}
+.fab-tip.show{opacity:1;transform:none}
+
+/* ===== mobile: bottom sticky progress/review bar (replaces the floating FAB so it never
+   covers candidate photos/cards on small screens — audit item: mobile progress overlap) ===== */
+@media(max-width:719px){
+  .fab{display:none}
+  .fab-tip{left:14px;right:14px;max-width:none;text-align:center;bottom:calc(86px + env(safe-area-inset-bottom))}
+}
+.mobile-bar{display:none}
+@media(max-width:719px){
+  .mobile-bar{display:flex;align-items:center;gap:12px;width:100%;position:fixed;left:0;right:0;bottom:0;z-index:56;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--line-2);
+    background:rgba(10,14,15,.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    box-shadow:0 -12px 30px rgba(0,0,0,.45);cursor:pointer;text-align:left;font-family:var(--font);color:var(--light)}
+}
+.mobile-bar .mp-ring{--p:0;position:relative;flex:0 0 auto;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--brand) calc(var(--p,0)*1%),rgba(120,200,190,.18) 0);transition:background .3s var(--ease)}
+.mobile-bar .mp-ring::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--black-2)}
+.mobile-bar .mp-pct{position:relative;z-index:1;font-weight:800;font-size:.68rem}
+.mobile-bar .mp-text{flex:1;min-width:0}
+.mobile-bar .mp-count{font-weight:700;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mobile-bar .mp-hint{color:var(--muted);font-size:.72rem;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mobile-bar .mp-cta{flex:0 0 auto;display:flex;align-items:center;gap:4px;font-weight:700;font-size:.86rem;color:var(--brand)}
+.mobile-bar.ready{border-top-color:var(--brand)}
+.mobile-bar.ready .mp-ring{box-shadow:var(--glow)}
+.mobile-bar.ready .mp-ring::before{background:var(--brand)}
+.mobile-bar.ready .mp-pct{color:var(--black)}
+
+/* ===== review sheet ===== */
+.sheet{position:fixed;inset:0;z-index:70;display:none;background:rgba(5,8,9,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.sheet.open{display:grid;place-items:end center;animation:fade .2s ease-out}
+@media(min-width:720px){.sheet.open{place-items:center}}
+@keyframes fade{from{opacity:0}}
+.sheet-panel{position:relative;width:100%;max-width:760px;max-height:92vh;overflow:auto;border:1px solid var(--line-2);border-top-left-radius:var(--radius-xl);border-top-right-radius:var(--radius-xl);
+  background:linear-gradient(165deg,var(--surface-2),rgba(13,19,20,.96));box-shadow:var(--shadow);animation:slideup .3s var(--ease)}
+@media(min-width:720px){.sheet-panel{border-radius:var(--radius-xl)}}
+.sheet-panel::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--grad-action)}
+@keyframes slideup{from{transform:translateY(40px);opacity:0}}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:24px 22px 0}
+.sheet-head h2{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.sheet-head p{color:var(--muted);font-size:.9rem;margin-top:4px}
+.sclose{flex:0 0 auto;width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:999px;background:rgba(10,14,15,.7);color:var(--light);font-size:1.1rem;cursor:pointer;transition:.18s var(--ease)}
+.sclose:hover{border-color:var(--brand);background:rgba(34,184,160,.16);transform:rotate(90deg)}
+.warn{margin:16px 22px;padding:11px 15px;border-radius:var(--radius-sm);border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.08);color:#f5c451;font-weight:500;font-size:.86rem}
+.rlist{display:grid;gap:0;padding:0 22px}
+.ritem{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.ritem .who{display:flex;align-items:center;gap:12px}
+.ritem .av{width:40px;height:40px;border-radius:10px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-weight:800;font-size:.85rem;flex:0 0 auto}
+.ritem .pos{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ritem .nm{font-weight:600}
+.ritem button{font-family:var(--mono);font-size:.7rem;color:var(--tint-400);background:none;border:1px solid var(--line-2);border-radius:var(--pill);padding:5px 12px;cursor:pointer;transition:.18s var(--ease)}
+.ritem button:hover{border-color:var(--brand);background:rgba(34,184,160,.1)}
+.sheet-actions{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;padding:18px 22px calc(18px + env(safe-area-inset-bottom));margin-top:8px;background:linear-gradient(0deg,rgba(13,19,20,.98),rgba(13,19,20,.86));border-top:1px solid var(--line)}
+.sheet-actions .btn{flex:1;min-width:160px}
+
+/* modal (candidate detail) */
+.backdrop{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:16px;background:rgba(5,8,9,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.backdrop.open{display:grid;animation:fade .18s ease-out}
+.modal{position:relative;width:min(100%,520px);max-height:90vh;overflow:auto;border:1px solid var(--line-2);border-radius:var(--radius-lg);background:linear-gradient(165deg,var(--surface-2),rgba(13,19,20,.96));box-shadow:var(--shadow);animation:slideup .24s var(--ease)}
+.modal::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--grad-action)}
+.mclose{position:absolute;top:12px;right:12px;width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:999px;background:rgba(10,14,15,.7);color:var(--light);font-size:1.1rem;cursor:pointer;transition:.18s var(--ease);z-index:2}
+.mclose:hover{border-color:var(--brand);background:rgba(34,184,160,.16);transform:rotate(90deg)}
+.mhero{display:grid;gap:12px;padding:28px 24px 0;text-align:center}
+.mhero .av{width:116px;height:116px;margin:0 auto;border-radius:24px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-weight:800;font-size:2.3rem;box-shadow:var(--glow)}
+.mhero h2{font-size:1.5rem;font-weight:800}
+.mpos{color:var(--brand);font-family:var(--mono);font-size:.74rem;letter-spacing:.06em}
+.mbody{display:grid;gap:16px;padding:20px 24px 26px}
+.mfield h3{color:var(--muted-soft);font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
+.mfield p{color:var(--light)}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}#rain{display:none}}
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+
+<nav class="nav">
+  <div class="nav-in">
+    <a class="brand" href="console-redesign.html"><span class="mark">&gt;_</span><span><b>CSS Voting</b><small>Ballot · 2026</small></span></a>
+    <button class="btn btn-ghost btn-sm">Sign out</button>
+  </div>
+</nav>
+
+<main class="page">
+  <div class="wrap">
+    <!-- intro: NAMED SECTIONS, no cards -->
+    <section class="intro">
+      <span class="eyebrow">Verified voter</span>
+      <h1>Welcome, <span class="grad">Juan Dela Cruz</span></h1>
+      <p>Your ballot covers 16 department positions plus your year representative — 17 races in all. Make a selection in every race, then open the progress button to review and submit.</p>
+      <dl class="facts">
+        <div class="fact"><dt>Student ID</dt><dd>2024-00917</dd></div>
+        <div class="fact"><dt>Year level</dt><dd>1st Year</dd></div>
+        <div class="fact"><dt>Section</dt><dd>BSCS-1A</dd></div>
+        <div class="fact"><dt>Status</dt><dd class="ok">Not yet voted</dd></div>
+      </dl>
+    </section>
+
+    <div class="section-label">
+      <span class="eyebrow">Your ballot</span>
+      <small id="liveCount">0 / 5 races selected</small>
+    </div>
+
+    <div class="layout">
+      <nav class="rail" id="rail"><div class="rh">// ballot map</div></nav>
+      <div class="races" id="races"></div>
+    </div>
+
+    <!-- end-of-ballot actions -->
+    <div class="ballot-end">
+      <button class="btn btn-ghost" id="backTop">← Back to top</button>
+      <button class="btn btn-primary" id="reviewEnd" disabled>Review ballot <span class="arr">→</span></button>
+    </div>
+  </div>
+</main>
+
+<!-- circular FAB (desktop/tablet only — see .mobile-bar for small screens) -->
+<button class="fab" id="fab" aria-label="Voting progress: 0 percent. Select all races to review.">
+  <span class="inner"><span><span class="pct" id="fabPct">0%</span><br><span class="lbl" id="fabLbl">Progress</span></span></span>
+</button>
+<div class="fab-tip" id="fabTip"></div>
+
+<!-- mobile sticky progress/review bar (never overlaps candidate content) -->
+<button class="mobile-bar" id="mobileBar" aria-label="Voting progress: 0 percent. Select all races to review.">
+  <span class="mp-ring" id="mpRing"><span class="mp-pct" id="mpPct">0%</span></span>
+  <span class="mp-text">
+    <span class="mp-count" id="mpCount">0 / 17 selected</span>
+    <span class="mp-hint" id="mpHint">Tap to jump to the next race</span>
+  </span>
+  <span class="mp-cta" id="mpCta">Next <span class="arr">→</span></span>
+</button>
+
+<!-- review sheet -->
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Review your ballot">
+  <div class="sheet-panel">
+    <div class="sheet-head">
+      <div><h2>Review your ballot</h2><p>Check every selection. Submitting is final and counted exactly once.</p></div>
+      <button class="sclose" id="sheetClose" aria-label="Back to ballot">✕</button>
+    </div>
+    <div class="warn">⚠ Once submitted you cannot change your ballot.</div>
+    <div class="rlist" id="rlist"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="backBtn">← Back to change</button>
+      <a class="btn btn-primary" href="loading-states.html?screen=success">Submit final vote <span class="arr">→</span></a>
+    </div>
+  </div>
+</div>
+
+<!-- candidate detail modal -->
+<div class="backdrop" id="backdrop">
+  <div class="modal">
+    <button class="mclose" id="modalClose" aria-label="Close">✕</button>
+    <div class="mhero"><div class="av" id="mAv">A</div><h2 id="mName"></h2><p class="mpos" id="mPos"></p></div>
+    <div class="mbody">
+      <div class="mfield"><h3>Platform</h3><p id="mPlat"></p></div>
+      <div class="mfield"><h3>Details</h3><p id="mDet"></p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Full ballot scope: 16 department-wide positions + this voter's own year representative = 17 races,
+   matching the "17 races in all" copy above. (A voter only ever sees their own year's rep race —
+   the other three year-rep races exist only in the published results, not on any single ballot.) */
+const RACES=[
+  {id:'president',title:'President',cands:[
+    {n:'Andrea Santos',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4A',extra:'Dean’s lister · former Events Cmte head',plat:'Stronger student-led tech workshops, transparent budget reports each semester, and a department-wide mentorship program pairing seniors with first-years.'},
+    {n:'Marco Reyes',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3B',extra:'Hackathon organizer · ICT volunteer',plat:'Hackathons every quarter, a shared repository of past projects, and faster turnaround on student concerns.'}]},
+  {id:'vpi',title:'VP — Internal',cands:[
+    {n:'Bea Lim',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3A',extra:'Secretary, 2025 council',plat:'Better internal communication, organized committee handovers, and a clear calendar of department events.'},
+    {n:'Karl Uy',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4B',extra:'Research Cmte member',plat:'Streamlined officer workflows and monthly open forums for every year level.'}]},
+  {id:'vpe',title:'VP — External',cands:[
+    {n:'Kevin Santiago',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2A',extra:'Industry liaison volunteer',plat:'Stronger ties with tech companies for OJT placements, more guest-speaker sessions, and an easier process for external partnerships.'},
+    {n:'Faith Navarro',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3B',extra:'Alumni relations volunteer',plat:'An active alumni network for mentorship and referrals, plus wider sponsorships for department events.'}]},
+  {id:'secretary',title:'Secretary',cands:[
+    {n:'Joana Cruz',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2A',extra:'Class mayor',plat:'Digitized minutes, public meeting archives, and reminders before every deadline.'},
+    {n:'Liza Tan',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4A',extra:'Documentation lead',plat:'Accurate records and a searchable document hub for all members.'}]},
+  {id:'treasurer',title:'Treasurer',cands:[
+    {n:'Paolo Diaz',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3A',extra:'Finance volunteer',plat:'Open-book finances published online and student-approved spending for major events.'},
+    {n:'Nina Gomez',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2B',extra:'Merch team',plat:'Affordable merch, fair fund allocation, and quarterly audits.'}]},
+  {id:'auditor',title:'Auditor',cands:[
+    {n:'Carlo Espina',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4B',extra:'Former budget committee member',plat:'Independent monthly financial reviews, clear reimbursement timelines, and a public expense summary each semester.'},
+    {n:'Grace Mendez',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2B',extra:'Accounting society member',plat:'Simple, student-readable expense trackers and faster turnaround on audit requests.'}]},
+  {id:'pro',title:'P.R.O',cands:[
+    {n:'Miguel Torres',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3A',extra:'Social media volunteer',plat:'Consistent announcement schedules, faster responses to student questions, and a clearer feedback channel.'},
+    {n:'Samantha Reyes',dept:'BS Computer Science',yr:'1st Year',sec:'BSCS-1B',extra:'Orientation committee',plat:'Friendlier onboarding content for new students and a weekly digest of department news.'}]},
+  {id:'bizmgr',title:'Business Manager Committee',cands:[
+    {n:'Julius Aquino',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4A',extra:'Merch coordinator, 2025',plat:'Transparent vendor sourcing, better merch deals, and sponsorship outreach for bigger event budgets.'},
+    {n:'Patricia Lim',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2A',extra:'Fundraising volunteer',plat:'Fair pricing on uniforms and merchandise, and clear records of every fund request.'}]},
+  {id:'academic',title:'Academic Committee Chair',cands:[
+    {n:'Ella Marquez',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3B',extra:'Peer tutor',plat:'Regular peer-tutoring hours, review sessions before major exams, and a shared archive of study materials.'},
+    {n:'Noel Castillo',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4B',extra:'Academic council rep',plat:'Study groups matched by subject and an easy-to-find calendar of faculty office hours.'}]},
+  {id:'research',title:'Research Committee Chair',cands:[
+    {n:'Renz Villaraza',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3A',extra:'Research assistant',plat:'Research mentorship pairings, regular journal clubs, and access to past thesis and capstone archives.'},
+    {n:'Angela Cortez',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2B',extra:'Data science club member',plat:'Beginner-friendly research bootcamps and pairing new researchers with seniors.'}]},
+  {id:'ict',title:'ICT Committee Chair',cands:[
+    {n:'Rey Villar',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3A',extra:'Lab assistant',plat:'Faster lab equipment requests, shared cloud resources for class projects, and a proper tech support ticketing system.'},
+    {n:'Mia Chua',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2B',extra:'Open-source contributor',plat:'Regular open-source and dev-tool workshops, plus quicker turnaround on lab issue tickets.'}]},
+  {id:'events',title:'Events Committee Chair',cands:[
+    {n:'Sam Ong',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4A',extra:'Former events volunteer',plat:'More hands-on hackathons, inter-year mixers, and transparent event budgeting shared with students.'},
+    {n:'Toni Bautista',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3B',extra:'Logistics volunteer',plat:'A bigger acquaintance-party budget, earlier event calendars, and post-event feedback surveys.'}]},
+  {id:'sports',title:'Sports Committee Chair',cands:[
+    {n:'Josh Manalo',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3A',extra:'Varsity player',plat:'Regular intramurals, better access to sports gear, and inter-section sports nights every semester.'},
+    {n:'Kim Alonzo',dept:'BS Computer Science',yr:'1st Year',sec:'BSCS-1A',extra:'Badminton club member',plat:'More inclusive, non-varsity sports events and an easier sign-up process for everyone.'}]},
+  {id:'environmental',title:'Environmental Committee Chair',cands:[
+    {n:'Faye Cabrera',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4A',extra:'Eco-club officer',plat:'A department-wide paperless push, e-waste recycling bins, and regular tree-planting drives.'},
+    {n:'Vince Ramirez',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2B',extra:'Sustainability volunteer',plat:'Campus clean-up days and a plastic-reduction policy for department events.'}]},
+  {id:'membership',title:'Membership Committee Chair',cands:[
+    {n:'Aaron Domingo',dept:'BS Computer Science',yr:'3rd Year',sec:'BSCS-3B',extra:'Membership drive volunteer',plat:'Simplified membership renewal, welcome kits for new members, and clearer perks for active members.'},
+    {n:'Cristine Delos Santos',dept:'BS Computer Science',yr:'1st Year',sec:'BSCS-1B',extra:'Freshman council liaison',plat:'Easier onboarding for freshmen and a buddy system pairing new members with mentors.'}]},
+  {id:'community',title:'Community Committee Chair',cands:[
+    {n:'Paulo Serrano',dept:'BS Computer Science',yr:'4th Year',sec:'BSCS-4B',extra:'Outreach volunteer',plat:'Outreach programs with local schools and free coding workshops for the community.'},
+    {n:'Anna Villamor',dept:'BS Computer Science',yr:'2nd Year',sec:'BSCS-2A',extra:'Volunteer coordinator',plat:'Stronger partnerships with barangay youth programs and a proper volunteer tracking system.'}]},
+  {id:'rep1',title:'1st Year Representative',cands:[
+    {n:'Iris Flores',dept:'BS Computer Science',yr:'1st Year',sec:'BSCS-1A',extra:'Orientation buddy',plat:'A voice for first-years: orientation buddies, study groups, and clear answers to newbie questions.'},
+    {n:'Dan Ramos',dept:'BS Computer Science',yr:'1st Year',sec:'BSCS-1B',extra:'Peer tutor',plat:'Peer tutoring and a welcoming first-year community.'}]},
+];
+const state={};
+const initials=n=>n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+/* build rail + races */
+const rail=document.getElementById('rail'),races=document.getElementById('races');
+RACES.forEach((r,ri)=>{
+  const a=document.createElement('a');a.dataset.target=r.id;a.innerHTML=`<span class="st"></span> ${r.title}`;
+  a.onclick=()=>document.getElementById('race-'+r.id).scrollIntoView({behavior:'smooth',block:'start'});
+  rail.appendChild(a);
+
+  const sec=document.createElement('section');sec.className='race';sec.id='race-'+r.id;
+  sec.innerHTML=`
+    <div class="race-top">
+      <div class="rl"><span class="ix">${String(ri+1).padStart(2,'0')}</span><h2>${r.title}</h2></div>
+      <span class="race-status"><span class="d"></span><span class="stt">Choose one</span></span>
+    </div>
+    <p class="race-hint">Select one candidate. Tap “view details” for full platform.</p>
+    <div class="cands" role="radiogroup" aria-label="${r.title} candidates">${r.cands.map((c,i)=>`
+      <div class="cand" data-race="${r.id}" data-i="${i}" role="radio" aria-checked="false" tabindex="0">
+        <span class="badge-sel">✓ Selected</span>
+        <div class="photo">${initials(c.n)}</div>
+        <div class="nm">${c.n}</div>
+        <div class="dept">${c.dept}</div>
+        <div><div class="plat-lbl">Platform</div><div class="plat">${c.plat}</div></div>
+        <div><div class="det-lbl">Other details</div><div class="dets"><span>${c.yr}</span><span>${c.sec}</span><span>${c.extra}</span></div></div>
+        <button class="viewmore" data-view="${r.id}:${i}">view details ▸</button>
+        <span class="pick"><span class="radio"></span><span class="pick-txt">Select ${c.n.split(' ')[0]}</span></span>
+      </div>`).join('')}</div>`;
+  races.appendChild(sec);
+});
+
+/* selection */
+function pick(cand){
+  const {race,i}=cand.dataset;state[race]=+i;
+  const sec=document.getElementById('race-'+race);
+  sec.querySelectorAll('.cand').forEach(x=>{const on=x===cand;x.classList.toggle('sel',on);x.setAttribute('aria-checked',on);
+    x.querySelector('.pick-txt').textContent=on?'Selected':('Select '+RACES.find(r=>r.id===race).cands[+x.dataset.i].n.split(' ')[0]);});
+  sec.classList.add('done');sec.querySelector('.stt').textContent='Selected';
+  update();
+}
+document.querySelectorAll('.cand').forEach(c=>{
+  c.addEventListener('click',e=>{if(e.target.closest('[data-view]'))return;pick(c);});
+  c.addEventListener('keydown',e=>{
+    if(e.key===' '||e.key==='Enter'){e.preventDefault();pick(c);return;}
+    /* standard radiogroup roving: arrow keys move focus AND select within the same race */
+    if(['ArrowDown','ArrowRight','ArrowUp','ArrowLeft'].includes(e.key)){
+      e.preventDefault();
+      const group=[...c.parentElement.querySelectorAll('.cand')];
+      const i=group.indexOf(c);
+      const next=(e.key==='ArrowDown'||e.key==='ArrowRight')?group[(i+1)%group.length]:group[(i-1+group.length)%group.length];
+      next.focus();pick(next);
+    }
+  });
+});
+
+/* FAB progress (desktop) + mobile sticky bar — same state, two presentations */
+const fab=document.getElementById('fab'),fabPct=document.getElementById('fabPct'),fabLbl=document.getElementById('fabLbl'),fabTip=document.getElementById('fabTip');
+const mobileBar=document.getElementById('mobileBar'),mpRing=document.getElementById('mpRing'),mpPct=document.getElementById('mpPct'),
+      mpCount=document.getElementById('mpCount'),mpHint=document.getElementById('mpHint'),mpCta=document.getElementById('mpCta');
+function update(){
+  const total=RACES.length,done=Object.keys(state).length,pct=Math.round(done/total*100);
+  fab.style.setProperty('--p',pct);mpRing.style.setProperty('--p',pct);
+  document.getElementById('liveCount').textContent=`${done} / ${total} races selected`;
+  RACES.forEach(r=>document.querySelector(`.rail a[data-target="${r.id}"]`)?.classList.toggle('done',state[r.id]!=null));
+  const ready=done===total,left=total-done;
+  fab.classList.toggle('ready',ready);mobileBar.classList.toggle('ready',ready);
+  fabPct.textContent=ready?'✓':pct+'%';mpPct.textContent=ready?'✓':pct+'%';
+  fabLbl.textContent=ready?'Review':'Progress';
+  mpCount.textContent=ready?'Ballot complete':`${done} / ${total} selected`;
+  mpHint.textContent=ready?'Tap to review & submit':`${left} race${left===1?'':'s'} left`;
+  mpCta.innerHTML=ready?'Review <span class="arr">→</span>':'Next <span class="arr">→</span>';
+  const label=ready?'Ballot complete. Tap to review and submit.':`Voting progress: ${pct} percent. ${left} races left.`;
+  fab.setAttribute('aria-label',label);mobileBar.setAttribute('aria-label',label);
+  const rvEnd=document.getElementById('reviewEnd');
+  rvEnd.disabled=!ready;
+  rvEnd.innerHTML=ready?'Review ballot <span class="arr">→</span>':`${left} race${left===1?'':'s'} left`;
+}
+document.getElementById('backTop').addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+document.getElementById('reviewEnd').addEventListener('click',()=>{if(Object.keys(state).length===RACES.length)openSheet();});
+function firstEmpty(){return RACES.find(r=>state[r.id]==null);}
+function progressTap(){
+  if(Object.keys(state).length===RACES.length){openSheet();return;}
+  const e=firstEmpty();
+  if(e){document.getElementById('race-'+e.id).scrollIntoView({behavior:'smooth',block:'start'});
+    showTip(`${RACES.length-Object.keys(state).length} race(s) left — jumped to “${e.title}”.`);}
+}
+fab.addEventListener('click',progressTap);
+mobileBar.addEventListener('click',progressTap);
+let tipT;function showTip(msg){fabTip.textContent=msg;fabTip.classList.add('show');clearTimeout(tipT);tipT=setTimeout(()=>fabTip.classList.remove('show'),2600);}
+
+/* review sheet */
+const sheet=document.getElementById('sheet');
+function openSheet(){
+  document.getElementById('rlist').innerHTML=RACES.map(r=>{const c=r.cands[state[r.id]];
+    return `<div class="ritem"><div class="who"><span class="av">${initials(c.n)}</span><div><div class="pos">${r.title}</div><div class="nm">${c.n}</div></div></div>
+      <button data-jump="${r.id}">change</button></div>`;}).join('');
+  sheet.classList.add('open');document.body.classList.add('no-scroll');
+}
+function closeSheet(){sheet.classList.remove('open');document.body.classList.remove('no-scroll');}
+document.getElementById('sheetClose').onclick=closeSheet;
+document.getElementById('backBtn').onclick=closeSheet;
+sheet.addEventListener('click',e=>{
+  if(e.target===sheet)closeSheet();
+  const j=e.target.closest('[data-jump]');
+  if(j){closeSheet();document.getElementById('race-'+j.dataset.jump).scrollIntoView({behavior:'smooth',block:'start'});}
+});
+
+/* candidate detail modal */
+const backdrop=document.getElementById('backdrop');
+document.querySelectorAll('[data-view]').forEach(el=>el.addEventListener('click',e=>{
+  e.stopPropagation();const [rid,i]=el.dataset.view.split(':');const r=RACES.find(x=>x.id===rid);const c=r.cands[+i];
+  document.getElementById('mAv').textContent=initials(c.n);
+  document.getElementById('mName').textContent=c.n;
+  document.getElementById('mPos').textContent=r.title+' · '+c.dept;
+  document.getElementById('mPlat').textContent=c.plat;
+  document.getElementById('mDet').textContent=`${c.yr} · ${c.sec} · ${c.extra}`;
+  backdrop.classList.add('open');document.body.classList.add('no-scroll');
+}));
+function closeModal(){backdrop.classList.remove('open');document.body.classList.remove('no-scroll');}
+document.getElementById('modalClose').onclick=closeModal;
+backdrop.addEventListener('click',e=>{if(e.target===backdrop)closeModal();});
+addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeSheet();}});
+
+/* scroll-spy */
+if(!reduce&&'IntersectionObserver' in window){
+  const spy=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const id=e.target.id.replace('race-','');
+    document.querySelectorAll('.rail a').forEach(a=>a.classList.toggle('on',a.dataset.target===id));}}),{rootMargin:'-45% 0px -45% 0px'});
+  document.querySelectorAll('.race').forEach(s=>spy.observe(s));
+}
+update();
+
+/* binary rain */
+(function(){if(reduce)return;
+  const cv=document.getElementById('rain'),ctx=cv.getContext('2d');let W,H,cols,drops;const F=15;
+  function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;cols=Math.ceil(W/F);drops=Array(cols).fill(0).map(()=>Math.random()*-H/F);}
+  size();addEventListener('resize',size);ctx.font=F+'px "JetBrains Mono",monospace';let last=0;
+  function frame(t){if(t-last>62){last=t;ctx.fillStyle='rgba(10,14,15,.2)';ctx.fillRect(0,0,W,H);
+    for(let i=0;i<cols;i++){const ch=Math.random()<.5?'0':'1';const x=i*F,y=drops[i]*F;
+      ctx.fillStyle=Math.random()<.04?'#A0EDE2':'rgba(34,184,160,.5)';ctx.fillText(ch,x,y);
+      if(y>H&&Math.random()>.975)drops[i]=0;else drops[i]++;}}
+    requestAnimationFrame(frame);}requestAnimationFrame(frame);})();
+</script>
+</body>
+</html>

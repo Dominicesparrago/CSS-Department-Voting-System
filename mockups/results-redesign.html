@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS Voting — Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0A0E0F;--black-2:#0d1314;--teal-900:#0B2B3C;--teal-dark:#0F4C5C;--teal-600:#115E6E;--teal-glow:#1CABB8;--brand:#22B8A0;--teal-200:#3BD6B0;--tint-400:#A0EDE2;--tint-200:#D4F7F1;
+  --white:#FFFFFF;--light:#F4FCFB;--muted:rgba(234,250,247,.62);--muted-soft:rgba(234,250,247,.45);
+  --line:rgba(120,200,190,.12);--line-2:rgba(120,200,190,.22);--surface:rgba(18,30,32,.55);
+  --grad-action:linear-gradient(118deg,var(--teal-glow),var(--brand) 60%,var(--teal-200));
+  --grad-ink:linear-gradient(100deg,var(--tint-200),var(--teal-glow) 42%,var(--brand) 72%,var(--teal-200));
+  --grad-mark:conic-gradient(from 140deg,var(--teal-200),var(--teal-glow),var(--teal-600),var(--brand),var(--teal-200));
+  --glow:0 0 40px rgba(34,184,160,.28);--shadow-soft:0 16px 44px rgba(0,0,0,.42);
+  --radius-sm:10px;--radius-md:14px;--radius-lg:18px;--radius-xl:24px;--pill:999px;
+  --ease:cubic-bezier(.2,.7,.2,1);--font:'Figtree','Segoe UI',Arial,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;--maxw:1100px;
+}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{min-height:100vh;color:var(--light);font-family:var(--font);font-weight:300;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(ellipse 70% 55% at 50% -6%,rgba(28,171,184,.18),transparent 62%),radial-gradient(ellipse 84% 66% at 50% 116%,rgba(15,76,92,.26),transparent 64%),var(--black)}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:64px 64px;opacity:.4;-webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 8%,transparent 78%);mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 8%,transparent 78%)}
+/* kept subtle and concentrated near the very top so it never competes with the long
+   results tables below (audit: rain vs. readability) */
+#rain{position:fixed;inset:0;z-index:-1;width:100%;height:100%;opacity:.1;pointer-events:none;-webkit-mask-image:radial-gradient(ellipse 70% 40% at 50% 6%,#000 0%,transparent 55%);mask-image:radial-gradient(ellipse 70% 40% at 50% 6%,#000 0%,transparent 55%)}
+::selection{background:rgba(34,184,160,.3)}:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+a{color:inherit;text-decoration:none}svg{display:block}.icon{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 18px}@media(min-width:720px){.wrap{padding:0 32px}}
+.grad{background:var(--grad-ink);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--brand);font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.eyebrow::before{content:"";width:16px;height:2px;border-radius:99px;background:var(--grad-action)}
+
+.nav{position:relative;z-index:40;background:rgba(10,14,15,.72);border-bottom:1px solid var(--line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px}
+@media(min-width:720px){.nav-in{padding:12px 32px}}
+.brand{display:flex;align-items:center;gap:11px}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--grad-mark);box-shadow:var(--glow);display:grid;place-items:center;color:var(--black);font-weight:800;font-family:var(--mono);font-size:.78rem}
+.brand b{font-weight:800;font-size:.98rem;letter-spacing:-.02em;display:block;line-height:1.1}.brand small{color:var(--muted-soft);font-size:.64rem}
+.btn{position:relative;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border:1px solid transparent;border-radius:var(--radius-md);font-family:var(--font);font-weight:600;font-size:.9rem;cursor:pointer;transition:transform .22s var(--ease),background .22s,border-color .22s}
+.btn-ghost{color:var(--light);border-color:var(--line-2);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:var(--brand);background:rgba(34,184,160,.1)}
+.btn-sm{min-height:38px;padding:8px 14px;font-size:.82rem}
+
+.page{padding:28px 0 80px}
+.hero{text-align:center;padding:10px 0 24px;border-bottom:1px solid var(--line)}
+.hero .eyebrow{justify-content:center}
+.hero h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:800;letter-spacing:-.03em;margin:12px 0 6px}
+.hero p{color:var(--muted);max-width:56ch;margin:0 auto}
+.hero .pubchip{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 14px;border:1px solid var(--line-2);border-radius:var(--pill);background:rgba(34,184,160,.06);font-family:var(--mono);font-size:.78rem;font-weight:600;letter-spacing:.04em;color:var(--tint-400)}
+.hero .pubchip .d{width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 10px var(--brand)}
+
+/* filter */
+.filter{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:24px 0 6px}
+.filter button{padding:8px 16px;border:1px solid var(--line-2);border-radius:var(--pill);background:rgba(10,14,15,.4);color:var(--muted);font-weight:500;font-size:.84rem;cursor:pointer;transition:.2s var(--ease)}
+.filter button:hover{color:var(--light);border-color:var(--brand)}
+.filter button.on{color:var(--black);background:var(--grad-action);border-color:transparent;font-weight:600;box-shadow:var(--glow)}
+
+/* results per position (named section, no card) */
+.results{display:grid;gap:8px;margin-top:14px}
+.pos{padding:26px 0;border-top:1px solid var(--line)}
+.pos-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:16px}
+.pos-head h2{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
+.pos-head .tot{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-soft)}
+/* name sits on its own row above a slim bar — never clips; candidate image always shown */
+.rbars{display:grid;gap:16px}
+.rbar{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.rbar .av{width:54px;height:54px;border-radius:14px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-weight:800;font-size:1rem;flex:0 0 auto;box-shadow:var(--shadow-soft);overflow:hidden}
+.rbar .av img{width:100%;height:100%;object-fit:cover;display:block}
+.rbar.win .av{box-shadow:var(--glow)}
+.rbar .body{min-width:0}
+.rbar .top{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.rbar .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:.96rem}
+.rbar .nm small{color:var(--muted);font-weight:400;font-size:.78rem}
+.win-tag{flex:0 0 auto;font-family:var(--mono);font-size:.56rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--black);background:var(--brand);border-radius:var(--pill);padding:2px 8px}
+.rbar .v{flex:0 0 auto;margin-left:auto;white-space:nowrap}
+.rbar .v b{font-family:var(--font);font-weight:800;font-size:1.05rem}
+.rbar.win .v b{color:var(--teal-200)}
+.rbar .v small{color:var(--muted);font-family:var(--mono);font-size:.74rem;margin-left:6px;letter-spacing:.02em}
+.rbar .track{position:relative;height:12px;border-radius:99px;background:rgba(10,14,15,.5);border:1px solid var(--line);overflow:hidden}
+.rbar .fill{height:100%;width:0;background:linear-gradient(90deg,var(--teal-dark),var(--brand));border-radius:99px;transition:width 1s var(--ease)}
+.rbar.win .fill{background:linear-gradient(90deg,var(--brand),var(--teal-200))}
+
+.rv{opacity:0;transform:translateY(20px);transition:opacity .6s var(--ease),transform .6s var(--ease)}.rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}#rain{display:none}.rv{opacity:1;transform:none}.rbar .fill{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+<nav class="nav"><div class="nav-in">
+  <a class="brand" href="console-redesign.html"><span class="mark">&gt;_</span><span><b>CSS Voting</b><small>Results · 2026</small></span></a>
+  <a class="btn btn-ghost btn-sm" href="dashboard-redesign.html">Dashboard</a>
+</div></nav>
+
+<main class="page"><div class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Official results</span>
+    <h1>CSS Department <span class="grad">Election 2026</span></h1>
+    <p>Final tallies, recomputed from immutable ballot records. Turnout: 173 of 248 registered voters (70%).</p>
+    <span class="pubchip"><span class="d"></span>Published Wed, Sep 24 · 12:00 NN</span>
+  </section>
+
+  <div class="filter" id="filter">
+    <button class="on" data-f="all">All</button>
+    <button data-f="exec">Executive</button>
+    <button data-f="cmte">Committees</button>
+    <button data-f="year">Year Reps</button>
+  </div>
+
+  <div class="results" id="results"></div>
+</div></main>
+
+<script>
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const initials=n=>n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+/* Full election scope: 16 department-wide positions (7 executive + 9 committee chairs)
+   plus all 4 year representatives = 20 positions, matching the "20 positions" landing-page
+   copy. Executive/committee races share the same 173 ballots cast; year-rep races split
+   that same 173 voters across their four year levels (42+44+45+42 = 173). */
+const POS=[
+  {t:'President',g:'exec',rows:[['Andrea Santos','4th Year',92],['Marco Reyes','3rd Year',61],['Abstain','',20]]},
+  {t:'VP — Internal',g:'exec',rows:[['Bea Lim','3rd Year',88],['Karl Uy','4th Year',74],['Abstain','',11]]},
+  {t:'VP — External',g:'exec',rows:[['Kevin Santiago','2nd Year',95],['Faith Navarro','3rd Year',65],['Abstain','',13]]},
+  {t:'Secretary',g:'exec',rows:[['Joana Cruz','2nd Year',101],['Liza Tan','4th Year',58],['Abstain','',14]]},
+  {t:'Treasurer',g:'exec',rows:[['Paolo Diaz','3rd Year',95],['Nina Gomez','2nd Year',66],['Abstain','',12]]},
+  {t:'Auditor',g:'exec',rows:[['Carlo Espina','4th Year',90],['Grace Mendez','2nd Year',70],['Abstain','',13]]},
+  {t:'P.R.O',g:'exec',rows:[['Miguel Torres','3rd Year',99],['Samantha Reyes','1st Year',60],['Abstain','',14]]},
+  {t:'Business Manager Committee',g:'cmte',rows:[['Julius Aquino','4th Year',88],['Patricia Lim','2nd Year',72],['Abstain','',13]]},
+  {t:'Academic Committee Chair',g:'cmte',rows:[['Ella Marquez','3rd Year',101],['Noel Castillo','4th Year',59],['Abstain','',13]]},
+  {t:'Research Committee Chair',g:'cmte',rows:[['Renz Villaraza','3rd Year',84],['Angela Cortez','2nd Year',78],['Abstain','',11]]},
+  {t:'ICT Committee Chair',g:'cmte',rows:[['Rey Villar','3rd Year',77],['Mia Chua','2nd Year',70],['Abstain','',26]]},
+  {t:'Events Committee Chair',g:'cmte',rows:[['Sam Ong','4th Year',84],['Toni Bautista','3rd Year',63],['Abstain','',26]]},
+  {t:'Sports Committee Chair',g:'cmte',rows:[['Josh Manalo','3rd Year',93],['Kim Alonzo','1st Year',67],['Abstain','',13]]},
+  {t:'Environmental Committee Chair',g:'cmte',rows:[['Faye Cabrera','4th Year',86],['Vince Ramirez','2nd Year',74],['Abstain','',13]]},
+  {t:'Membership Committee Chair',g:'cmte',rows:[['Aaron Domingo','3rd Year',90],['Cristine Delos Santos','1st Year',70],['Abstain','',13]]},
+  {t:'Community Committee Chair',g:'cmte',rows:[['Paulo Serrano','4th Year',82],['Anna Villamor','2nd Year',78],['Abstain','',13]]},
+  {t:'4th Year Representative',g:'year',rows:[['Leo Bartolome','4th Year',25],['Michelle Uy','4th Year',14],['Abstain','',3]]},
+  {t:'3rd Year Representative',g:'year',rows:[['Marga Villareal','3rd Year',27],['Enzo Ravago','3rd Year',15],['Abstain','',3]]},
+  {t:'2nd Year Representative',g:'year',rows:[['Cara Uy','2nd Year',26],['Ben Sy','2nd Year',15],['Abstain','',3]]},
+  {t:'1st Year Representative',g:'year',rows:[['Iris Flores','1st Year',25],['Dan Ramos','1st Year',14],['Abstain','',3]]},
+];
+const results=document.getElementById('results');
+function render(){
+  results.innerHTML=POS.map(p=>{
+    const total=p.rows.reduce((s,r)=>s+r[2],0);const max=Math.max(...p.rows.map(r=>r[2]));
+    return `<section class="pos rv" data-g="${p.g}">
+      <div class="pos-head"><h2>${p.t}</h2><span class="tot">${total} votes</span></div>
+      <div class="rbars">${p.rows.map(([n,yr,v],i)=>{
+        const win=i===0&&n!=='Abstain';const av=n==='Abstain'?'—':initials(n);const pct=Math.round(v/total*100);
+        return `<div class="rbar ${win?'win':''}">
+          <span class="av">${av}</span>
+          <div class="body">
+            <div class="top"><span class="nm">${n}${yr?`<small> · ${yr}</small>`:''}</span>${win?'<span class="win-tag">Winner</span>':''}<span class="v"><b>${v}</b><small>${pct}%</small></span></div>
+            <div class="track"><div class="fill" data-w="${Math.round(v/max*100)}"></div></div>
+          </div></div>`;}).join('')}</div>
+    </section>`;
+  }).join('');
+  wire();
+}
+function fillBars(scope){scope.querySelectorAll('.fill').forEach(f=>f.style.width=f.dataset.w+'%');}
+function wire(){
+  if(reduce){document.querySelectorAll('.rv').forEach(el=>el.classList.add('in'));fillBars(document);return;}
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');fillBars(e.target);io.unobserve(e.target);}}),{threshold:.2});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+}
+render();
+document.getElementById('filter').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#filter button').forEach(x=>x.classList.toggle('on',x===b));const f=b.dataset.f;
+  document.querySelectorAll('.pos').forEach(p=>{
+    const show=(f==='all'||p.dataset.g===f);
+    p.style.display=show?'':'none';
+    if(show){p.classList.add('in');fillBars(p);}   // reveal + fill even if never scrolled into view
+  });});
+
+(function(){if(reduce)return;const cv=document.getElementById('rain'),ctx=cv.getContext('2d');let W,H,cols,drops;const F=15;
+  function s(){W=cv.width=innerWidth;H=cv.height=innerHeight;cols=Math.ceil(W/F);drops=Array(cols).fill(0).map(()=>Math.random()*-H/F);}
+  s();addEventListener('resize',s);ctx.font=F+'px "JetBrains Mono",monospace';let last=0;
+  function f(t){if(t-last>66){last=t;ctx.fillStyle='rgba(10,14,15,.2)';ctx.fillRect(0,0,W,H);
+    for(let i=0;i<cols;i++){const ch=Math.random()<.5?'0':'1',x=i*F,y=drops[i]*F;ctx.fillStyle=Math.random()<.04?'#A0EDE2':'rgba(34,184,160,.45)';ctx.fillText(ch,x,y);if(y>H&&Math.random()>.975)drops[i]=0;else drops[i]++;}}
+    requestAnimationFrame(f);}requestAnimationFrame(f);})();
+</script>
+</body>
+</html>

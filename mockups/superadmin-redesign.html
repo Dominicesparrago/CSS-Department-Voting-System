@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS Voting — Super Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0A0E0F;--black-2:#0d1314;--teal-900:#0B2B3C;--teal-dark:#0F4C5C;--teal-600:#115E6E;--teal-glow:#1CABB8;--brand:#22B8A0;--teal-200:#3BD6B0;--tint-400:#A0EDE2;--tint-200:#D4F7F1;
+  --white:#FFFFFF;--light:#F4FCFB;--muted:rgba(234,250,247,.62);--muted-soft:rgba(234,250,247,.45);
+  --line:rgba(120,200,190,.12);--line-2:rgba(120,200,190,.22);--surface:rgba(18,30,32,.55);--surface-3:rgba(40,58,60,.6);
+  --grad-action:linear-gradient(118deg,var(--teal-glow),var(--brand) 60%,var(--teal-200));
+  --grad-ink:linear-gradient(100deg,var(--tint-200),var(--teal-glow) 42%,var(--brand) 72%,var(--teal-200));
+  --grad-mark:conic-gradient(from 140deg,var(--teal-200),var(--teal-glow),var(--teal-600),var(--brand),var(--teal-200));
+  --glow:0 0 40px rgba(34,184,160,.28);--shadow-soft:0 16px 44px rgba(0,0,0,.42);--shadow:0 30px 80px rgba(0,0,0,.55);
+  --rose:#ff6b81;--amber:#f5c451;--radius-sm:10px;--radius-md:14px;--radius-lg:18px;--radius-xl:24px;--pill:999px;
+  --ease:cubic-bezier(.2,.7,.2,1);--font:'Figtree','Segoe UI',Arial,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}
+body{min-height:100vh;color:var(--light);font-family:var(--font);font-weight:300;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(ellipse 60% 50% at 6% -8%,rgba(28,171,184,.16),transparent 62%),radial-gradient(ellipse 84% 66% at 50% 116%,rgba(15,76,92,.24),transparent 64%),var(--black)}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:64px 64px;opacity:.38;-webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 8%,transparent 78%);mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,#000 8%,transparent 78%)}
+/* kept subtle and concentrated near the very top so it never competes with the dense
+   admin copy/tables below (audit: rain vs. readability) */
+#rain{position:fixed;inset:0;z-index:-1;width:100%;height:100%;opacity:.1;pointer-events:none;-webkit-mask-image:radial-gradient(ellipse 70% 40% at 50% 6%,#000 0%,transparent 55%);mask-image:radial-gradient(ellipse 70% 40% at 50% 6%,#000 0%,transparent 55%)}
+::selection{background:rgba(34,184,160,.3)}:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+a{color:inherit;text-decoration:none}svg{display:block}.icon{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.grad{background:var(--grad-ink);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+input,select,button{font:inherit}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--brand);font-family:var(--mono);font-size:.64rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.eyebrow::before{content:"";width:16px;height:2px;border-radius:99px;background:var(--grad-action)}
+.btn{position:relative;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border:1px solid transparent;border-radius:var(--radius-md);font-weight:600;font-size:.9rem;cursor:pointer;transition:transform .22s var(--ease),background .22s,border-color .22s,box-shadow .22s}
+.btn-primary{background:var(--brand);color:var(--black);box-shadow:var(--glow)}.btn-primary:hover{transform:translateY(-2px);background:var(--teal-200)}
+.btn-ghost{color:var(--light);border-color:var(--line-2);background:rgba(255,255,255,.02)}.btn-ghost:hover{border-color:var(--brand);background:rgba(34,184,160,.1)}
+.btn-sm{min-height:36px;padding:7px 13px;font-size:.8rem}
+.btn-danger{color:var(--rose);border:1px solid rgba(255,107,129,.4);background:rgba(255,107,129,.08)}.btn-danger:hover{background:rgba(255,107,129,.16)}
+.btn-amber{color:var(--amber);border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.1)}.btn-amber:hover{background:rgba(245,196,81,.18)}
+
+.shell{display:grid;grid-template-columns:1fr;min-height:100vh}
+@media(min-width:960px){.shell{grid-template-columns:256px 1fr}}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:max(12px,env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--line);background:rgba(10,14,15,.72);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);position:sticky;top:0;z-index:40}
+@media(min-width:960px){.topbar{display:none}}
+body.no-scroll{overflow:hidden}
+.brand{display:flex;align-items:center;gap:11px}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--grad-mark);box-shadow:var(--glow);display:grid;place-items:center;color:var(--black);font-weight:800;font-family:var(--mono);font-size:.78rem;flex:0 0 auto}
+.brand b{font-weight:800;font-size:.96rem;letter-spacing:-.02em;display:block;line-height:1.1}.brand small{color:var(--muted-soft);font-size:.62rem}
+.menu-btn{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:var(--radius-md);background:rgba(10,14,15,.5);color:var(--light);cursor:pointer}
+
+.sidebar{display:none;flex-direction:column;gap:6px;padding:22px 14px;border-right:1px solid var(--line);background:rgba(10,14,15,.55);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+@media(min-width:960px){.sidebar{display:flex;position:sticky;top:0;height:100dvh}}
+.sidebar.drawer{display:flex;position:fixed;inset:0 auto 0 0;z-index:60;width:min(84vw,270px);height:100dvh;overflow-y:auto;background:rgba(10,14,15,.95);box-shadow:var(--shadow);transform:translateX(-100%);transition:transform .3s var(--ease)}
+.sidebar.drawer.open{transform:none}
+.scrim{position:fixed;inset:0;z-index:55;background:rgba(5,8,9,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none}.scrim.open{display:block}
+.side-brand{display:flex;align-items:center;gap:11px;padding:6px 10px 0}
+.super-badge{display:inline-flex;align-items:center;gap:7px;margin:14px 10px 0;padding:6px 12px;border:1px solid rgba(245,196,81,.4);border-radius:var(--pill);background:rgba(245,196,81,.08);font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.super-badge .d{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.side-nav{display:grid;gap:4px;margin-top:18px}
+.side-cap{font-family:var(--mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-soft);padding:0 12px 6px}
+.side-nav button{position:relative;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--radius-sm);border:0;background:transparent;color:var(--muted);font-family:var(--font);font-weight:500;font-size:.92rem;cursor:pointer;text-align:left;transition:.2s var(--ease)}
+.side-nav button .icon{color:var(--muted-soft);transition:.2s var(--ease)}
+.side-nav button:hover{background:rgba(34,184,160,.06);color:var(--light)}
+.side-nav button.on{background:rgba(34,184,160,.12);color:var(--light)}.side-nav button.on .icon{color:var(--brand)}
+.side-nav button.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:99px;background:var(--grad-action)}
+.side-foot{margin-top:auto;display:grid;gap:10px;padding:12px 10px 0;border-top:1px solid var(--line)}
+.who{display:flex;align-items:center;gap:10px;font-size:.82rem;color:var(--muted)}.who .av{width:34px;height:34px;border-radius:10px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-weight:800;font-size:.72rem}
+
+.main{min-width:0;padding:24px 18px 80px}@media(min-width:720px){.main{padding:30px 36px 80px}}
+.head{display:grid;gap:14px;padding-bottom:22px;border-bottom:1px solid var(--line);margin-bottom:26px}
+@media(min-width:680px){.head{grid-template-columns:1fr auto;align-items:end}}
+.head h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:800;letter-spacing:-.03em;margin:8px 0 2px}.head p{color:var(--muted);font-size:.92rem}
+.head-actions{display:flex;flex-wrap:wrap;gap:10px}
+.panel{display:none}.panel.on{display:grid;gap:26px;animation:secin .4s var(--ease) both}@keyframes secin{from{opacity:0;transform:translateY(10px)}}
+.block-label{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}.block-label h2{font-size:1.18rem;font-weight:700}.block-label small{font-family:var(--mono);font-size:.66rem;color:var(--muted)}
+
+/* metrics strip */
+.metrics{display:grid;grid-template-columns:repeat(2,1fr)}
+.metric{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;padding:18px 12px}
+@media(max-width:759px){.metric:nth-child(odd){padding-left:0}.metric:nth-child(even){padding-left:22px;border-left:1px solid var(--line)}.metric:nth-child(n+3){border-top:1px solid var(--line)}}
+@media(min-width:760px){.metrics{grid-template-columns:repeat(4,1fr)}.metric{padding:8px 24px;border-left:1px solid var(--line)}.metric:first-child{padding-left:0;border-left:0}}
+.metric .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:rgba(34,184,160,.1);border:1px solid var(--line-2);color:var(--brand);flex:0 0 auto}
+.metric .num{font-family:var(--font);font-weight:800;font-size:2rem;line-height:1;letter-spacing:-.03em}.metric .lbl{margin-top:4px;font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* rows (admins, elections) */
+.rows{display:grid;gap:0}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:16px 4px;border-top:1px solid var(--line)}.row:first-child{border-top:0}
+.row .av{width:46px;height:46px;border-radius:12px;background:var(--grad-mark);display:grid;place-items:center;color:var(--black);font-weight:800;font-size:.9rem}
+.row b{font-size:.98rem;display:block}.row .meta{color:var(--muted);font-size:.82rem}.row .rmail{font-family:var(--mono);font-size:.72rem;color:var(--tint-400)}
+.row .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.tag{padding:3px 10px;border-radius:var(--pill);font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.tag.super{background:rgba(245,196,81,.14);color:var(--amber)}
+.tag.admin{background:rgba(34,184,160,.14);color:var(--teal-200)}
+.tag.active{background:rgba(34,184,160,.14);color:var(--teal-200)}
+.tag.draft{background:rgba(120,200,190,.12);color:var(--muted)}
+.tag.archived{background:rgba(255,255,255,.05);color:var(--muted-soft)}
+@media(max-width:560px){.row{grid-template-columns:auto 1fr}.row .acts{grid-column:1/-1;justify-content:flex-end}}
+
+/* table */
+.twrap{width:100%;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:680px}
+th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{color:var(--brand);font-family:var(--mono);font-size:.62rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+tbody tr{transition:background .16s var(--ease)}tbody tr:hover{background:rgba(34,184,160,.05)}
+td .mono{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+td .actor{font-weight:600}
+.audit-act{font-family:var(--mono);font-size:.72rem;color:var(--tint-400);border:1px solid var(--line-2);border-radius:6px;padding:2px 8px}
+
+/* settings + form */
+.setgrid{display:grid;gap:14px}@media(min-width:680px){.setgrid{grid-template-columns:repeat(2,1fr)}}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 0;border-top:1px solid var(--line)}.setrow:first-child{border-top:0}
+.setrow h3{font-size:1rem;font-weight:700}.setrow p{color:var(--muted);font-size:.84rem}
+.toggle{position:relative;width:54px;height:32px;border-radius:99px;border:1px solid var(--line-2);background:rgba(10,14,15,.6);cursor:pointer;flex:0 0 auto;transition:.2s var(--ease)}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:50%;background:var(--muted);transition:.25s var(--ease)}
+.toggle.on{background:rgba(34,184,160,.25);border-color:var(--brand)}.toggle.on::after{left:26px;background:var(--brand);box-shadow:0 0 10px var(--brand)}
+.scroll-hint{display:none;margin-bottom:8px;font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;color:var(--muted-soft)}
+@media(max-width:759px){.scroll-hint{display:block}}
+.form{display:grid;gap:12px;max-width:520px}@media(min-width:560px){.form .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+label{display:grid;gap:6px;color:var(--muted);font-size:.82rem;font-weight:500}
+input,select{width:100%;min-height:46px;padding:11px 15px;border:1.5px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.6);color:var(--light);outline:none;transition:.2s var(--ease)}
+input:focus,select:focus{border-color:var(--brand);box-shadow:0 0 0 2px rgba(34,184,160,.35)}
+select option{background:#0d1314}
+.formgrid{display:grid;gap:28px}@media(min-width:980px){.formgrid{grid-template-columns:.9fr 1.1fr;align-items:start}}
+
+/* ---- confirmation dialog for destructive / privilege-escalating actions ---- */
+.confirm-overlay{position:fixed;inset:0;z-index:200;display:none;place-items:center;padding:16px;background:rgba(5,8,9,.74);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.confirm-overlay.open{display:grid;animation:cfFade .18s ease-out}
+@keyframes cfFade{from{opacity:0}}
+.confirm-box{position:relative;width:min(100%,480px);max-height:92vh;overflow:auto;border:1px solid var(--line-2);border-radius:var(--radius-lg);
+  background:linear-gradient(165deg,var(--surface),rgba(13,19,20,.97));box-shadow:var(--shadow);animation:cfRise .22s var(--ease)}
+@keyframes cfRise{from{opacity:0;transform:translateY(14px) scale(.98)}}
+.confirm-box::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--grad-action)}
+.confirm-box.danger::before{background:linear-gradient(118deg,var(--rose),#ff9494)}
+.confirm-box.escalate::before{background:linear-gradient(118deg,var(--amber),#ffe08a)}
+.confirm-in{padding:26px 24px 24px}
+.confirm-icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;margin-bottom:14px;color:var(--rose);background:rgba(255,107,129,.12);border:1px solid rgba(255,107,129,.35)}
+.confirm-box.escalate .confirm-icon{color:var(--amber);background:rgba(245,196,81,.12);border-color:rgba(245,196,81,.35)}
+.confirm-box h2{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.confirm-box p{color:var(--muted);font-size:.9rem}
+.confirm-consequence{margin-top:14px;padding:12px 14px;border-radius:var(--radius-sm);border:1px solid rgba(255,107,129,.35);background:rgba(255,107,129,.08);color:#ffc2cc;font-size:.84rem;line-height:1.5}
+.confirm-box.escalate .confirm-consequence{border-color:rgba(245,196,81,.4);background:rgba(245,196,81,.08);color:#ffe8b8}
+.confirm-field{margin-top:18px;display:grid;gap:6px}
+.confirm-field label{color:var(--muted);font-size:.82rem;font-weight:500}
+.confirm-field textarea{width:100%;min-height:76px;padding:11px 14px;border:1.5px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.6);color:var(--light);outline:none;resize:vertical;line-height:1.5;font:inherit;transition:.2s var(--ease)}
+.confirm-field textarea:focus{border-color:var(--brand);box-shadow:0 0 0 2px rgba(34,184,160,.35)}
+.confirm-field small{color:var(--muted-soft);font-size:.72rem}
+.confirm-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.confirm-actions .btn{flex:1;min-width:140px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}#rain{display:none}}
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+<div class="topbar">
+  <a class="brand" href="console-redesign.html"><span class="mark">&gt;_</span><span><b>CSS Voting</b><small>Super Admin</small></span></a>
+  <button class="menu-btn" id="menuBtn" aria-label="Menu"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+</div>
+<div class="scrim" id="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand"><span class="mark">&gt;_</span><span class="brand"><span><b>CSS Voting</b><small>Control Center</small></span></span></div>
+    <span class="super-badge"><span class="d"></span>Super Admin</span>
+    <nav class="side-nav" id="sidenav">
+      <span class="side-cap">// system</span>
+      <button class="on" data-t="admins"><svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19v-1a4 4 0 0 1 4-4h4"/><path d="M15 11l2 2 4-4"/></svg> Admins</button>
+      <button data-t="elections"><svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16l5-11 5 11"/><path d="M9 12h6"/></svg> Elections</button>
+      <button data-t="audit"><svg class="icon" viewBox="0 0 24 24"><path d="M5 4h11l4 4v12H5z"/><path d="M8 12h8M8 16h6M8 8h4"/></svg> Audit log</button>
+      <button data-t="settings"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1A2 2 0 1 1 2.3 17l.1-.1A1.6 1.6 0 0 0 3.5 14 1.6 1.6 0 0 0 2 12.3H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.6 7"/></svg> Settings</button>
+    </nav>
+    <div class="side-foot">
+      <div class="who"><span class="av">DE</span><div><b style="font-weight:600;color:var(--light)">D. Esparrago</b><br><span style="font-size:.7rem">super@css-vote</span></div></div>
+      <button class="btn btn-ghost btn-sm">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ADMINS -->
+    <section class="panel on" data-p="admins">
+      <div class="head"><div><span class="eyebrow">Access control</span><h1>Admins</h1><p>Grant or revoke who can run elections. Super admins can manage other admins.</p></div>
+        <div class="head-actions"><button class="btn btn-primary btn-sm">+ Invite admin</button></div></div>
+      <div class="metrics" id="adminMetrics"></div>
+      <div>
+        <div class="block-label"><h2>Admin accounts</h2><small>4 total</small></div>
+        <div class="rows" id="adminRows"></div>
+      </div>
+    </section>
+
+    <!-- ELECTIONS -->
+    <section class="panel" data-p="elections">
+      <div class="head"><div><span class="eyebrow">Cycles</span><h1>Elections</h1><p>Create, activate, and archive election cycles. Only one election can be active at a time.</p></div>
+        <div class="head-actions"><button class="btn btn-primary btn-sm">+ New election</button></div></div>
+      <div class="rows" id="electionRows"></div>
+    </section>
+
+    <!-- AUDIT -->
+    <section class="panel" data-p="audit">
+      <div class="head"><div><span class="eyebrow">Traceability</span><h1>Audit log</h1><p>Every privileged action is recorded with actor, role, and timestamp.</p></div>
+        <div class="head-actions"><button class="btn btn-ghost btn-sm">Export log</button></div></div>
+      <p class="scroll-hint">// swipe the table sideways to see more →</p>
+      <div class="twrap"><table>
+        <thead><tr><th>When</th><th>Actor</th><th>Role</th><th>Action</th><th>Target</th></tr></thead>
+        <tbody id="auditBody"></tbody>
+      </table></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="panel" data-p="settings">
+      <div class="head"><div><span class="eyebrow">Configuration</span><h1>Settings</h1><p>System-wide options for the voting platform.</p></div></div>
+      <div class="formgrid">
+        <div>
+          <div class="block-label"><h2>Policies</h2></div>
+          <div class="setgrid" style="grid-template-columns:1fr">
+            <div class="setrow"><div><h3>Require .scc email</h3><p>Only institutional emails may register.</p></div><button class="toggle on" data-toggle></button></div>
+            <div class="setrow"><div><h3>Allow one-time voters</h3><p>Enable single-use committee-issued codes.</p></div><button class="toggle on" data-toggle></button></div>
+            <div class="setrow"><div><h3>Hide live tallies</h3><p>Keep counts secret until results are published.</p></div><button class="toggle on" data-toggle></button></div>
+            <div class="setrow"><div><h3>Maintenance mode</h3><p>Take the platform offline for students.</p></div><button class="toggle" data-toggle></button></div>
+          </div>
+        </div>
+        <div>
+          <div class="block-label"><h2>Institution</h2></div>
+          <form class="form" onsubmit="return false">
+            <label>Organization name<input value="CSS Department — St. Clare College of Caloocan"></label>
+            <div class="two">
+              <label>Academic year<input value="2026"></label>
+              <label>Time zone<select><option>Asia/Manila (PST)</option><option>UTC</option></select></label>
+            </div>
+            <label>Support contact<input value="election-committee.scc@gmail.com"></label>
+            <div><button class="btn btn-primary">Save settings</button></div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- confirmation dialog for destructive / privilege-escalating admin actions -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box" id="confirmBox" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="confirm-in">
+      <div class="confirm-icon" id="confirmIcon">
+        <svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 8.4C7.9 18.4 5 15.2 5 11V6l7-3z"/></svg>
+      </div>
+      <h2 id="confirmTitle">Confirm action</h2>
+      <p id="confirmDesc"></p>
+      <div class="confirm-consequence" id="confirmConsequence"></div>
+      <div class="confirm-field">
+        <label for="confirmReason">Reason for this action (required, logged to the audit trail)</label>
+        <textarea id="confirmReason" placeholder="e.g. Requested by the election committee for term handover…"></textarea>
+        <small id="confirmReasonHint">At least 8 characters.</small>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger" id="confirmOk" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const initials=n=>n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+const I={
+  users:'<path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="8" r="3.2"/><path d="M19.5 19v-1a4 4 0 0 0-3-3.8"/>',
+  shield:'<path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 8.4C7.9 18.4 5 15.2 5 11V6l7-3z"/>',
+  vote:'<path d="M4 20h16"/><path d="M7 16l5-11 5 11"/><path d="M9 12h6"/>',
+  clock:'<circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3 2"/>'
+};
+const svg=n=>`<svg class="icon" viewBox="0 0 24 24" style="width:24px;height:24px">${I[n]}</svg>`;
+
+/* admins */
+document.getElementById('adminMetrics').innerHTML=[['users','4','Admins'],['shield','1','Super admins'],['vote','1','Active election'],['clock','128','Audit entries']]
+  .map(([ic,n,l])=>`<div class="metric"><span class="ic">${svg(ic)}</span><div><div class="num grad">${n}</div><div class="lbl">${l}</div></div></div>`).join('');
+const ADMINS=[
+  {n:'Dominic Esparrago',mail:'super@css-vote · you',role:'super',label:'Super admin'},
+  {n:'Prof. R. Mendoza',mail:'r.mendoza.scc@gmail.com',role:'admin',label:'Admin'},
+  {n:'A. Villanueva',mail:'a.villanueva.scc@gmail.com',role:'admin',label:'Admin'},
+  {n:'J. Ocampo',mail:'j.ocampo.scc@gmail.com',role:'admin',label:'Admin'},
+];
+function renderAdmins(){
+  document.getElementById('adminRows').innerHTML=ADMINS.map((a,i)=>
+    `<div class="row"><span class="av">${initials(a.n)}</span>
+     <div><b>${a.n}</b><div class="rmail">${a.mail}</div></div>
+     <div class="acts"><span class="tag ${a.role}">${a.label}</span>${a.role==='super'?'':
+       `<button class="btn btn-ghost btn-sm" data-action="super" data-i="${i}">Make super</button>
+        <button class="btn btn-danger btn-sm" data-action="revoke" data-i="${i}">Revoke</button>`}</div></div>`).join('');
+}
+renderAdmins();
+
+/* elections */
+const ELECTIONS=[
+  ['CSS Election 2026','Active · voting open','active','248 voters · 42 candidates'],
+  ['CSS Election 2025','Archived','archived','231 voters · 38 candidates'],
+  ['CSS Special Poll (draft)','Draft','draft','not yet published'],
+];
+document.getElementById('electionRows').innerHTML=ELECTIONS.map(([t,st,cls,meta])=>
+  `<div class="row"><span class="av">${svg('vote')}</span>
+   <div><b>${t}</b><div class="meta">${meta}</div></div>
+   <div class="acts"><span class="tag ${cls}">${st}</span>${cls==='active'?'<button class="btn btn-ghost btn-sm">Manage</button>':cls==='draft'?'<button class="btn btn-primary btn-sm">Activate</button>':'<button class="btn btn-ghost btn-sm">View</button>'}</div></div>`).join('');
+
+/* audit */
+const AUDIT=[
+  ['22 Sep 10:14','Prof. R. Mendoza','admin','opened polls','CSS Election 2026'],
+  ['20 Sep 15:02','A. Villanueva','admin','added candidate','Andrea Santos (President)'],
+  ['18 Sep 09:40','Dominic Esparrago','super','invited admin','j.ocampo.scc@gmail.com'],
+  ['15 Sep 11:20','Dominic Esparrago','super','created election','CSS Election 2026'],
+  ['14 Sep 16:55','A. Villanueva','admin','edited candidate','Marco Reyes (President)'],
+];
+function renderAudit(){
+  document.getElementById('auditBody').innerHTML=AUDIT.map(([w,a,r,act,t])=>
+    `<tr><td class="mono">${w}</td><td class="actor">${a}</td><td><span class="tag ${r}">${r}</span></td><td><span class="audit-act">${act}</span></td><td>${t}</td></tr>`).join('');
+}
+renderAudit();
+function logAudit(action,target,reason){
+  const now=new Date(),w=now.toLocaleDateString('en-US',{day:'2-digit',month:'short'})+' '+now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+  AUDIT.unshift([w,'Dominic Esparrago','super',action,`${target} — “${reason}”`]);
+  renderAudit();
+}
+
+/* ---- confirmation dialog: destructive (revoke) / privilege-escalating (make super) actions ---- */
+const confirmOverlay=document.getElementById('confirmOverlay'),confirmBox=document.getElementById('confirmBox'),
+      confirmIcon=document.getElementById('confirmIcon'),confirmDesc=document.getElementById('confirmDesc'),
+      confirmConsequence=document.getElementById('confirmConsequence'),confirmReason=document.getElementById('confirmReason'),
+      confirmOk=document.getElementById('confirmOk'),confirmCancel=document.getElementById('confirmCancel'),
+      confirmTitle=document.getElementById('confirmTitle');
+let pendingAction=null,pendingIndex=null,lastFocused=null;
+const ICONS={
+  revoke:'<path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 8.4C7.9 18.4 5 15.2 5 11V6l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/>',
+  super:'<path d="M12 3l7 3v5c0 4.2-2.9 7.4-7 8.4C7.9 18.4 5 15.2 5 11V6l7-3z"/>'
+};
+function openConfirm(action,i,triggerEl){
+  const admin=ADMINS[i];pendingAction=action;pendingIndex=i;lastFocused=triggerEl;
+  confirmBox.className='confirm-box '+(action==='revoke'?'danger':'escalate');
+  confirmIcon.innerHTML=`<svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px">${ICONS[action]}</svg>`;
+  if(action==='revoke'){
+    confirmTitle.textContent='Revoke admin access?';
+    confirmDesc.textContent=`This immediately removes ${admin.n}'s admin permissions.`;
+    confirmConsequence.textContent=`${admin.n} will no longer be able to manage candidates, voters, results, or the election lifecycle. They can only be re-invited by a super admin — this is not automatically reversible.`;
+    confirmOk.textContent='Revoke access';confirmOk.className='btn btn-danger';
+  }else{
+    confirmTitle.textContent='Grant super admin?';
+    confirmDesc.textContent=`This upgrades ${admin.n} to super admin.`;
+    confirmConsequence.textContent=`${admin.n} will be able to invite or revoke OTHER admins, create and archive elections, and change system-wide settings — the same level of access you have.`;
+    confirmOk.textContent='Make super admin';confirmOk.className='btn btn-amber';
+  }
+  confirmReason.value='';confirmOk.disabled=true;
+  confirmOverlay.classList.add('open');document.body.classList.add('no-scroll');
+  setTimeout(()=>confirmReason.focus(),10);
+}
+function closeConfirm(){
+  confirmOverlay.classList.remove('open');document.body.classList.remove('no-scroll');
+  pendingAction=null;pendingIndex=null;
+  if(lastFocused)lastFocused.focus();
+}
+document.getElementById('adminRows').addEventListener('click',e=>{
+  const b=e.target.closest('[data-action]');if(!b)return;
+  openConfirm(b.dataset.action,+b.dataset.i,b);
+});
+confirmReason.addEventListener('input',()=>{confirmOk.disabled=confirmReason.value.trim().length<8;});
+confirmCancel.addEventListener('click',closeConfirm);
+confirmOverlay.addEventListener('click',e=>{if(e.target===confirmOverlay)closeConfirm();});
+addEventListener('keydown',e=>{
+  if(!confirmOverlay.classList.contains('open'))return;
+  if(e.key==='Escape'){closeConfirm();return;}
+  if(e.key==='Tab'){   // basic focus trap: keep Tab cycling inside the dialog
+    const list=[confirmReason,confirmCancel,confirmOk];
+    const i=list.indexOf(document.activeElement);
+    e.preventDefault();
+    const dir=e.shiftKey?-1:1;
+    let next=i;
+    do{next=(next+dir+list.length)%list.length;}while(list[next].disabled&&next!==i);
+    list[next].focus();
+  }
+});
+confirmOk.addEventListener('click',()=>{
+  if(confirmOk.disabled||pendingIndex==null)return;
+  const admin=ADMINS[pendingIndex],reason=confirmReason.value.trim();
+  if(pendingAction==='revoke'){
+    logAudit('revoked admin access',admin.mail,reason);
+    ADMINS.splice(pendingIndex,1);
+  }else{
+    logAudit('promoted to super admin',admin.mail,reason);
+    admin.role='super';admin.label='Super admin';
+  }
+  renderAdmins();closeConfirm();
+});
+
+/* nav */
+function go(t){document.querySelectorAll('.side-nav button').forEach(x=>x.classList.toggle('on',x.dataset.t===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.dataset.p===t));closeDrawer();scrollTo({top:0,behavior:'smooth'});}
+document.getElementById('sidenav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.t);});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-toggle]');if(t)t.classList.toggle('on');});
+
+/* drawer */
+const sidebar=document.getElementById('sidebar'),scrim=document.getElementById('scrim');
+function openDrawer(){sidebar.classList.add('drawer','open');scrim.classList.add('open');document.body.classList.add('no-scroll');}
+function closeDrawer(){if(sidebar.classList.contains('drawer')){sidebar.classList.remove('open');scrim.classList.remove('open');}document.body.classList.remove('no-scroll');}
+document.getElementById('menuBtn').onclick=()=>sidebar.classList.contains('open')?closeDrawer():openDrawer();
+scrim.onclick=closeDrawer;
+addEventListener('keydown',e=>{
+  if(!sidebar.classList.contains('open'))return;
+  if(e.key==='Escape'){closeDrawer();document.getElementById('menuBtn').focus();return;}
+  if(e.key==='Tab'){   // basic focus trap while the mobile drawer is open
+    const f=[...sidebar.querySelectorAll('button,a[href]')];
+    const i=f.indexOf(document.activeElement);
+    e.preventDefault();
+    f[(i+(e.shiftKey?-1:1)+f.length)%f.length].focus();
+  }
+});
+function sync(){if(innerWidth>=960){sidebar.classList.remove('drawer','open');scrim.classList.remove('open');}else sidebar.classList.add('drawer');}
+sync();addEventListener('resize',sync);
+
+(function(){if(reduce)return;const cv=document.getElementById('rain'),ctx=cv.getContext('2d');let W,H,cols,drops;const F=15;
+  function s(){W=cv.width=innerWidth;H=cv.height=innerHeight;cols=Math.ceil(W/F);drops=Array(cols).fill(0).map(()=>Math.random()*-H/F);}
+  s();addEventListener('resize',s);ctx.font=F+'px "JetBrains Mono",monospace';let last=0;
+  function f(t){if(t-last>66){last=t;ctx.fillStyle='rgba(10,14,15,.2)';ctx.fillRect(0,0,W,H);
+    for(let i=0;i<cols;i++){const ch=Math.random()<.5?'0':'1',x=i*F,y=drops[i]*F;ctx.fillStyle=Math.random()<.04?'#A0EDE2':'rgba(34,184,160,.4)';ctx.fillText(ch,x,y);if(y>H&&Math.random()>.975)drops[i]=0;else drops[i]++;}}
+    requestAnimationFrame(f);}requestAnimationFrame(f);})();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+[
+  {
+    "route": "/",
+    "name": "home-desktop",
+    "finalUrl": "http://127.0.0.1:3000/",
+    "title": "Your voice.Your department.",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "route": "/",
+    "name": "home-mobile",
+    "finalUrl": "http://127.0.0.1:3000/",
+    "title": "Your voice.Your department.",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "route": "/admin",
+    "name": "admin-denied-desktop",
+    "finalUrl": "http://127.0.0.1:3000/admin/",
+    "title": "Access denied",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "route": "/vote",
+    "name": "vote-redirect-mobile",
+    "finalUrl": "http://127.0.0.1:3000/vote/",
+    "title": "Checking session...",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "route": "/results",
+    "name": "results-desktop",
+    "finalUrl": "http://127.0.0.1:3000/results/",
+    "title": "CSS Department Election",
+    "overflow": false,
+    "errors": [
+      "error: Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "warning: [2026-07-06T12:00:45.292Z]  @firebase/firestore: Firestore (10.14.1): WebChannelConnection RPC 'Listen' stream 0x512511df transport errored: jd",
+      "error: [2026-07-06T12:00:45.295Z]  @firebase/firestore: Firestore (10.14.1): Could not reach Cloud Firestore backend. Connection failed 1 times. Most recent error: FirebaseError: [code=unavailable]: The operation could not be completed\nThis typically indicates that your device does not have a healthy Internet connection at the moment. The client will operate in offline mode until it is able to successfully connect to the backend."
+    ]
+  },
+  {
+    "route": "/results",
+    "name": "results-mobile",
+    "finalUrl": "http://127.0.0.1:3000/results/",
+    "title": "CSS Department Election",
+    "overflow": false,
+    "errors": [
+      "error: Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "warning: [2026-07-06T12:00:47.321Z]  @firebase/firestore: Firestore (10.14.1): WebChannelConnection RPC 'Listen' stream 0x7c298e6a transport errored: jd",
+      "error: [2026-07-06T12:00:47.324Z]  @firebase/firestore: Firestore (10.14.1): Could not reach Cloud Firestore backend. Connection failed 1 times. Most recent error: FirebaseError: [code=unavailable]: The operation could not be completed\nThis typically indicates that your device does not have a healthy Internet connection at the moment. The client will operate in offline mode until it is able to successfully connect to the backend."
+    ]
+  }
+]
