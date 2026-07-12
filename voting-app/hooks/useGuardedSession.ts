@@ -40,6 +40,11 @@ export function useGuardedSession(
 
     const decision = evaluateRef.current(session);
     if (decision.kind === 'redirect') {
+      // Hold the page on its loading state (not its content or a 403) while the
+      // client-side navigation runs. On sign-out the session goes null and we
+      // redirect home — without this the page would flash "access denied" or
+      // render its content against a null session before the route changes.
+      setStatus('loading');
       router.replace(decision.to);
       return;
     }

@@ -45,7 +45,9 @@ const NAV_ITEMS: Array<{ key: AdminPanel; label: string; icon: typeof LayoutDash
 
 export default function AdminRedesignConsole() {
   const { session, status, deniedReason, signOutToHome } = useGuardedSession((current) => {
-    if (!current.user) return { kind: 'deny', reason: 'Please sign in with an admin account.' };
+    // Signed out → send to sign-in (not a 403). 403 is only for a signed-in
+    // account that lacks admin access.
+    if (!current.user) return { kind: 'redirect', to: '/' };
     if (!hasAdminAccess(current)) return { kind: 'deny', reason: 'This account does not have admin access.' };
     return { kind: 'allow' };
   }, 'Unable to verify admin credentials.');

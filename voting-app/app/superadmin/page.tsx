@@ -54,7 +54,9 @@ const TABS: { key: SuperTab; label: string; icon: LucideIcon }[] = [
 
 export default function SuperAdminPage() {
   const { session, status, deniedReason, signOutToHome } = useGuardedSession((current) => {
-    if (!current.user) return { kind: 'deny', reason: 'Please sign in with a super admin account.' };
+    // Signed out → send to sign-in (not a 403). 403 is only for a signed-in
+    // account that lacks super admin access.
+    if (!current.user) return { kind: 'redirect', to: '/' };
     if (!hasSuperAdminClaim(current.claims)) return { kind: 'deny', reason: 'This account does not have super admin access.' };
     return { kind: 'allow' };
   }, 'Unable to verify super admin credentials.');
