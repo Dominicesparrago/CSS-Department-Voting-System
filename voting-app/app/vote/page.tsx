@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useGuardedSession } from '@/hooks/useGuardedSession';
 import { loadAppConfig } from '@/lib/appConfig';
+import { friendlyAuthError } from '@/lib/auth/errors';
 import { hasVotedInElection, isStudentSession } from '@/lib/auth/guards-core';
 import { loadCandidatesForPositions, loadElection, loadRequiredPositions } from '@/lib/student/ballotData';
 import { ELECTION_ID } from '@/lib/constants';
@@ -45,7 +46,10 @@ export default function VotePage() {
         const candidatesByPosition = await loadCandidatesForPositions(requiredPositions);
         if (active) setBallot({ election, requiredPositions, candidatesByPosition });
       } catch (err) {
-        if (active) setErrorMsg((err as Error).message || 'Unable to load the ballot.');
+        // Firebase-coded errors (network, permission, unavailable) get friendly
+        // copy; our own thrown messages (e.g. "Election was not found.") pass through.
+        const e = err as { code?: string; message?: string };
+        if (active) setErrorMsg(e.code ? friendlyAuthError(err) : e.message || 'Unable to load the ballot.');
       }
     }
 

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
 import CountUp from '@/components/CountUp';
 import RouteLoading from '@/components/RouteLoading';
+import { friendlyAuthError } from '@/lib/auth/errors';
 import { candidatesForPosition, positionGroup } from '@/lib/election/candidates';
 import { formatTimestamp, yearLabel } from '@/lib/format';
 import { initials as nameInitials } from '@/lib/initials';
@@ -77,7 +78,8 @@ export default function ResultsPage() {
           return;
         }
         setState('error');
-        setMessage((err as Error).message || 'Unable to load official results.');
+        const e = err as { code?: string; message?: string };
+        setMessage(e.code ? friendlyAuthError(err) : e.message || 'Unable to load official results.');
       }
     }
 

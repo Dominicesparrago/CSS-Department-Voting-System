@@ -40,7 +40,7 @@ export function watchSession(callback: (session: Session) => void, onError?: (er
       onError?.(error instanceof Error ? error : new Error('Unable to watch the current session.'));
     });
   } catch (error) {
-    onError?.(error instanceof Error ? error : new Error('Unable to initialize Firebase authentication.'));
+    onError?.(error instanceof Error ? error : new Error('Unable to start the sign-in service. Please refresh and try again.'));
     return () => {};
   }
 }
