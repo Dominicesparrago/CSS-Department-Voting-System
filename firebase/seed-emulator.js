@@ -97,8 +97,14 @@ export async function seedBaseData() {
   const { id, ...electionData } = election;
   await patchDocument(`elections/${id}`, electionData);
 
+  // Enable one-time (guest) voting for local dev so the sign-in card shows all
+  // three tabs. In production this is fail-closed until the superadmin turns it
+  // on from Settings — the app hides the One-time tab when it is off or absent.
+  await patchDocument('config/app', { allowGuestVoters: true, maintenanceMode: false, updatedBy: 'seed' });
+
   console.log(`Seeded ${positions.length} positions.`);
   console.log(`Seeded election ${ELECTION_ID} with status "${election.status}".`);
+  console.log('Seeded config/app (one-time voting enabled for local dev).');
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
