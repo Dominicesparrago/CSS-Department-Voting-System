@@ -41,7 +41,7 @@
   },
   "functions": {
     "source": "firebase/functions",
-    "runtime": "nodejs20"
+    "runtime": "nodejs22"
   },
   "storage": {
     "rules": "firebase/storage.rules"

@@ -3,7 +3,7 @@
   "description": "Trusted vote-ingestion and tally functions for the CSS Department Voting System",
   "private": true,
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "scripts": {
