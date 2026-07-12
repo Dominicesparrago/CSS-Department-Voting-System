@@ -2,18 +2,18 @@ import { ELECTION_ID, positions } from "./seed-data.js";
 import { patchDocument, seedBaseData } from "./seed-emulator.js";
 
 const candidateSeeds = [
-  ["phase4_president_a", "president", "Alex Santos", "BSCS 3-A", 3, 1],
-  ["phase4_president_b", "president", "Bianca Cruz", "BSCS 2-B", 2, 2],
-  ["phase4_secretary_a", "secretary", "Chris Reyes", "BSCS 1-A", 1, 1],
-  ["phase4_year2_a", "year_rep_2", "Dana Villanueva", "BSCS 2-A", 2, 1],
-  ["phase4_year2_b", "year_rep_2", "Eli Navarro", "BSCS 2-B", 2, 2]
+  ["phase4_president_a", "president", "Alex Santos", "BSCS-3A", 3, 1],
+  ["phase4_president_b", "president", "Bianca Cruz", "BSCS-2B", 2, 2],
+  ["phase4_secretary_a", "secretary", "Chris Reyes", "BSCS-1A", 1, 1],
+  ["phase4_year2_a", "year_rep_2", "Dana Villanueva", "BSCS-2A", 2, 1],
+  ["phase4_year2_b", "year_rep_2", "Eli Navarro", "BSCS-2B", 2, 2]
 ];
 
 const voterSeeds = [
-  ["phase4_voter_a", "1002003", "Maria Ana Santos", "maria.ana.scc@gmail.com", 2, "BSCS 2-A", true],
-  ["phase4_voter_b", "1002004", "Ben Cruz", "ben.cruz.scc@gmail.com", 2, "BSCS 2-B", true],
-  ["phase4_voter_c", "1002005", "Cara Reyes", "cara.reyes.scc@gmail.com", 3, "BSCS 3-A", true],
-  ["phase4_voter_d", "1002006", "Dino Lim", "dino.lim.scc@gmail.com", 1, "BSCS 1-A", false]
+  ["phase4_voter_a", "1002003", "Maria Ana Santos", "maria.ana.scc@gmail.com", 2, "BSCS-2A", true],
+  ["phase4_voter_b", "1002004", "Ben Cruz", "ben.cruz.scc@gmail.com", 2, "BSCS-2B", true],
+  ["phase4_voter_c", "1002005", "Cara Reyes", "cara.reyes.scc@gmail.com", 3, "BSCS-3A", true],
+  ["phase4_voter_d", "1002006", "Dino Lim", "dino.lim.scc@gmail.com", 1, "BSCS-1A", false]
 ];
 
 const voteSeeds = [

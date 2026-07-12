@@ -100,7 +100,7 @@ export async function seedTestCandidates() {
         electionId: ELECTION_ID,
         positionId: position.id,
         name: `${position.name} Candidate ${number}`,
-        section: `BSCS ${yearLevel}-A`,
+        section: `BSCS-${yearLevel}A`,
         yearLevel,
         platform: `Test platform for ${position.name} candidate ${number}.`,
         party: null,

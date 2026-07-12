@@ -42,16 +42,17 @@ export default function AuthCard() {
   const [guestErrors, setGuestErrors] = useState<FieldErrors>({});
   const [guestMessage, setGuestMessage] = useState('');
   const [guestBusy, setGuestBusy] = useState(false);
+  // canonical section format app-wide: BSCS-<year><letter> (e.g. BSCS-3A)
   const guestSectionOptions = guestValues.yearLevel
     ? SECTION_LETTERS.map((letter) => ({
-        value: `BSCS ${guestValues.yearLevel}-${letter}`,
-        label: `BSCS ${guestValues.yearLevel}-${letter}`,
+        value: `BSCS-${guestValues.yearLevel}${letter}`,
+        label: `BSCS-${guestValues.yearLevel}${letter}`,
       }))
     : [];
   const regSectionOptions = regValues.yearLevel
     ? SECTION_LETTERS.map((letter) => ({
-        value: `BSCS ${regValues.yearLevel}-${letter}`,
-        label: `BSCS ${regValues.yearLevel}-${letter}`,
+        value: `BSCS-${regValues.yearLevel}${letter}`,
+        label: `BSCS-${regValues.yearLevel}${letter}`,
       }))
     : [];
 
