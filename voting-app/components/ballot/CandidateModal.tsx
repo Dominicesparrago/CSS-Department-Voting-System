@@ -22,9 +22,13 @@ export default function CandidateModal({ position, candidate, onClose }: Props) 
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();
+    document.body.classList.add('no-scroll');
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.body.classList.remove('no-scroll');
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
   if (!candidate || !position) return null;

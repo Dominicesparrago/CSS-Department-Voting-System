@@ -2,15 +2,24 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loginStudent, registerStudent } from '@/lib/auth/authService';
+import CustomSelect from '@/components/ui/CustomSelect';
+import { loginGuest, loginStudent, registerStudent } from '@/lib/auth/authService';
 import { friendlyAuthError } from '@/lib/auth/errors';
-import { hasErrors, validateLogin, validateRegistration, type FieldErrors } from '@/lib/auth/validation';
+import { hasErrors, validateGuest, validateLogin, validateRegistration, type FieldErrors } from '@/lib/auth/validation';
 import { watchSession } from '@/lib/auth/session';
 import { hasAdminClaim } from '@/lib/auth/guards-core';
 
-type Tab = 'login' | 'register';
+type Tab = 'login' | 'register' | 'guest';
 
 const EMPTY_REG = { email: '', password: '', studentNo: '', fullName: '', yearLevel: '', section: '' };
+const EMPTY_GUEST = { email: '', fullName: '', yearLevel: '', section: '' };
+const YEAR_OPTIONS = [
+  { value: '1', label: '1st Year' },
+  { value: '2', label: '2nd Year' },
+  { value: '3', label: '3rd Year' },
+  { value: '4', label: '4th Year' },
+];
+const SECTION_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)); // A–Z
 
 export default function AuthCard() {
   const router = useRouter();
@@ -28,6 +37,26 @@ export default function AuthCard() {
   const [regMessage, setRegMessage] = useState('');
   const [regBusy, setRegBusy] = useState(false);
 
+  // one-time (guest) form state
+  const [guestValues, setGuestValues] = useState(EMPTY_GUEST);
+  const [guestErrors, setGuestErrors] = useState<FieldErrors>({});
+  const [guestMessage, setGuestMessage] = useState('');
+  const [guestBusy, setGuestBusy] = useState(false);
+  const guestSectionOptions = guestValues.yearLevel
+    ? SECTION_LETTERS.map((letter) => ({
+        value: `BSCS ${guestValues.yearLevel}-${letter}`,
+        label: `BSCS ${guestValues.yearLevel}-${letter}`,
+      }))
+    : [];
+  const regSectionOptions = regValues.yearLevel
+    ? SECTION_LETTERS.map((letter) => ({
+        value: `BSCS ${regValues.yearLevel}-${letter}`,
+        label: `BSCS ${regValues.yearLevel}-${letter}`,
+      }))
+    : [];
+
+  const tabIndex = tab === 'login' ? 0 : tab === 'register' ? 1 : 2;
+
   // watch session for redirect (same logic as indexPage.js)
   const redirected = useRef(false);
   useEffect(() => {
@@ -39,10 +68,13 @@ export default function AuthCard() {
         return;
       }
       if (session.voterProfile) {
-        router.replace('/vote');
+        router.replace(session.voterProfile.guest ? '/vote' : '/dashboard');
         return;
       }
       setLoginMessage('No voter profile was found for this account.');
+      redirected.current = false;
+    }, (error) => {
+      setLoginMessage(error.message || 'Unable to verify your session.');
       redirected.current = false;
     });
     return unsubscribe;
@@ -91,178 +123,263 @@ export default function AuthCard() {
     }
   }
 
+  async function handleGuest(e: React.FormEvent) {
+    e.preventDefault();
+    setGuestMessage('');
+    const values = {
+      email: guestValues.email.trim().toLowerCase(),
+      fullName: guestValues.fullName.trim(),
+      yearLevel: Number(guestValues.yearLevel),
+      section: guestValues.section.trim(),
+    };
+    const errors = validateGuest(values);
+    setGuestErrors(errors);
+    if (hasErrors(errors)) return;
+    setGuestBusy(true);
+    try {
+      await loginGuest(values);
+      setGuestMessage('Signed in. Redirecting...');
+    } catch (err) {
+      setGuestMessage(friendlyAuthError(err));
+    } finally {
+      setGuestBusy(false);
+    }
+  }
+
   return (
-    <div className="auth-col">
-      <p className="eyebrow">Official Student Election</p>
-      <section className="auth-card" id="auth" data-reveal data-spot aria-label="Sign in or register">
-      <div className="brand-lockup">
-        <div className="brand-logos">
-          <span className="brand-logo scc">
-            <img src="/assets/scc_logo.png" alt="St. Clare College of Caloocan logo" />
-          </span>
-          <span className="brand-logo dept">
-            <img src="/assets/department_logo.png" alt="Computer Science Department logo" />
-          </span>
-        </div>
-        <div className="brand-text">
-          <p className="brand-inst">St. Clare College of Caloocan</p>
-          <p className="brand-sub">Computer Science Department</p>
-        </div>
-      </div>
+    <div className="auth-col" id="auth">
+      <section className="auth-card" data-reveal data-spot suppressHydrationWarning aria-label="Sign in or register">
+        <h3>Access your ballot</h3>
+        <p className="sub">Choose how you&apos;d like to continue.</p>
 
-      <div className="section-divider" aria-hidden="true" />
-
-      <div className="tabs" role="group" aria-label="Authentication mode">
-        <button
-          className={`tab-button${tab === 'login' ? ' is-active' : ''}`}
-          type="button"
-          onClick={() => setTab('login')}
+        <div
+          className="switch"
+          role="tablist"
+          aria-label="Authentication mode"
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+            event.preventDefault();
+            const order: Tab[] = ['login', 'register', 'guest'];
+            const delta = event.key === 'ArrowRight' ? 1 : -1;
+            const next = order[(order.indexOf(tab) + delta + order.length) % order.length];
+            setTab(next);
+            (event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[order.indexOf(next)])?.focus();
+          }}
         >
-          Login
-        </button>
-        <button
-          className={`tab-button${tab === 'register' ? ' is-active' : ''}`}
-          type="button"
-          onClick={() => setTab('register')}
-        >
-          Register
-        </button>
-      </div>
-
-      {/* login form */}
-      <form
-        className={`form-stack${tab !== 'login' ? ' is-hidden' : ''}`}
-        id="login-form"
-        noValidate
-        autoComplete="off"
-        onSubmit={handleLogin}
-      >
-        <label>
-          Email
-          <input
-            name="email"
-            type="email"
-            autoComplete="off"
-            required
-            value={loginValues.email}
-            onChange={(e) => setLoginValues((v) => ({ ...v, email: e.target.value }))}
-          />
-          {loginErrors.email && <span className="field-error">{loginErrors.email}</span>}
-        </label>
-        <label>
-          Password
-          <input
-            name="password"
-            type="password"
-            autoComplete="off"
-            required
-            value={loginValues.password}
-            onChange={(e) => setLoginValues((v) => ({ ...v, password: e.target.value }))}
-          />
-          {loginErrors.password && <span className="field-error">{loginErrors.password}</span>}
-        </label>
-        {loginMessage && <p className="form-message" role="status">{loginMessage}</p>}
-        <button className="btn btn-primary" type="submit" disabled={loginBusy}>
-          {loginBusy ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
-
-      {/* register form */}
-      <form
-        className={`form-stack${tab !== 'register' ? ' is-hidden' : ''}`}
-        id="register-form"
-        noValidate
-        autoComplete="off"
-        onSubmit={handleRegister}
-      >
-        <label>
-          Email
-          <input
-            name="email"
-            type="email"
-            autoComplete="off"
-            placeholder="juan.delacruz.scc@gmail.com"
-            required
-            value={regValues.email}
-            onChange={(e) => setRegValues((v) => ({ ...v, email: e.target.value }))}
-          />
-          {regErrors.email && <span className="field-error">{regErrors.email}</span>}
-        </label>
-        <label>
-          Password
-          <input
-            name="password"
-            type="password"
-            autoComplete="off"
-            minLength={6}
-            required
-            value={regValues.password}
-            onChange={(e) => setRegValues((v) => ({ ...v, password: e.target.value }))}
-          />
-          {regErrors.password && <span className="field-error">{regErrors.password}</span>}
-        </label>
-        <label>
-          Student ID
-          <input
-            name="studentNo"
-            inputMode="numeric"
-            autoComplete="off"
-            required
-            value={regValues.studentNo}
-            onChange={(e) => setRegValues((v) => ({ ...v, studentNo: e.target.value }))}
-          />
-          {regErrors.studentNo && <span className="field-error">{regErrors.studentNo}</span>}
-        </label>
-        <label>
-          Full name
-          <input
-            name="fullName"
-            autoComplete="off"
-            required
-            value={regValues.fullName}
-            onChange={(e) => setRegValues((v) => ({ ...v, fullName: e.target.value }))}
-          />
-          {regErrors.fullName && <span className="field-error">{regErrors.fullName}</span>}
-        </label>
-        <div className="two-col">
-          <label>
-            Year level
-            <select
-              name="yearLevel"
-              required
-              value={regValues.yearLevel}
-              onChange={(e) => setRegValues((v) => ({ ...v, yearLevel: e.target.value }))}
+          <span className="ind" style={{ transform: `translateX(${tabIndex * 100}%)` }} />
+          {([['login', 'Sign in', 'login-form'], ['register', 'Register', 'register-form'], ['guest', 'One-time', 'guest-form']] as const).map(([key, label, panelId]) => (
+            <button
+              key={key}
+              id={`auth-tab-${key}`}
+              className={tab === key ? 'on' : ''}
+              role="tab"
+              aria-selected={tab === key}
+              aria-controls={panelId}
+              tabIndex={tab === key ? 0 : -1}
+              type="button"
+              onClick={() => setTab(key)}
             >
-              <option value="">Select year</option>
-              <option value="1">1st Year</option>
-              <option value="2">2nd Year</option>
-              <option value="3">3rd Year</option>
-              <option value="4">4th Year</option>
-            </select>
-            {regErrors.yearLevel && <span className="field-error">{regErrors.yearLevel}</span>}
-          </label>
-          <label>
-            Section
-            <input
-              name="section"
-              placeholder="BSCS 2-A"
-              required
-              value={regValues.section}
-              onChange={(e) => setRegValues((v) => ({ ...v, section: e.target.value }))}
-            />
-            {regErrors.section && <span className="field-error">{regErrors.section}</span>}
-          </label>
+              {label}
+            </button>
+          ))}
         </div>
-        {regMessage && <p className="form-message" role="status">{regMessage}</p>}
-        <button className="btn btn-primary" type="submit" disabled={regBusy}>
-          {regBusy ? 'Creating account...' : 'Create account'}
-        </button>
-      </form>
 
-      <p className="auth-note">
-        Use your official <code>name.scc@gmail.com</code> email and 7–9 digit student ID.
-      </p>
-    </section>
+        <form
+          className={`pane${tab === 'login' ? ' show' : ''}`}
+          id="login-form"
+          role="tabpanel"
+          aria-labelledby="auth-tab-login"
+          hidden={tab !== 'login'}
+          noValidate
+          autoComplete="off"
+          onSubmit={handleLogin}
+        >
+          <label className="field">
+            <span>Student email</span>
+            <input
+              name="email"
+              type="email"
+              autoComplete="off"
+              suppressHydrationWarning
+              placeholder="juan.delacruz.scc@gmail.com"
+              required
+              value={loginValues.email}
+              onChange={(e) => setLoginValues((v) => ({ ...v, email: e.target.value }))}
+            />
+            {loginErrors.email && <span className="field-error">{loginErrors.email}</span>}
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input
+              name="password"
+              type="password"
+              autoComplete="off"
+              suppressHydrationWarning
+              required
+              value={loginValues.password}
+              onChange={(e) => setLoginValues((v) => ({ ...v, password: e.target.value }))}
+            />
+            {loginErrors.password && <span className="field-error">{loginErrors.password}</span>}
+          </label>
+          {loginMessage && <p className="form-message" role="status">{loginMessage}</p>}
+          <button className="btn btn-primary" type="submit" disabled={loginBusy}>
+            {loginBusy ? 'Signing in...' : 'Sign in →'}
+          </button>
+          <p className="auth-note">Use your official <code>.scc@gmail.com</code> email and account password.</p>
+        </form>
+
+        <form
+          className={`pane${tab === 'register' ? ' show' : ''}`}
+          id="register-form"
+          role="tabpanel"
+          aria-labelledby="auth-tab-register"
+          hidden={tab !== 'register'}
+          noValidate
+          autoComplete="off"
+          onSubmit={handleRegister}
+        >
+          <label className="field">
+            <span>Full name</span>
+            <input
+              name="fullName"
+              autoComplete="off"
+              suppressHydrationWarning
+              placeholder="Juan Dela Cruz"
+              required
+              value={regValues.fullName}
+              onChange={(e) => setRegValues((v) => ({ ...v, fullName: e.target.value }))}
+            />
+            {regErrors.fullName && <span className="field-error">{regErrors.fullName}</span>}
+          </label>
+          <label className="field">
+            <span>Student email</span>
+            <input
+              name="email"
+              type="email"
+              autoComplete="off"
+              suppressHydrationWarning
+              placeholder="juan.delacruz.scc@gmail.com"
+              required
+              value={regValues.email}
+              onChange={(e) => setRegValues((v) => ({ ...v, email: e.target.value }))}
+            />
+            {regErrors.email && <span className="field-error">{regErrors.email}</span>}
+          </label>
+          <label className="field">
+            <span>Student ID</span>
+            <input
+              name="studentNo"
+              inputMode="numeric"
+              autoComplete="off"
+              suppressHydrationWarning
+              placeholder="7–9 digit ID"
+              required
+              value={regValues.studentNo}
+              onChange={(e) => setRegValues((v) => ({ ...v, studentNo: e.target.value }))}
+            />
+            {regErrors.studentNo && <span className="field-error">{regErrors.studentNo}</span>}
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input
+              name="password"
+              type="password"
+              autoComplete="off"
+              suppressHydrationWarning
+              minLength={6}
+              required
+              value={regValues.password}
+              onChange={(e) => setRegValues((v) => ({ ...v, password: e.target.value }))}
+            />
+            {regErrors.password && <span className="field-error">{regErrors.password}</span>}
+          </label>
+          <div className="two-col">
+            <CustomSelect
+              label="Year level"
+              value={regValues.yearLevel}
+              options={YEAR_OPTIONS}
+              placeholder="Select year"
+              onChange={(yearLevel) => setRegValues((v) => ({ ...v, yearLevel, section: '' }))}
+            />
+            <CustomSelect
+              label="Section"
+              value={regValues.section}
+              options={regSectionOptions}
+              placeholder={regValues.yearLevel ? 'Select section' : 'Select year first'}
+              disabled={!regValues.yearLevel}
+              onChange={(section) => setRegValues((v) => ({ ...v, section }))}
+            />
+          </div>
+          {regErrors.yearLevel && <span className="field-error">{regErrors.yearLevel}</span>}
+          {regErrors.section && <span className="field-error">{regErrors.section}</span>}
+          {regMessage && <p className="form-message" role="status">{regMessage}</p>}
+          <button className="btn btn-primary" type="submit" disabled={regBusy}>
+            {regBusy ? 'Creating account...' : 'Create account →'}
+          </button>
+          <p className="auth-note">No approval wait — verify and head straight to your ballot.</p>
+        </form>
+
+        <form
+          className={`pane${tab === 'guest' ? ' show' : ''}`}
+          id="guest-form"
+          role="tabpanel"
+          aria-labelledby="auth-tab-guest"
+          hidden={tab !== 'guest'}
+          noValidate
+          autoComplete="off"
+          onSubmit={handleGuest}
+        >
+          <label className="field">
+            <span>One-time Vote</span>
+            <input
+              name="fullName"
+              autoComplete="off"
+              suppressHydrationWarning
+              placeholder="Full name"
+              required
+              value={guestValues.fullName}
+              onChange={(e) => setGuestValues((v) => ({ ...v, fullName: e.target.value }))}
+            />
+            {guestErrors.fullName && <span className="field-error">{guestErrors.fullName}</span>}
+          </label>
+          <label className="field">
+            <span>Email</span>
+            <input
+              name="email"
+              type="email"
+              autoComplete="off"
+              suppressHydrationWarning
+              placeholder="e.g. juan.delacruz.scc@gmail.com"
+              required
+              value={guestValues.email}
+              onChange={(e) => setGuestValues((v) => ({ ...v, email: e.target.value }))}
+            />
+            {guestErrors.email && <span className="field-error">{guestErrors.email}</span>}
+          </label>
+          <CustomSelect
+            label="Year level"
+            value={guestValues.yearLevel}
+            options={YEAR_OPTIONS}
+            placeholder="Select year"
+            onChange={(yearLevel) => setGuestValues((v) => ({ ...v, yearLevel, section: '' }))}
+          />
+          {guestErrors.yearLevel && <span className="field-error">{guestErrors.yearLevel}</span>}
+          <CustomSelect
+            label="Section"
+            value={guestValues.section}
+            options={guestSectionOptions}
+            placeholder={guestValues.yearLevel ? 'Select section' : 'Select year first'}
+            disabled={!guestValues.yearLevel}
+            onChange={(section) => setGuestValues((v) => ({ ...v, section }))}
+          />
+          {guestErrors.section && <span className="field-error">{guestErrors.section}</span>}
+          {guestMessage && <p className="form-message" role="status">{guestMessage}</p>}
+          <button className="btn btn-primary" type="submit" disabled={guestBusy}>
+            {guestBusy ? 'Signing in...' : 'Verify & vote →'}
+          </button>
+          <p className="auth-note">Fast one-time access for students who need to go straight to the ballot.</p>
+        </form>
+      </section>
     </div>
   );
 }

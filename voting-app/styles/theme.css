@@ -57,6 +57,7 @@
     var(--brand),
     var(--teal-200)
   );
+  --grad-mark: conic-gradient(from 140deg, var(--teal-200), var(--teal-glow), var(--teal-600), var(--brand), var(--teal-200));
 
   --glow: 0 0 40px rgba(34, 184, 160, 0.28);
   --glow-strong: 0 0 64px rgba(34, 184, 160, 0.4);
@@ -73,9 +74,11 @@
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   /* fonts */
-  --font-display: "Figtree", "Segoe UI", Arial, sans-serif;
-  --font-body: "Figtree", "Segoe UI", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Space Mono", monospace;
+  --font: var(--font-figtree), "Figtree", "Segoe UI", Arial, sans-serif;
+  --mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font);
+  --font-body: var(--font);
+  --font-mono: var(--mono);
 
   --maxw: 1200px;
 }
@@ -84,9 +87,11 @@
   box-sizing: border-box;
 }
 
+/* html must stay background-free: a background here stops the body background from
+   propagating to the root canvas, which would paint body's bg OVER the negative
+   z-index layers (.grid-overlay, .binary-rain) and hide them on every page */
 html {
   min-height: 100%;
-  background: var(--black);
   scroll-behavior: smooth;
 }
 
@@ -100,27 +105,25 @@ body {
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(ellipse 60% 50% at 6% -8%, rgba(28, 171, 184, 0.22), transparent 62%),
-    radial-gradient(ellipse 54% 48% at 106% 2%, rgba(34, 184, 160, 0.18), transparent 60%),
-    radial-gradient(ellipse 84% 66% at 50% 116%, rgba(15, 76, 92, 0.34), transparent 64%),
+    radial-gradient(ellipse 60% 50% at 6% -8%, rgba(28, 171, 184, 0.16), transparent 62%),
+    radial-gradient(ellipse 84% 66% at 50% 116%, rgba(15, 76, 92, 0.26), transparent 64%),
     var(--black);
   overflow-x: hidden;
 }
 
-/* masked teal grid, faded toward the top */
-body::before {
+/* masked teal grid, faded toward the top (real element rendered by the root layout) */
+.grid-overlay {
   position: fixed;
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  content: "";
   background-image:
     linear-gradient(var(--line) 1px, transparent 1px),
     linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 64px 64px;
-  opacity: 0.5;
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 8%, transparent 78%);
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 8%, transparent 78%);
+  opacity: 0.45;
+  -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 0%, #000 8%, transparent 88%);
+  mask-image: radial-gradient(ellipse 90% 85% at 50% 0%, #000 8%, transparent 88%);
 }
 
 button,
@@ -196,10 +199,10 @@ a {
   z-index: -1;
   width: 100%;
   height: 100%;
-  opacity: 0.4;
+  opacity: 0.3;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(ellipse 95% 85% at 50% 30%, #000 35%, transparent 92%);
-  mask-image: radial-gradient(ellipse 95% 85% at 50% 30%, #000 35%, transparent 92%);
+  -webkit-mask-image: radial-gradient(ellipse 95% 90% at 50% 30%, #000 35%, transparent 94%);
+  mask-image: radial-gradient(ellipse 95% 90% at 50% 30%, #000 35%, transparent 94%);
 }
 
 /* ---------- type primitives ---------- */
@@ -210,15 +213,15 @@ a {
   margin: 0 0 14px;
   color: var(--brand);
   font-family: var(--font-mono);
-  font-size: 0.69rem;
+  font-size: 0.64rem;
   font-weight: 500;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
 .eyebrow::before {
   content: "";
-  width: 18px;
+  width: 16px;
   height: 2px;
   border-radius: 99px;
   background: var(--grad-action);
@@ -265,14 +268,4 @@ h3 {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-  .binary-rain,
-  .bg-blobs {
-    display: none;
-  }
 }

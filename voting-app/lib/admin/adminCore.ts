@@ -1,21 +1,9 @@
 import type { Candidate, Position, Vote, Voter } from '../types';
-import { ELECTION_ID } from '../constants';
+import { candidatesForPosition } from '../election/candidates';
+import { formatTimestamp, toMillis } from '../format';
 
 export function byId<T extends { id: string }>(records: T[]): Record<string, T> {
   return Object.fromEntries(records.map((r) => [r.id, r]));
-}
-
-export function formatYearLevel(yearLevel: number | undefined): string {
-  return yearLevel ? `Year ${yearLevel}` : 'Department';
-}
-
-export function formatTimestamp(value: unknown): string {
-  if (!value) return '';
-  if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate().toLocaleString('en-PH', { timeZone: 'Asia/Manila' });
-  }
-  if (value instanceof Date) return value.toLocaleString('en-PH', { timeZone: 'Asia/Manila' });
-  return String(value);
 }
 
 export interface Aggregate {
@@ -78,10 +66,21 @@ export function aggregateVotes(params: {
   };
 }
 
-export function candidatesForPosition(candidates: Candidate[], positionId: string): Candidate[] {
-  return candidates
-    .filter((c) => c.positionId === positionId)
-    .sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+/**
+ * Cumulative unique-voter turnout over time. Each point marks the moment a new
+ * voter cast their first ballot, so the running count === ballots cast so far.
+ * Votes arrive ordered by createdAt, but we sort defensively for safety.
+ */
+export function cumulativeTurnout(votes: Vote[]): { t: number; count: number }[] {
+  const ordered = [...votes].sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
+  const seen = new Set<string>();
+  const points: { t: number; count: number }[] = [];
+  for (const vote of ordered) {
+    if (seen.has(vote.uid)) continue;
+    seen.add(vote.uid);
+    points.push({ t: toMillis(vote.createdAt), count: seen.size });
+  }
+  return points;
 }
 
 export function rankedCandidatesForPosition(
@@ -137,6 +136,20 @@ export function votesToCsv(params: {
     candidatesById[vote.candidateId]?.name ?? vote.candidateId,
     vote.yearLevel,
     formatTimestamp(vote.createdAt),
+  ]);
+  return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
+}
+
+export function votersToCsv(voters: Voter[], electionId: string): string {
+  const header = ['fullName', 'studentNo', 'email', 'yearLevel', 'section', 'eligible', 'status'];
+  const rows = voters.map((voter) => [
+    voter.fullName,
+    voter.studentNo ?? '',
+    voter.email,
+    voter.yearLevel,
+    voter.section,
+    voter.eligible ? 'yes' : 'no',
+    voter.hasVoted?.[electionId] === true ? 'voted' : 'not yet',
   ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
 }

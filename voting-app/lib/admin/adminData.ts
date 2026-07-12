@@ -1,72 +1,80 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { db, storage } from '../firebase/init';
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getFirebaseDb, getFirebaseStorage } from '../firebase/init';
+import { snapshotRecords } from '../firebase/firestore';
 import { ELECTION_ID } from '../constants';
-import type { Candidate, Election, Position, Vote, Voter } from '../types';
+import type { AuditEntry, Candidate, Vote, Voter } from '../types';
 import { buildTallies } from './adminCore';
+
+export { loadElection, loadCandidates, watchElection, loadScopedPositions as loadPositions } from '../election/electionRepo';
 
 const MAX_CANDIDATE_IMAGE_BYTES = 2 * 1024 * 1024;
 
-function snapshotRecords<T>(snapshot: import('firebase/firestore').QuerySnapshot): (T & { id: string })[] {
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as T & { id: string });
-}
-
-export async function loadElection(electionId = ELECTION_ID): Promise<Election> {
-  const snapshot = await getDoc(doc(db, 'elections', electionId));
-  if (!snapshot.exists()) throw new Error('Election was not found.');
-  return { id: snapshot.id, ...(snapshot.data() as Omit<Election, 'id'>) };
-}
-
-export async function loadPositions(): Promise<Position[]> {
-  const snapshot = await getDocs(query(collection(db, 'positions'), orderBy('order', 'asc')));
-  return snapshotRecords<Position>(snapshot);
-}
-
-export async function loadCandidates(): Promise<Candidate[]> {
-  const snapshot = await getDocs(query(collection(db, 'candidates'), orderBy('order', 'asc')));
-  return snapshotRecords<Candidate>(snapshot);
-}
-
 export async function loadVoters(): Promise<Voter[]> {
+  const db = getFirebaseDb();
   const snapshot = await getDocs(query(collection(db, 'voters'), orderBy('fullName', 'asc')));
   return snapshotRecords<Voter>(snapshot);
 }
 
-export async function loadVotes(): Promise<Vote[]> {
-  const snapshot = await getDocs(query(collection(db, 'votes'), orderBy('createdAt', 'asc')));
+export async function loadVotes(electionId = ELECTION_ID): Promise<Vote[]> {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(
+    collection(db, 'votes'),
+    where('electionId', '==', electionId),
+    orderBy('createdAt', 'asc'),
+  ));
   return snapshotRecords<Vote>(snapshot);
 }
 
-export function watchVotes(onChange: (votes: Vote[]) => void, onError: (e: Error) => void): () => void {
+export function watchVotes(onChange: (votes: Vote[]) => void, onError: (e: Error) => void, electionId = ELECTION_ID): () => void {
+  const db = getFirebaseDb();
   return onSnapshot(
-    query(collection(db, 'votes'), orderBy('createdAt', 'asc')),
+    query(collection(db, 'votes'), where('electionId', '==', electionId), orderBy('createdAt', 'asc')),
     (snapshot) => onChange(snapshotRecords<Vote>(snapshot)),
     onError,
   );
 }
 
-export function watchElection(
-  onChange: (election: Election) => void,
+export function watchCandidates(
+  onChange: (candidates: Candidate[]) => void,
   onError: (e: Error) => void,
   electionId = ELECTION_ID,
 ): () => void {
+  const db = getFirebaseDb();
   return onSnapshot(
-    doc(db, 'elections', electionId),
-    (snapshot) => {
-      if (snapshot.exists()) onChange({ id: snapshot.id, ...(snapshot.data() as Omit<Election, 'id'>) });
-    },
+    query(
+      collection(db, 'candidates'),
+      where('electionId', '==', electionId),
+      orderBy('order', 'asc'),
+    ),
+    (snapshot) => onChange(snapshotRecords<Candidate>(snapshot)),
+    onError,
+  );
+}
+
+export function watchVoters(
+  onChange: (voters: Voter[]) => void,
+  onError: (e: Error) => void,
+): () => void {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    query(collection(db, 'voters'), orderBy('fullName', 'asc')),
+    (snapshot) => onChange(snapshotRecords<Voter>(snapshot)),
     onError,
   );
 }
@@ -79,6 +87,7 @@ export function validateCandidatePhoto(file: File | null | undefined): string {
 }
 
 async function uploadCandidatePhoto(candidateId: string, file: File) {
+  const storage = getFirebaseStorage();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const photoPath = `candidates/${candidateId}-${Date.now()}-${safeName}`;
   const photoRef = ref(storage, photoPath);
@@ -105,6 +114,7 @@ export async function saveCandidate(params: {
   photoFile?: File | null;
   actorUid: string;
 }): Promise<string> {
+  const db = getFirebaseDb();
   const { candidate, photoFile, actorUid } = params;
   const photoError = validateCandidatePhoto(photoFile ?? null);
   if (photoError) throw new Error(photoError);
@@ -148,21 +158,46 @@ export async function saveCandidate(params: {
 }
 
 export async function setCandidateActive(candidateId: string, active: boolean, actorUid: string): Promise<void> {
+  const db = getFirebaseDb();
   await updateDoc(doc(db, 'candidates', candidateId), { active, updatedAt: serverTimestamp() });
   await createAudit(actorUid, 'candidate.active.set', `candidates/${candidateId}`, { active });
 }
 
+export async function deleteCandidate(candidateId: string, actorUid: string): Promise<void> {
+  const db = getFirebaseDb();
+  const snapshot = await getDoc(doc(db, 'candidates', candidateId));
+  const photoPath = snapshot.exists() ? (snapshot.data() as { photoPath?: string }).photoPath : '';
+  await deleteDoc(doc(db, 'candidates', candidateId));
+  if (photoPath) {
+    try {
+      await deleteObject(ref(getFirebaseStorage(), photoPath));
+    } catch {
+      // photo cleanup is best-effort; the record delete is what matters
+    }
+  }
+  await createAudit(actorUid, 'candidate.delete', `candidates/${candidateId}`, {});
+}
+
 export async function setVoterEligibility(uid: string, eligible: boolean, actorUid: string): Promise<void> {
+  const db = getFirebaseDb();
   await updateDoc(doc(db, 'voters', uid), { eligible, updatedAt: serverTimestamp() });
   await createAudit(actorUid, 'voter.eligible.set', `voters/${uid}`, { eligible });
 }
 
 export async function setElectionStatus(status: string, actorUid: string, electionId = ELECTION_ID): Promise<void> {
+  const db = getFirebaseDb();
   await updateDoc(doc(db, 'elections', electionId), { status, updatedAt: serverTimestamp() });
   await createAudit(actorUid, 'election.status.set', `elections/${electionId}`, { status });
 }
 
+export async function setRegistrationOpen(registrationOpen: boolean, actorUid: string, electionId = ELECTION_ID): Promise<void> {
+  const db = getFirebaseDb();
+  await updateDoc(doc(db, 'elections', electionId), { registrationOpen, updatedAt: serverTimestamp() });
+  await createAudit(actorUid, 'election.registration.set', `elections/${electionId}`, { registrationOpen });
+}
+
 export async function publishElection(params: { actorUid: string; electionId?: string }) {
+  const db = getFirebaseDb();
   const { actorUid, electionId = ELECTION_ID } = params;
   const electionSnapshot = await getDoc(doc(db, 'elections', electionId));
   const election = electionSnapshot.exists() ? electionSnapshot.data() : null;
@@ -182,6 +217,7 @@ export async function publishElection(params: { actorUid: string; electionId?: s
 }
 
 export async function createAudit(actorUid: string, action: string, target: string, details: Record<string, unknown> = {}) {
+  const db = getFirebaseDb();
   await addDoc(collection(db, 'audit'), {
     ts: serverTimestamp(),
     actorUid,
@@ -190,4 +226,17 @@ export async function createAudit(actorUid: string, action: string, target: stri
     target,
     details,
   });
+}
+
+export function watchAudit(
+  onChange: (entries: AuditEntry[]) => void,
+  onError: (e: Error) => void,
+  max = 20,
+): () => void {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    query(collection(db, 'audit'), orderBy('ts', 'desc'), limit(max)),
+    (snapshot) => onChange(snapshotRecords<AuditEntry>(snapshot)),
+    onError,
+  );
 }

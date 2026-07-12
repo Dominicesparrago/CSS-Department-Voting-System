@@ -3,12 +3,13 @@ import type { Timestamp } from 'firebase/firestore';
 
 export interface VoterProfile {
   uid: string;
-  studentNo: string;
+  studentNo?: string;
   fullName: string;
   email: string;
   yearLevel: number;
   section: string;
   eligible: boolean;
+  guest?: boolean;
   hasVoted?: Record<string, boolean>;
   votedAt?: Record<string, Timestamp>;
   createdAt?: Timestamp;
@@ -25,6 +26,8 @@ export interface Election {
   id: string;
   title?: string;
   status: 'draft' | 'open' | 'closed' | 'published';
+  registrationOpen?: boolean;
+  positions?: string[];
   updatedAt?: Timestamp;
 }
 
@@ -67,6 +70,16 @@ export interface Vote {
 
 export interface Voter extends VoterProfile {
   id: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  ts?: Timestamp;
+  actorUid: string;
+  actorRole?: string;
+  action: string;
+  target: string;
+  details?: Record<string, unknown>;
 }
 
 export type Selections = Record<string, string>;

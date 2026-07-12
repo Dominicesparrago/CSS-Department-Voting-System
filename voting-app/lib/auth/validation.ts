@@ -15,6 +15,13 @@ interface LoginValues {
   password: string;
 }
 
+interface GuestValues {
+  email: string;
+  fullName: string;
+  yearLevel: number;
+  section: string;
+}
+
 export type FieldErrors = Record<string, string>;
 
 export function validateRegistration(values: RegisterValues): FieldErrors {
@@ -22,6 +29,15 @@ export function validateRegistration(values: RegisterValues): FieldErrors {
   if (!STUDENT_EMAIL_PATTERN.test(values.email)) errors.email = 'Use your official <name>.scc@gmail.com email.';
   if (!values.password || values.password.length < 6) errors.password = 'Password must be at least 6 characters.';
   if (!STUDENT_NO_PATTERN.test(values.studentNo)) errors.studentNo = 'Student ID must be 7 to 9 digits.';
+  if (!values.fullName) errors.fullName = 'Full name is required.';
+  if (![1, 2, 3, 4].includes(values.yearLevel)) errors.yearLevel = 'Select your year level.';
+  if (!values.section) errors.section = 'Section is required.';
+  return errors;
+}
+
+export function validateGuest(values: GuestValues): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!STUDENT_EMAIL_PATTERN.test(values.email)) errors.email = 'Use your official <name>.scc@gmail.com email.';
   if (!values.fullName) errors.fullName = 'Full name is required.';
   if (![1, 2, 3, 4].includes(values.yearLevel)) errors.yearLevel = 'Select your year level.';
   if (!values.section) errors.section = 'Section is required.';

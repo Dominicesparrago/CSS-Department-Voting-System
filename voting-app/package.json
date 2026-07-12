@@ -10,20 +10,21 @@
     "deploy": "next build && cd .. && firebase deploy --only hosting"
   },
   "dependencies": {
+    "chart.js": "^4.4.7",
+    "firebase": "^10.14.1",
+    "lucide-react": "^0.400.0",
     "next": "^14.2.30",
     "react": "^18",
-    "react-dom": "^18",
-    "firebase": "^10.14.1",
     "react-chartjs-2": "^5.2.0",
-    "chart.js": "^4.4.7",
-    "lucide-react": "^0.400.0"
+    "react-dom": "^18"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "typescript": "^5",
     "eslint": "^8",
-    "eslint-config-next": "^14.2.30"
+    "eslint-config-next": "^14.2.30",
+    "firebase-tools": "^15.22.3",
+    "typescript": "^5"
   }
 }

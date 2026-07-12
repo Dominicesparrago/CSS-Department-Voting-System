@@ -1,7 +1,11 @@
 import type { Session, VoterProfile } from '../types';
 
 export function hasAdminClaim(claims: Record<string, unknown> | null): boolean {
-  return claims?.admin === true || claims?.role === 'admin';
+  return claims?.admin === true || claims?.superadmin === true || claims?.role === 'admin' || claims?.role === 'superadmin';
+}
+
+export function hasSuperAdminClaim(claims: Record<string, unknown> | null): boolean {
+  return claims?.superadmin === true || claims?.role === 'superadmin';
 }
 
 export function hasVotedInElection(voterProfile: VoterProfile | null, electionId: string): boolean {

@@ -1,6 +1,6 @@
 import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
-import { db } from '../firebase/init';
+import { getFirebaseDb } from '../firebase/init';
 import { ELECTION_ID } from '../constants';
 import type { Election, Position, VoterProfile, Selections } from '../types';
 import { isBallotComplete } from './ballotState';
@@ -21,6 +21,7 @@ export async function submitCompleteBallot(params: {
   if (election.status !== 'open') throw new Error('Voting is not open for this election.');
   if (!isBallotComplete(requiredPositions, selections)) throw new Error('Complete every race before submitting.');
 
+  const db = getFirebaseDb();
   const batch = writeBatch(db);
   const createdAt = serverTimestamp();
   const eid = election.id || ELECTION_ID;
