@@ -13,7 +13,7 @@ describe('friendlyAuthError', () => {
   it('maps connectivity and rules failures', () => {
     expect(friendlyAuthError({ code: 'auth/network-request-failed' })).toContain('internet connection');
     expect(friendlyAuthError({ message: 'Failed to fetch' })).toContain('internet connection');
-    expect(friendlyAuthError({ code: 'permission-denied' })).toContain('rejected');
+    expect(friendlyAuthError({ code: 'permission-denied' })).toContain('already have been used');
   });
 
   it('falls back to a generic message for unknown errors', () => {
