@@ -1,5 +1,5 @@
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDocFromServer } from 'firebase/firestore';
 import { getFirebaseAuth, getFirebaseDb } from '../firebase/init';
 import type { Session } from '../types';
 
@@ -18,9 +18,11 @@ export function watchSession(callback: (session: Session) => void, onError?: (er
         const email = user.email?.toLowerCase() ?? '';
         const [tokenResult, voterSnapshot, adminSnapshot] = await Promise.all([
           user.getIdTokenResult(true),
-          getDoc(doc(db, 'voters', user.uid)),
+          // Eligibility is security-sensitive. Do not admit a profile retained in
+          // IndexedDB after the emulator or backing project has been reset.
+          getDocFromServer(doc(db, 'voters', user.uid)),
           // registry lookup is best-effort: a failure here must not break sign-in
-          email ? getDoc(doc(db, 'admins', email)).catch(() => null) : Promise.resolve(null),
+          email ? getDocFromServer(doc(db, 'admins', email)).catch(() => null) : Promise.resolve(null),
         ]);
 
         callback({

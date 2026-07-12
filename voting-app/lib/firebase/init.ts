@@ -47,8 +47,9 @@ function getFirebaseServices() {
 function connectLocalEmulators(auth: Auth, db: Firestore, storage: FirebaseStorage) {
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   if (useEmulators && !(globalThis as Record<string, unknown>).__CSS_VOTE_EMULATORS_CONNECTED__) {
+    const firestorePort = Number(process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT ?? 8081);
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    connectFirestoreEmulator(db, '127.0.0.1', 8081);
+    connectFirestoreEmulator(db, '127.0.0.1', firestorePort);
     connectStorageEmulator(storage, '127.0.0.1', 9199);
     (globalThis as Record<string, unknown>).__CSS_VOTE_EMULATORS_CONNECTED__ = true;
   }

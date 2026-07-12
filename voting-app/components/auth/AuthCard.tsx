@@ -25,7 +25,9 @@ const SECTION_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode
 export default function AuthCard() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('login');
-  const [guestVotingEnabled, setGuestVotingEnabled] = useState(true);
+  // Guest voting is an explicitly enabled policy. If config cannot be read,
+  // keep the anonymous path hidden rather than failing open.
+  const [guestVotingEnabled, setGuestVotingEnabled] = useState(false);
 
   // superadmin can disable one-time (guest) voting; the tab disappears live
   useEffect(() => {
@@ -208,37 +210,43 @@ export default function AuthCard() {
           aria-labelledby="auth-tab-login"
           hidden={tab !== 'login'}
           noValidate
-          autoComplete="off"
+          autoComplete="on"
           onSubmit={handleLogin}
         >
           <label className="field">
             <span>Student email</span>
             <input
+              id="login-email"
               name="email"
               type="email"
-              autoComplete="off"
+              autoComplete="username"
               suppressHydrationWarning
               placeholder="juan.delacruz.scc@gmail.com"
               required
+              aria-invalid={Boolean(loginErrors.email)}
+              aria-describedby={loginErrors.email ? 'login-email-error' : undefined}
               value={loginValues.email}
               onChange={(e) => setLoginValues((v) => ({ ...v, email: e.target.value }))}
             />
-            {loginErrors.email && <span className="field-error">{loginErrors.email}</span>}
+            {loginErrors.email && <span id="login-email-error" className="field-error">{loginErrors.email}</span>}
           </label>
           <label className="field">
             <span>Password</span>
             <input
+              id="login-password"
               name="password"
               type="password"
-              autoComplete="off"
+              autoComplete="current-password"
               suppressHydrationWarning
               required
+              aria-invalid={Boolean(loginErrors.password)}
+              aria-describedby={loginErrors.password ? 'login-password-error' : undefined}
               value={loginValues.password}
               onChange={(e) => setLoginValues((v) => ({ ...v, password: e.target.value }))}
             />
-            {loginErrors.password && <span className="field-error">{loginErrors.password}</span>}
+            {loginErrors.password && <span id="login-password-error" className="field-error">{loginErrors.password}</span>}
           </label>
-          {loginMessage && <p className="form-message" role="status">{loginMessage}</p>}
+          {loginMessage && <p className="form-message" role="alert">{loginMessage}</p>}
           <button className="btn btn-primary" type="submit" disabled={loginBusy}>
             {loginBusy ? 'Signing in...' : 'Sign in →'}
           </button>
@@ -252,63 +260,75 @@ export default function AuthCard() {
           aria-labelledby="auth-tab-register"
           hidden={tab !== 'register'}
           noValidate
-          autoComplete="off"
+          autoComplete="on"
           onSubmit={handleRegister}
         >
           <label className="field">
             <span>Full name</span>
             <input
+              id="register-full-name"
               name="fullName"
-              autoComplete="off"
+              autoComplete="name"
               suppressHydrationWarning
               placeholder="Juan Dela Cruz"
               required
+              aria-invalid={Boolean(regErrors.fullName)}
+              aria-describedby={regErrors.fullName ? 'register-full-name-error' : undefined}
               value={regValues.fullName}
               onChange={(e) => setRegValues((v) => ({ ...v, fullName: e.target.value }))}
             />
-            {regErrors.fullName && <span className="field-error">{regErrors.fullName}</span>}
+            {regErrors.fullName && <span id="register-full-name-error" className="field-error">{regErrors.fullName}</span>}
           </label>
           <label className="field">
             <span>Student email</span>
             <input
+              id="register-email"
               name="email"
               type="email"
-              autoComplete="off"
+              autoComplete="email"
               suppressHydrationWarning
               placeholder="juan.delacruz.scc@gmail.com"
               required
+              aria-invalid={Boolean(regErrors.email)}
+              aria-describedby={regErrors.email ? 'register-email-error' : undefined}
               value={regValues.email}
               onChange={(e) => setRegValues((v) => ({ ...v, email: e.target.value }))}
             />
-            {regErrors.email && <span className="field-error">{regErrors.email}</span>}
+            {regErrors.email && <span id="register-email-error" className="field-error">{regErrors.email}</span>}
           </label>
           <label className="field">
             <span>Student ID</span>
             <input
+              id="register-student-number"
               name="studentNo"
               inputMode="numeric"
               autoComplete="off"
               suppressHydrationWarning
               placeholder="7–9 digit ID"
               required
+              aria-invalid={Boolean(regErrors.studentNo)}
+              aria-describedby={regErrors.studentNo ? 'register-student-number-error' : undefined}
               value={regValues.studentNo}
               onChange={(e) => setRegValues((v) => ({ ...v, studentNo: e.target.value }))}
             />
-            {regErrors.studentNo && <span className="field-error">{regErrors.studentNo}</span>}
+            {regErrors.studentNo && <span id="register-student-number-error" className="field-error">{regErrors.studentNo}</span>}
           </label>
           <label className="field">
             <span>Password</span>
             <input
+              id="register-password"
               name="password"
               type="password"
-              autoComplete="off"
+              autoComplete="new-password"
               suppressHydrationWarning
               minLength={6}
               required
+              aria-invalid={Boolean(regErrors.password)}
+              aria-describedby={regErrors.password ? 'register-password-error' : undefined}
               value={regValues.password}
               onChange={(e) => setRegValues((v) => ({ ...v, password: e.target.value }))}
             />
-            {regErrors.password && <span className="field-error">{regErrors.password}</span>}
+            {regErrors.password && <span id="register-password-error" className="field-error">{regErrors.password}</span>}
           </label>
           <div className="two-col">
             <CustomSelect
@@ -329,7 +349,7 @@ export default function AuthCard() {
           </div>
           {regErrors.yearLevel && <span className="field-error">{regErrors.yearLevel}</span>}
           {regErrors.section && <span className="field-error">{regErrors.section}</span>}
-          {regMessage && <p className="form-message" role="status">{regMessage}</p>}
+          {regMessage && <p className="form-message" role="alert">{regMessage}</p>}
           <button className="btn btn-primary" type="submit" disabled={regBusy}>
             {regBusy ? 'Creating account...' : 'Create account →'}
           </button>
@@ -344,35 +364,41 @@ export default function AuthCard() {
           aria-labelledby="auth-tab-guest"
           hidden={tab !== 'guest'}
           noValidate
-          autoComplete="off"
+          autoComplete="on"
           onSubmit={handleGuest}
         >
           <label className="field">
             <span>One-time Vote</span>
             <input
+              id="guest-full-name"
               name="fullName"
-              autoComplete="off"
+              autoComplete="name"
               suppressHydrationWarning
               placeholder="Full name"
               required
+              aria-invalid={Boolean(guestErrors.fullName)}
+              aria-describedby={guestErrors.fullName ? 'guest-full-name-error' : undefined}
               value={guestValues.fullName}
               onChange={(e) => setGuestValues((v) => ({ ...v, fullName: e.target.value }))}
             />
-            {guestErrors.fullName && <span className="field-error">{guestErrors.fullName}</span>}
+            {guestErrors.fullName && <span id="guest-full-name-error" className="field-error">{guestErrors.fullName}</span>}
           </label>
           <label className="field">
             <span>Email</span>
             <input
+              id="guest-email"
               name="email"
               type="email"
-              autoComplete="off"
+              autoComplete="email"
               suppressHydrationWarning
               placeholder="e.g. juan.delacruz.scc@gmail.com"
               required
+              aria-invalid={Boolean(guestErrors.email)}
+              aria-describedby={guestErrors.email ? 'guest-email-error' : undefined}
               value={guestValues.email}
               onChange={(e) => setGuestValues((v) => ({ ...v, email: e.target.value }))}
             />
-            {guestErrors.email && <span className="field-error">{guestErrors.email}</span>}
+            {guestErrors.email && <span id="guest-email-error" className="field-error">{guestErrors.email}</span>}
           </label>
           <CustomSelect
             label="Year level"
@@ -391,7 +417,7 @@ export default function AuthCard() {
             onChange={(section) => setGuestValues((v) => ({ ...v, section }))}
           />
           {guestErrors.section && <span className="field-error">{guestErrors.section}</span>}
-          {guestMessage && <p className="form-message" role="status">{guestMessage}</p>}
+          {guestMessage && <p className="form-message" role="alert">{guestMessage}</p>}
           <button className="btn btn-primary" type="submit" disabled={guestBusy}>
             {guestBusy ? 'Signing in...' : 'Verify & vote →'}
           </button>

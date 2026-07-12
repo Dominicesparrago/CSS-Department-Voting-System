@@ -56,6 +56,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/voters/$(uid);
     }
 
+    function votePath(voteId) {
+      return /databases/$(database)/documents/votes/$(voteId);
+    }
+
     function emailIndexPath(email) {
       return /databases/$(database)/documents/emailIndex/$(email);
     }
@@ -131,8 +135,8 @@ service cloud.firestore {
     }
 
     function guestSignupAllowed() {
-      return !exists(/databases/$(database)/documents/config/app)
-        || get(/databases/$(database)/documents/config/app).data.get("allowGuestVoters", true) == true;
+      return exists(/databases/$(database)/documents/config/app)
+        && get(/databases/$(database)/documents/config/app).data.get("allowGuestVoters", false) == true;
     }
 
     function validGuestVoterCreate(uid) {
@@ -208,7 +212,22 @@ service cloud.firestore {
           "votedAt",
           "updatedAt"
         ])
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        // The client may only perform the one-way completion transition for
+        // the current election. Arbitrary map keys/timestamps would let a
+        // voter forge or reset participation without casting a ballot.
+        && request.resource.data.hasVoted.keys().hasOnly(["css_department_election_2026"])
+        && request.resource.data.hasVoted["css_department_election_2026"] == true
+        && request.resource.data.votedAt.keys().hasOnly(["css_department_election_2026"])
+        && request.resource.data.votedAt["css_department_election_2026"] == request.time
+        && (!(("hasVoted" in resource.data) && ("css_department_election_2026" in resource.data.hasVoted)))
+        && getAfter(votePath("css_department_election_2026__" + uid + "__president")).data.uid == uid;
+    }
+
+    function voterVoteLockWritten(uid, electionId) {
+      return "hasVoted" in getAfter(voterPath(uid)).data
+        && electionId in getAfter(voterPath(uid)).data.hasVoted
+        && getAfter(voterPath(uid)).data.hasVoted[electionId] == true;
     }
 
     function validStudentIndexCreate(studentNo) {
@@ -306,6 +325,9 @@ service cloud.firestore {
         && electionOpen(request.resource.data.electionId)
         && voterIsEligible(request.auth.uid)
         && voterHasNotVoted(request.auth.uid, request.resource.data.electionId)
+        // A vote cannot be written as a standalone document. The voter lock
+        // must be part of the same atomic batch/transaction.
+        && voterVoteLockWritten(request.auth.uid, request.resource.data.electionId)
         && request.resource.data.yearLevel == get(voterPath(request.auth.uid)).data.yearLevel
         && positionAllowedForVoter(request.resource.data.positionId, request.auth.uid)
         && candidateMatchesPosition(
@@ -313,8 +335,7 @@ service cloud.firestore {
           request.resource.data.electionId,
           request.resource.data.positionId
         )
-        && (!voterIsGuest(request.auth.uid) || guestEmailLocked(request.auth.uid))
-        && !exists(/databases/$(database)/documents/votes/$(voteId));
+        && (!voterIsGuest(request.auth.uid) || guestEmailLocked(request.auth.uid));
     }
 
     function validAuditCreate() {

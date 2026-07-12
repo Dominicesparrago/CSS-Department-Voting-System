@@ -68,6 +68,14 @@ export default function ResultsPage() {
         setMessage('Final tallies, recomputed from immutable ballot records.');
       } catch (err) {
         if (!alive) return;
+        if ((err as { code?: string }).code === 'permission-denied') {
+          // Election metadata and tallies are intentionally protected until
+          // publication. A signed-out visitor should see the designed locked
+          // state, not a raw Firestore authorization failure.
+          setState('unpublished');
+          setMessage('Official results are released after the election is published.');
+          return;
+        }
         setState('error');
         setMessage((err as Error).message || 'Unable to load official results.');
       }

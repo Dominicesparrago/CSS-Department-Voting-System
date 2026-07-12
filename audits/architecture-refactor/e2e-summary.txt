@@ -42,3 +42,22 @@ PASS audit trail shows grant, revoke, config, and rename entries
 
 15/15 PASS. Original 18-step election-lifecycle E2E re-run afterwards: 18/18 PASS (regression clean).
 Rules tests: full suite incl. new phase7.superadmin.test.js (15 assertions) pass.
+
+--- Re-verification after security hardening pass — 2026-07-12 ---
+Changes verified: atomic vote+lock rules (voterVoteLockWritten, one-way hasVoted
+transition), fail-closed guest voting (rules + client + tests), getDocFromServer
+session reads, hosting security headers, results permission-denied handling,
+AuthCard autocomplete/aria improvements.
+
+Election E2E (11 steps): PASS — incl. full 17-race ballot submission under the
+new atomic-lock rules (access-call budget holds), fail-closed landing (no
+One-time tab without config), pre-publish results show locked state with no
+raw rules error, publish flow, signed-out public results with winners.
+
+Superadmin E2E (8 steps): PASS — fail-closed default toggle state, enable →
+One-time tab appears live on a signed-out landing, disable → gone, maintenance
+banner on/off, grant → registry admin console access → revoke → denied, audit
+trail complete.
+
+Rules suite: phase0 integrity (17-position batch) + full suite + phase7 PASS.
+Unit tests 59/59, tsc/lint/build clean.

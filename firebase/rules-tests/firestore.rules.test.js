@@ -22,7 +22,7 @@ const testEnv = await initializeTestEnvironment({
   }
 });
 
-async function seedBaseData(status = "open", registrationOpen = true) {
+async function seedBaseData(status = "open", registrationOpen = true, allowGuestVoters = false) {
   await testEnv.clearFirestore();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -116,6 +116,14 @@ async function seedBaseData(status = "open", registrationOpen = true) {
       },
       updatedAt: serverTimestamp()
     });
+    if (allowGuestVoters) {
+      await setDoc(doc(db, "config/app"), {
+        allowGuestVoters: true,
+        maintenanceMode: false,
+        updatedBy: "rules-test",
+        updatedAt: serverTimestamp()
+      });
+    }
   });
 }
 
@@ -249,7 +257,7 @@ async function testDuplicateStudentNoRejected() {
 }
 
 async function testGuestOneTimeRegistration() {
-  await seedBaseData();
+  await seedBaseData("open", true, true);
 
   await assertSucceeds(createGuestWithEmailIndex(authedDb("guest1"), "guest1"));
   await assertFails(createGuestWithEmailIndex(authedDb("guest2"), "guest2"));
@@ -268,11 +276,11 @@ async function testGuestOneTimeRegistration() {
 }
 
 async function testRegistrationGate() {
-  await seedBaseData("draft", false);
+  await seedBaseData("draft", false, true);
   await assertFails(createVoterWithStudentIndex(authedDb("closedStudent"), "closedStudent", "1112225"));
   await assertFails(createGuestWithEmailIndex(authedDb("closedGuest"), "closedGuest"));
 
-  await seedBaseData("draft", true);
+  await seedBaseData("draft", true, true);
   await assertSucceeds(createVoterWithStudentIndex(authedDb("openStudent"), "openStudent", "1112226"));
   await assertSucceeds(createGuestWithEmailIndex(authedDb("openGuest"), "openGuest"));
 }

@@ -170,7 +170,7 @@ await seed({ allowGuestVoters: false });
 }
 console.log("PASS guest signup denied when config disables it");
 
-// no config doc at all -> default allow
+// no config doc at all -> fail closed
 await seed();
 {
   const db = guestCtx().firestore();
@@ -178,9 +178,9 @@ await seed();
   const batch = writeBatch(db);
   batch.set(doc(db, "voters", "guest_uid"), guestVoter());
   batch.set(doc(db, "emailIndex", "guest.voter.scc@gmail.com"), { uid: "guest_uid", createdAt: serverTimestamp() });
-  await assertSucceeds(batch.commit());
+  await assertFails(batch.commit());
 }
-console.log("PASS guest signup defaults to allowed when config/app is absent");
+console.log("PASS guest signup defaults to denied when config/app is absent");
 
 // --- audit tightening ---
 await seed();

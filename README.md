@@ -50,6 +50,10 @@ cd firebase/rules-tests && npm test  # security-rules suite (needs the firestore
   (Firestore `admins/{email}` registry — no redeploy needed).
 - **Superadmin** is a custom claim, set once per environment:
 
+One-time guest voting is fail-closed. It is unavailable until the superadmin
+explicitly enables `config/app.allowGuestVoters`; a missing or unreadable config
+document does not enable anonymous registration.
+
 ```bash
 cd firebase/rules-tests
 # emulator

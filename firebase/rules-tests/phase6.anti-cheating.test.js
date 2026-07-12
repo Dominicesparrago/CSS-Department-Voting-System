@@ -219,7 +219,7 @@ try {
   await testNonAdminBlocksAndTallies();
   console.log("Phase 6 anti-cheating sweep passed:");
   console.log("- duplicate studentNo rejected");
-  console.log("- one-vote-per-position enforced by deterministic ID and !exists");
+  console.log("- one-vote-per-position enforced by deterministic ID and create-only rules");
   console.log("- vote update/delete rejected");
   console.log("- voting when election is not open rejected");
   console.log("- ineligible voter rejected");

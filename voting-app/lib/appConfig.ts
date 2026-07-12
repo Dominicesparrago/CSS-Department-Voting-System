@@ -4,12 +4,12 @@ import type { AppConfig } from './types';
 
 /**
  * App-wide policy flags at config/app. Publicly readable; only the superadmin
- * writes them. Absence of the doc (or a failed read) means "defaults" so the
- * public site never breaks on config problems.
+ * writes them. Guest voting is fail-closed: absence of the doc or a failed
+ * read must never silently enable anonymous registration.
  */
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
-  allowGuestVoters: true,
+  allowGuestVoters: false,
   maintenanceMode: false,
 };
 
@@ -17,7 +17,7 @@ function toConfig(data: Partial<AppConfig> | undefined): AppConfig {
   return {
     ...DEFAULT_APP_CONFIG,
     ...data,
-    allowGuestVoters: data?.allowGuestVoters !== false,
+    allowGuestVoters: data?.allowGuestVoters === true,
     maintenanceMode: data?.maintenanceMode === true,
   };
 }
