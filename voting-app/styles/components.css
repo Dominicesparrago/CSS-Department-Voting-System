@@ -1452,9 +1452,14 @@ select:disabled {
   width: 100%;
 }
 
+/* Full-bleed sticky app header: negative margins cancel .page-shell padding
+   (18px 12px mobile, 44px 22px ≥560px) so the bar hugs the viewport edges and
+   stays available across the very long ballot. */
 .ballot-route-nav {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 40;
+  margin: -18px -12px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1464,6 +1469,12 @@ select:disabled {
   background: rgba(10, 14, 15, 0.72);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
+}
+
+@media (min-width: 560px) {
+  .ballot-route-nav {
+    margin: -44px -22px 0;
+  }
 }
 
 .ballot-route-nav .terminal-mark {

@@ -108,7 +108,7 @@ body {
     radial-gradient(ellipse 60% 50% at 6% -8%, rgba(28, 171, 184, 0.16), transparent 62%),
     radial-gradient(ellipse 84% 66% at 50% 116%, rgba(15, 76, 92, 0.26), transparent 64%),
     var(--black);
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* masked teal grid, faded toward the top (real element rendered by the root layout) */
