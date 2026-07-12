@@ -5708,7 +5708,14 @@ textarea:focus-visible {
   font-size: 0.86rem;
 }
 
-/* Two-tab auth switch (one-time voting disabled by superadmin) */
+/* Two-tab auth switch (one-time voting disabled by superadmin): the base
+   .switch is a fixed 3-column grid, which left the two buttons in the left
+   two-thirds while the indicator covered the right half. Match the grid and the
+   indicator width to two tabs so each button and the pill line up. */
+.switch.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .switch.two .ind {
   width: calc((100% - 10px) / 2);
 }
