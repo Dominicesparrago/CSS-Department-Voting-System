@@ -13,7 +13,7 @@ import { watchAppConfig } from '@/lib/appConfig';
 type Tab = 'login' | 'register' | 'guest';
 
 const EMPTY_REG = { email: '', password: '', studentNo: '', fullName: '', yearLevel: '', section: '' };
-const EMPTY_GUEST = { email: '', fullName: '', yearLevel: '', section: '' };
+const EMPTY_GUEST = { studentNo: '', email: '', fullName: '', yearLevel: '', section: '' };
 const YEAR_OPTIONS = [
   { value: '1', label: '1st Year' },
   { value: '2', label: '2nd Year' },
@@ -147,6 +147,7 @@ export default function AuthCard() {
     e.preventDefault();
     setGuestMessage('');
     const values = {
+      studentNo: guestValues.studentNo.trim(),
       email: guestValues.email.trim().toLowerCase(),
       fullName: guestValues.fullName.trim(),
       yearLevel: Number(guestValues.yearLevel),

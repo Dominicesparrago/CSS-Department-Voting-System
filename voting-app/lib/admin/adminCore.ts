@@ -1,6 +1,6 @@
 import type { Candidate, Position, Voter } from '../types';
 import { candidatesForPosition } from '../election/candidates';
-import { toMillis } from '../format';
+import { percent, toMillis } from '../format';
 
 export function byId<T extends { id: string }>(records: T[]): Record<string, T> {
   return Object.fromEntries(records.map((r) => [r.id, r]));
@@ -88,6 +88,48 @@ export function rankedCandidatesForPosition(
   return candidatesForPosition(candidates, positionId)
     .map((c) => ({ ...c, votes: aggregate.perCandidate[c.id] ?? 0 }))
     .sort((a, b) => b.votes - a.votes || (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+}
+
+export interface PositionVoteRow {
+  candidate: Candidate;
+  votes: number;
+  share: number;
+}
+
+export function positionVoteRows(
+  candidates: Candidate[],
+  aggregate: Aggregate,
+  positionId: string,
+): { rows: PositionVoteRow[]; total: number } {
+  const total = aggregate.perPosition[positionId] ?? 0;
+  const rows = rankedCandidatesForPosition(candidates, aggregate, positionId).map((candidate) => ({
+    candidate,
+    votes: candidate.votes,
+    share: percent(candidate.votes, total),
+  }));
+  return { rows, total };
+}
+
+export function currentWinner(rows: PositionVoteRow[]): { kind: 'none' | 'winner' | 'tie'; label: string; leaders: PositionVoteRow[] } {
+  if (rows.length === 0) {
+    return { kind: 'none', label: 'No candidates available', leaders: [] };
+  }
+
+  const topVotes = Math.max(0, ...rows.map((row) => row.votes));
+  if (topVotes <= 0) {
+    return { kind: 'none', label: 'No votes yet', leaders: [] };
+  }
+
+  const leaders = rows.filter((row) => row.votes === topVotes);
+  if (leaders.length === 1) {
+    return { kind: 'winner', label: leaders[0].candidate.name, leaders };
+  }
+
+  return {
+    kind: 'tie',
+    label: `${leaders.map((row) => row.candidate.name).join(', ')} tied`,
+    leaders,
+  };
 }
 
 function csvCell(value: unknown): string {

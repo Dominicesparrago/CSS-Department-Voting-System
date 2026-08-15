@@ -16,6 +16,7 @@ interface LoginValues {
 }
 
 interface GuestValues {
+  studentNo: string;
   email: string;
   fullName: string;
   yearLevel: number;
@@ -37,6 +38,7 @@ export function validateRegistration(values: RegisterValues): FieldErrors {
 
 export function validateGuest(values: GuestValues): FieldErrors {
   const errors: FieldErrors = {};
+  if (!STUDENT_NO_PATTERN.test(values.studentNo)) errors.studentNo = 'Student ID must be 7 to 9 digits.';
   if (!STUDENT_EMAIL_PATTERN.test(values.email)) errors.email = 'Use your official <name>.scc@gmail.com email.';
   if (!values.fullName) errors.fullName = 'Full name is required.';
   if (![1, 2, 3, 4].includes(values.yearLevel)) errors.yearLevel = 'Select your year level.';

@@ -7,6 +7,7 @@ import {
   loadPositions,
   loadResults,
   loadVoters,
+  watchLiveResults,
   watchAudit,
   watchCandidates,
   watchElection,
@@ -16,13 +17,11 @@ import type { ResultsCounts } from '@/lib/admin/adminCore';
 import type { AuditEntry, Candidate, Election, Position, Voter } from '@/lib/types';
 
 const EMPTY_RESULTS: ResultsCounts = { perCandidate: {}, perPosition: {} };
-const RESULTS_POLL_MS = 15000;
 
 /**
  * Loads the full admin dataset once, then keeps election/candidates/voters/audit
- * live through Firestore subscriptions. Vote counts come from the trusted
- * getResults function (raw ballots are never client-readable) and are polled on
- * an interval plus refreshable on demand after lifecycle changes.
+ * live through Firestore subscriptions. Vote counts come from the trusted live
+ * tally doc, which the ballot callable updates transactionally on every vote.
  */
 export function useAdminElectionData(enabled: boolean) {
   const [election, setElection] = useState<Election | null>(null);
@@ -71,6 +70,7 @@ export function useAdminElectionData(enabled: boolean) {
           watchVoters(setVoters, (error) => setErrorMessage(error.message)),
           watchElection(setElection, (error) => setErrorMessage(error.message)),
           watchAudit(setAuditEntries, (error) => setErrorMessage(error.message)),
+          watchLiveResults(setResults, (error) => setErrorMessage(error.message)),
         );
         await refreshResults();
       } catch (error) {
@@ -81,10 +81,8 @@ export function useAdminElectionData(enabled: boolean) {
     }
 
     void load();
-    const poll = setInterval(() => void refreshResults(), RESULTS_POLL_MS);
     return () => {
       activeRef.current = false;
-      clearInterval(poll);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [enabled, refreshResults]);

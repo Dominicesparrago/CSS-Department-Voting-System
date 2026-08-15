@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { BarChart3, CheckSquare, Contact, Users } from 'lucide-react';
 import AnimatedBarFill from '@/components/admin/AnimatedBarFill';
 import CountUp from '@/components/CountUp';
-import CustomSelect, { type CustomSelectOption } from '@/components/ui/CustomSelect';
+import type { CustomSelectOption } from '@/components/ui/CustomSelect';
 import { cumulativeTurnoutFromVoters, resultsToCsv, type Aggregate } from '@/lib/admin/adminCore';
 import { ELECTION_ID } from '@/lib/constants';
 import { percent, yearLabel } from '@/lib/format';
 import type { Candidate, Election, Position, Voter } from '@/lib/types';
+import LiveVoteSummary from '../LiveVoteSummary';
 import MomentumArea from './MomentumArea';
-import ResultsBars from './ResultsBars';
 import { downloadFile, type AdminPanel } from './shared';
 
 const STATUS_META: Record<Election['status'], { label: string; cls: string }> = {
@@ -41,15 +41,8 @@ export default function OverviewPanel({
   positionOptions,
   onNavigate,
 }: OverviewPanelProps) {
-  const [positionId, setPositionId] = useState('');
-
-  useEffect(() => {
-    if (positions.length > 0) setPositionId((current) => current || positions[0].id);
-  }, [positions]);
-
   const turnoutPercent = percent(aggregate.turnout.total, aggregate.eligible.total);
   const activeCandidates = candidates.filter((candidate) => candidate.active).length;
-  const overviewPosition = positions.find((position) => position.id === positionId);
   const statusMeta = STATUS_META[election?.status ?? 'draft'];
   const momentum = useMemo(() => cumulativeTurnoutFromVoters(voters, ELECTION_ID), [voters]);
   const turnoutByYear = useMemo(
@@ -113,7 +106,6 @@ export default function OverviewPanel({
       </div>
 
       {isDraft ? (
-        /* Pre-election: setup checklist instead of empty analytics. */
         <div className="ov-block">
           <div className="block-label"><h2>Election setup</h2><small>complete these before opening voting</small></div>
           {setupReady && <p className="form-message" role="status">All set — open voting from Lifecycle when you&apos;re ready.</p>}
@@ -142,6 +134,13 @@ export default function OverviewPanel({
         </div>
       ) : (
         <>
+          <LiveVoteSummary
+            aggregate={aggregate}
+            candidates={candidates}
+            positions={positions}
+            positionOptions={positionOptions}
+          />
+
           <div className="ov-block">
             <div className="block-label"><h2>Turnout</h2><small>ballots cast vs. registered</small></div>
             <div className="turnout-grid">
@@ -167,21 +166,6 @@ export default function OverviewPanel({
                 })}
               </div>
             </div>
-          </div>
-
-          <div className="ov-block">
-            <div className="block-label"><h2>Votes by candidate</h2><small>{overviewPosition?.name ?? 'Position'}</small></div>
-            <div className="pos-select">
-              <CustomSelect
-                label="Position"
-                value={positionId}
-                options={positionOptions}
-                placeholder="Select position"
-                disabled={positionOptions.length === 0}
-                onChange={setPositionId}
-              />
-            </div>
-            <ResultsBars candidates={candidates} aggregate={aggregate} positionId={positionId} />
           </div>
 
           <div className="ov-block">

@@ -63,6 +63,7 @@ function adminGrant(overrides = {}) {
 
 function guestVoter() {
   return {
+    studentNo: "8887776",
     fullName: "Guest Voter",
     email: "guest.voter.scc@gmail.com",
     yearLevel: 2,
@@ -154,6 +155,7 @@ await seed({ allowGuestVoters: true });
   const { writeBatch } = await import("firebase/firestore");
   const batch = writeBatch(db);
   batch.set(doc(db, "voters", "guest_uid"), guestVoter());
+  batch.set(doc(db, "studentIndex", "8887776"), { uid: "guest_uid", createdAt: serverTimestamp() });
   batch.set(doc(db, "emailIndex", "guest.voter.scc@gmail.com"), { uid: "guest_uid", createdAt: serverTimestamp() });
   await assertSucceeds(batch.commit());
 }
@@ -165,6 +167,7 @@ await seed({ allowGuestVoters: false });
   const { writeBatch } = await import("firebase/firestore");
   const batch = writeBatch(db);
   batch.set(doc(db, "voters", "guest_uid"), guestVoter());
+  batch.set(doc(db, "studentIndex", "8887776"), { uid: "guest_uid", createdAt: serverTimestamp() });
   batch.set(doc(db, "emailIndex", "guest.voter.scc@gmail.com"), { uid: "guest_uid", createdAt: serverTimestamp() });
   await assertFails(batch.commit());
 }
@@ -177,6 +180,7 @@ await seed();
   const { writeBatch } = await import("firebase/firestore");
   const batch = writeBatch(db);
   batch.set(doc(db, "voters", "guest_uid"), guestVoter());
+  batch.set(doc(db, "studentIndex", "8887776"), { uid: "guest_uid", createdAt: serverTimestamp() });
   batch.set(doc(db, "emailIndex", "guest.voter.scc@gmail.com"), { uid: "guest_uid", createdAt: serverTimestamp() });
   await assertFails(batch.commit());
 }

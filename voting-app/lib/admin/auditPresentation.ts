@@ -11,6 +11,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   'election.registration.set': 'Toggled registration',
   'election.title.set': 'Renamed election',
   'election.publish': 'Published results',
+  'admin.account.create': 'Created admin account',
   'admin.grant': 'Granted admin access',
   'admin.revoke': 'Revoked admin access',
   'config.set': 'Updated system settings',

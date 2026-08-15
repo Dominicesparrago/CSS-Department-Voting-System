@@ -15,8 +15,8 @@ function requiredPositionsForVoter(positions, yearLevel) {
  * live candidate set. Returns { ok: true, ballots } or { ok: false, code, message }.
  *
  * `candidatesById` maps candidateId -> { electionId, positionId, active, yearLevel }.
- * A valid ballot selects exactly one active candidate, correct for its position and
- * election, for every required race — no more, no fewer.
+ * A valid ballot may leave any required race blank, including all races, but
+ * every submitted selection must be an active candidate for its race.
  */
 function validateBallot({ positions, yearLevel, selections, candidatesById, electionId }) {
   const required = requiredPositionsForVoter(positions, yearLevel);
@@ -36,9 +36,7 @@ function validateBallot({ positions, yearLevel, selections, candidatesById, elec
   const ballots = [];
   for (const position of required) {
     const candidateId = selections?.[position.id];
-    if (!candidateId) {
-      return { ok: false, code: 'invalid-argument', message: 'Every race must have exactly one selection.' };
-    }
+    if (!candidateId) continue;
     const candidate = candidatesById[candidateId];
     if (!candidate) {
       return { ok: false, code: 'invalid-argument', message: 'A selected candidate does not exist.' };

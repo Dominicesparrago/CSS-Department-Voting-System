@@ -172,11 +172,13 @@ async function createVoterWithMismatchedStudentIndex(db, uid, voterStudentNo, in
 
 async function createGuestWithEmailIndex(db, uid, overrides = {}) {
   const email = overrides.email ?? "guest.one.scc@gmail.com";
+  const studentNo = overrides.studentNo ?? "7776665";
   const yearLevel = overrides.yearLevel ?? 3;
   const section = overrides.section ?? "BSCS 3-D";
   const batch = writeBatch(db);
 
   batch.set(doc(db, "voters", uid), {
+    studentNo,
     fullName: overrides.fullName ?? "Guest One",
     email,
     yearLevel,
@@ -187,6 +189,10 @@ async function createGuestWithEmailIndex(db, uid, overrides = {}) {
     updatedAt: serverTimestamp()
   });
   batch.set(doc(db, "emailIndex", email), {
+    uid,
+    createdAt: serverTimestamp()
+  });
+  batch.set(doc(db, "studentIndex", studentNo), {
     uid,
     createdAt: serverTimestamp()
   });
@@ -246,6 +252,7 @@ async function testGuestOneTimeRegistration() {
   await assertFails(createGuestWithEmailIndex(authedDb("guest2"), "guest2"));
   await assertFails(
     setDoc(doc(authedDb("guestNoIndex"), "voters/guestNoIndex"), {
+      studentNo: "5554443",
       fullName: "Guest No Index",
       email: "guest.noindex.scc@gmail.com",
       yearLevel: 2,

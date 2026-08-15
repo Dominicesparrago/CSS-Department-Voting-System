@@ -6,6 +6,7 @@ import { loadAppConfig } from '@/lib/appConfig';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { hasVotedInElection, isStudentSession } from '@/lib/auth/guards-core';
 import { loadCandidatesForPositions, loadElection, loadRequiredPositions } from '@/lib/student/ballotData';
+import { watchElection } from '@/lib/election/electionRepo';
 import { ELECTION_ID } from '@/lib/constants';
 import type { Candidate, Election, Position } from '@/lib/types';
 import BallotContent from '@/components/ballot/BallotContent';
@@ -58,6 +59,14 @@ export default function VotePage() {
       active = false;
     };
   }, [status, alreadyVoted, yearLevel]);
+
+  useEffect(() => {
+    if (status !== 'ready' || alreadyVoted) return;
+    return watchElection(
+      (nextElection) => setBallot((current) => current ? { ...current, election: nextElection } : current),
+      (error) => setErrorMsg(error.message || 'Unable to verify the current election status.'),
+    );
+  }, [status, alreadyVoted]);
 
   if (status === 'loading') return <RouteLoading />;
 

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { LogOut, LockKeyhole, Vote } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import type { Candidate, Election, Position, Selections, VoterProfile } from '@/lib/types';
-import { isBallotComplete, selectedCandidatesByPosition, unansweredPositions } from '@/lib/student/ballotState';
+import { selectedCandidatesByPosition, unansweredPositions } from '@/lib/student/ballotState';
 import { submitCompleteBallot } from '@/lib/student/voteSubmit';
 import { yearLabel as sharedYearLabel } from '@/lib/format';
 import { initials } from '@/lib/initials';
@@ -75,7 +75,7 @@ export default function BallotContent({
   const sheetCloseRef = useRef<HTMLButtonElement>(null);
 
   const selectedCount = requiredPositions.filter((p) => selections[p.id]).length;
-  const complete = isBallotComplete(requiredPositions, selections);
+  const complete = true;
   const progressPercent = requiredPositions.length ? Math.round((selectedCount / requiredPositions.length) * 100) : 0;
   const unanswered = unansweredPositions(requiredPositions, selections);
   const selectedReview = selectedCandidatesByPosition(requiredPositions, candidatesByPosition, selections);
@@ -171,7 +171,7 @@ export default function BallotContent({
             <h1>Welcome, <span className="grad">{voterProfile.fullName}</span></h1>
             <p>
               Your ballot covers 16 department positions plus your year representative - {ballotCount} races in all.
-              Make a selection in every race, then open the progress button to review and submit.
+              Selections are optional in every race. Open the progress button when you are ready to review and submit.
             </p>
             <dl className="ballot-facts">
               {facts.map(([label, value]) => (
@@ -227,10 +227,10 @@ export default function BallotContent({
                         </div>
                         <span className="race-status">
                           <span className="d" />
-                          {answered ? 'Selected' : 'Required'}
+                          {answered ? 'Selected' : 'Optional'}
                         </span>
                       </div>
-                      <p className="race-hint">Choose exactly one candidate for this race.</p>
+                      <p className="race-hint">Choose a candidate for this race, or leave it blank.</p>
 
                       <div className="candidate-list" role="radiogroup" aria-label={`${position.name} candidates`}>
                         {activeCandidates.length === 0 ? (
@@ -373,12 +373,16 @@ export default function BallotContent({
               ))}
             </div>
             {unanswered.length > 0 && (
-              <p className="form-message" role="status">{unanswered.length} races still need a selection.</p>
+              <p className="form-message" role="status">
+                {selectedCount === 0
+                  ? 'You can submit this ballot as an empty vote.'
+                  : `${unanswered.length} race${unanswered.length === 1 ? '' : 's'} are left blank.`}
+              </p>
             )}
             {submitMsg && <p className="form-message" role="status">{submitMsg}</p>}
             <div className="sheet-actions">
               <button className="btn btn-ghost" type="button" onClick={() => setReviewing(false)}>Back to ballot</button>
-              <button className="btn btn-primary" type="button" disabled={!complete || submitBusy} onClick={handleConfirm}>
+              <button className="btn btn-primary" type="button" disabled={submitBusy} onClick={handleConfirm}>
                 {submitBusy ? 'Submitting...' : 'Submit final vote'}
               </button>
             </div>

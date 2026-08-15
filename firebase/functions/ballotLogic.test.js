@@ -40,17 +40,34 @@ test('validateBallot accepts a complete, correct ballot', () => {
   assert.deepEqual(res.ballots[0], { electionId: E, positionId: 'president', candidateId: 'p1', yearLevel: 3 });
 });
 
-test('validateBallot rejects an incomplete ballot', () => {
+test('validateBallot accepts an empty ballot', () => {
   const candidatesById = { p1: candidate({ positionId: 'president' }) };
   const res = validateBallot({
     positions,
     yearLevel: 3,
-    selections: { president: 'p1' },
+    selections: {},
     candidatesById,
     electionId: E,
   });
-  assert.equal(res.ok, false);
-  assert.equal(res.code, 'invalid-argument');
+  assert.equal(res.ok, true);
+  assert.equal(res.ballots.length, 0);
+});
+
+test('validateBallot accepts a partial ballot', () => {
+  const candidatesById = {
+    p1: candidate({ positionId: 'president' }),
+    s1: candidate({ positionId: 'secretary' }),
+    y3: candidate({ positionId: 'year_rep_3' }),
+  };
+  const res = validateBallot({
+    positions,
+    yearLevel: 3,
+    selections: { president: 'p1', year_rep_3: 'y3' },
+    candidatesById,
+    electionId: E,
+  });
+  assert.equal(res.ok, true);
+  assert.equal(res.ballots.length, 2);
 });
 
 test('validateBallot rejects a selection outside the voter’s ballot (wrong year rep)', () => {

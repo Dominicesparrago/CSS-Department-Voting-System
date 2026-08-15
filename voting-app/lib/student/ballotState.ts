@@ -11,7 +11,7 @@ export function unansweredPositions(required: Position[], selections: Selections
 }
 
 export function isBallotComplete(required: Position[], selections: Selections): boolean {
-  return required.length > 0 && unansweredPositions(required, selections).length === 0;
+  return unansweredPositions(required, selections).length === 0;
 }
 
 export function selectedCandidatesByPosition(

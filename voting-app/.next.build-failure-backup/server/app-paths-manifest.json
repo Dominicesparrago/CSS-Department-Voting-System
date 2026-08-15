@@ -1,0 +1,12 @@
+{
+  "/admin/auth/page": "app/admin/auth/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/auth/page": "app/auth/page.js",
+  "/page": "app/page.js",
+  "/results/page": "app/results/page.js",
+  "/superadmin/page": "app/superadmin/page.js",
+  "/superadmin/design-test/page": "app/superadmin/design-test/page.js",
+  "/vote/page": "app/vote/page.js",
+  "/admin/page": "app/admin/page.js"
+}

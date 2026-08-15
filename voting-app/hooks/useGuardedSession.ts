@@ -30,13 +30,15 @@ export function useGuardedSession(
   evaluateRef.current = evaluate;
 
   useEffect(() => {
-    if (loading || !session) return;
+    if (loading) return;
 
     if (error) {
       setDeniedReason(error.message || errorFallback);
       setStatus('denied');
       return;
     }
+
+    if (!session) return;
 
     const decision = evaluateRef.current(session);
     if (decision.kind === 'redirect') {

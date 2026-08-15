@@ -1,22 +1,7 @@
 import type { Metadata } from 'next';
-import { Figtree, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import BinaryRain from '@/components/BinaryRain';
 import Interactions from '@/components/Interactions';
-
-const figtree = Figtree({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
-  variable: '--font-figtree',
-  display: 'swap',
-});
-
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-jetbrains-mono',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'CSS Department Voting System',
@@ -26,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${figtree.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en">
       <body>
         <div className="grid-overlay" aria-hidden="true" />
         <BinaryRain />

@@ -52,6 +52,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/voters/$(uid);
     }
 
+    function studentIndexPath(studentNo) {
+      return /databases/$(database)/documents/studentIndex/$(studentNo);
+    }
+
     function emailIndexPath(email) {
       return /databases/$(database)/documents/emailIndex/$(email);
     }
@@ -121,6 +125,7 @@ service cloud.firestore {
         && registrationOpen("css_department_election_2026")
         && guestSignupAllowed()
         && request.resource.data.keys().hasOnly([
+          "studentNo",
           "fullName",
           "email",
           "yearLevel",
@@ -131,6 +136,7 @@ service cloud.firestore {
           "updatedAt"
         ])
         && request.resource.data.keys().hasAll([
+          "studentNo",
           "fullName",
           "email",
           "yearLevel",
@@ -141,11 +147,13 @@ service cloud.firestore {
           "updatedAt"
         ])
         && request.resource.data.guest == true
+        && validStudentNo(request.resource.data.studentNo)
         && validStudentEmail(request.resource.data.email)
         && validYearLevel(request.resource.data.yearLevel)
         && request.resource.data.eligible == true
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
+        && getAfter(studentIndexPath(request.resource.data.studentNo)).data.uid == uid
         && getAfter(emailIndexPath(request.resource.data.email)).data.uid == uid
         && !("hasVoted" in request.resource.data)
         && !("votedAt" in request.resource.data);

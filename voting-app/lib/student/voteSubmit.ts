@@ -3,12 +3,11 @@ import type { User } from 'firebase/auth';
 import { getFirebaseFunctions } from '../firebase/init';
 import { ELECTION_ID } from '../constants';
 import type { Election, Position, VoterProfile, Selections } from '../types';
-import { isBallotComplete } from './ballotState';
 
 /**
  * Cast a complete ballot through the trusted `submitBallot` Cloud Function.
  * The client checks are only for fast UX feedback — the function re-validates
- * eligibility, election status, ballot completeness, and one-vote authoritatively,
+ * eligibility, election status, ballot shape, and one-vote authoritatively,
  * and writes anonymous ballots + the participation lock in a single transaction.
  */
 export async function submitCompleteBallot(params: {
@@ -21,7 +20,8 @@ export async function submitCompleteBallot(params: {
   const { election, requiredPositions, selections } = params;
 
   if (election.status !== 'open') throw new Error('Voting is not open for this election.');
-  if (!isBallotComplete(requiredPositions, selections)) throw new Error('Complete every race before submitting.');
+  if (!requiredPositions) throw new Error('Unable to load your ballot.');
+  if (!selections || typeof selections !== 'object') throw new Error('Unable to read your selections.');
 
   const submit = httpsCallable<{ electionId: string; selections: Selections }, { ok: boolean }>(
     getFirebaseFunctions(),

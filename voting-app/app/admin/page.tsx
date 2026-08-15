@@ -24,6 +24,11 @@ const SHARED_COMPONENT_OVERRIDES = [
   '}',
   // Production-only: compact position picker (CustomSelect replaces the 20-pill switch).
   '#admin-redesign .pos-select{max-width:340px;margin-bottom:18px}',
+  // Production-only: LiveVoteSummary reuses .tby-row, but the mockup scopes a 60px-first-column
+  // grid for the year-turnout rows. Give the live-vote rows the wide avatar/name layout and pin
+  // the last item (winner tag / vote count) to the right-hand column even on 2-child rows.
+  '#admin-redesign .live-vote-summary .tby-row{grid-template-columns:auto minmax(0,1fr) auto}',
+  '#admin-redesign .live-vote-summary .tby-row>:last-child{grid-column:3}',
   '#admin-redesign .field{display:grid;gap:6px}',
   '#admin-redesign .field>span{color:var(--muted);font-size:.82rem;font-weight:500}',
   // Production-only: candidate photo preview must clip inside its 84px tile.

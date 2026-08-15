@@ -43,8 +43,8 @@ describe('unansweredPositions / isBallotComplete', () => {
     expect(isBallotComplete(required, full)).toBe(true);
   });
 
-  it('an empty ballot is never complete', () => {
-    expect(isBallotComplete([], {})).toBe(false);
+  it('an empty ballot is complete when there are no required positions', () => {
+    expect(isBallotComplete([], {})).toBe(true);
   });
 });
 

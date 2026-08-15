@@ -46,6 +46,29 @@ export async function loadResults(electionId = ELECTION_ID): Promise<ResultsCoun
   return { perCandidate: data.perCandidate ?? {}, perPosition: data.perPosition ?? {} };
 }
 
+export function watchLiveResults(
+  onChange: (results: ResultsCounts) => void,
+  onError: (e: Error) => void,
+  electionId = ELECTION_ID,
+): () => void {
+  const db = getFirebaseDb();
+  return onSnapshot(
+    doc(db, 'tallies', electionId),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onChange({ perCandidate: {}, perPosition: {} });
+        return;
+      }
+      const data = snapshot.data() as Partial<ResultsCounts>;
+      onChange({
+        perCandidate: data.perCandidate ?? {},
+        perPosition: data.perPosition ?? {},
+      });
+    },
+    onError,
+  );
+}
+
 export function watchCandidates(
   onChange: (candidates: Candidate[]) => void,
   onError: (e: Error) => void,

@@ -9,7 +9,8 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { getFirebaseDb } from '../firebase/init';
+import { httpsCallable } from 'firebase/functions';
+import { getFirebaseDb, getFirebaseFunctions } from '../firebase/init';
 import { snapshotRecords } from '../firebase/firestore';
 import { createAudit } from '../admin/adminData';
 import type { AdminEntry, AppConfig, Election } from '../types';
@@ -42,6 +43,15 @@ export async function grantAdmin(params: { email: string; reason: string; actorU
     createdAt: serverTimestamp(),
   });
   await createAudit(params.actorUid, 'admin.grant', `admins/${email}`, { email, reason }, 'superadmin');
+}
+
+export async function createAdminAccount(params: { email: string; password: string }): Promise<{ email: string; uid: string }> {
+  const call = httpsCallable<{ email: string; password: string }, { ok: boolean; email: string; uid: string }>(
+    getFirebaseFunctions(),
+    'createAdminAccount',
+  );
+  const { data } = await call({ email: params.email.trim().toLowerCase(), password: params.password });
+  return { email: data.email, uid: data.uid };
 }
 
 export async function revokeAdmin(params: { email: string; reason: string; actorUid: string }): Promise<void> {
