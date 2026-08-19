@@ -86,6 +86,90 @@ export async function patchDocument(path, data) {
   }
 }
 
+// Sample official roster for local development. In production these records are
+// written only by the importRoster Cloud Function from the admin-uploaded
+// Excel file; here they give the emulator demo data so registered students
+// whose IDs/emails match can vote end-to-end.
+export const sampleRoster = [
+  {
+    studentNo: "20260001",
+    fullName: "Juan Dela Cruz",
+    section: "BSCS-1A",
+    yearLevel: 1,
+    email: "juan.delacruz.scc@gmail.com",
+    status: "active",
+    eligible: true
+  },
+  {
+    studentNo: "20260002",
+    fullName: "Maria Santos",
+    section: "BSCS-2B",
+    yearLevel: 2,
+    email: "maria.santos.scc@gmail.com",
+    status: "active",
+    eligible: true
+  },
+  {
+    studentNo: "20260003",
+    fullName: "Pedro Reyes",
+    section: "BSCS-3A",
+    yearLevel: 3,
+    email: "pedro.reyes.scc@gmail.com",
+    status: "active",
+    eligible: true
+  },
+  {
+    studentNo: "20260004",
+    fullName: "Ana Garcia",
+    section: "BSCS-4A",
+    yearLevel: 4,
+    email: "ana.garcia.scc@gmail.com",
+    status: "active",
+    eligible: true
+  },
+  {
+    studentNo: "20260005",
+    fullName: "Luis Mendoza",
+    section: "BSCS-1B",
+    yearLevel: 1,
+    email: "luis.mendoza.scc@gmail.com",
+    status: "inactive",
+    eligible: true
+  },
+  {
+    studentNo: "20260006",
+    fullName: "Rosa Torres",
+    section: "BSCS-2A",
+    yearLevel: 2,
+    email: "rosa.torres.scc@gmail.com",
+    status: "active",
+    eligible: false
+  },
+  // Masterlist-style entry: no student number. Matched to voters by name +
+  // section + year level (the same shape importRoster writes for files that
+  // have no Student ID column).
+  {
+    fullName: "Sofia Ramirez",
+    section: "BSCS-1A",
+    yearLevel: 1,
+    email: "sofia.ramirez.scc@gmail.com",
+    status: "active",
+    eligible: true
+  }
+];
+
+export async function seedRoster() {
+  assertEmulatorHost();
+  let nameIndex = 0;
+  for (const student of sampleRoster) {
+    // Rows without a student number get a readable placeholder document id;
+    // in production importRoster gives them auto ids instead.
+    const docId = student.studentNo || `name_${(nameIndex += 1)}`;
+    await patchDocument(`students/${docId}`, student);
+  }
+  console.log(`Seeded ${sampleRoster.length} official roster students.`);
+}
+
 export async function seedBaseData() {
   assertEmulatorHost();
 
@@ -101,6 +185,8 @@ export async function seedBaseData() {
   // three tabs. In production this is fail-closed until the superadmin turns it
   // on from Settings — the app hides the One-time tab when it is off or absent.
   await patchDocument('config/app', { allowGuestVoters: true, maintenanceMode: false, updatedBy: 'seed' });
+
+  await seedRoster();
 
   console.log(`Seeded ${positions.length} positions.`);
   console.log(`Seeded election ${ELECTION_ID} with status "${election.status}".`);

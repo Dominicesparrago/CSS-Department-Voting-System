@@ -7,13 +7,44 @@ import { friendlyAuthError } from '@/lib/auth/errors';
 import { loginStudent } from '@/lib/auth/authService';
 import { watchSession } from '@/lib/auth/session';
 
-export default function AdminAuthForm() {
+export interface AdminAuthFonts {
+  figtree: string;
+  jetBrainsMono: string;
+}
+
+export default function AdminAuthForm({ fonts }: { fonts: AdminAuthFonts }) {
   const router = useRouter();
   const redirected = useRef(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const body = document.body;
+    const figtreeStack = `${fonts.figtree}, "Figtree", "Segoe UI", Arial, sans-serif`;
+    const monoStack = `${fonts.jetBrainsMono}, "JetBrains Mono", ui-monospace, monospace`;
+    const overrides: Record<string, string> = {
+      '--font-figtree': fonts.figtree,
+      '--font-jetbrains-mono': fonts.jetBrainsMono,
+      '--font': figtreeStack,
+      '--font-body': figtreeStack,
+      '--font-display': figtreeStack,
+      '--mono': monoStack,
+      '--font-mono': monoStack,
+    };
+    const previous = new Map<string, string>();
+    for (const [prop, value] of Object.entries(overrides)) {
+      previous.set(prop, body.style.getPropertyValue(prop));
+      body.style.setProperty(prop, value);
+    }
+    return () => {
+      for (const [prop, value] of previous) {
+        if (value) body.style.setProperty(prop, value);
+        else body.style.removeProperty(prop);
+      }
+    };
+  }, [fonts.figtree, fonts.jetBrainsMono]);
 
   useEffect(() => {
     const unsubscribe = watchSession((session) => {

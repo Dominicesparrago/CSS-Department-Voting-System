@@ -13,8 +13,10 @@ import {
   watchElection,
   watchVoters,
 } from '@/lib/admin/adminData';
+import { loadStudents, watchStudents } from '@/lib/admin/rosterData';
+import { friendlyAdminError } from '@/lib/admin/adminErrors';
 import type { ResultsCounts } from '@/lib/admin/adminCore';
-import type { AuditEntry, Candidate, Election, Position, Voter } from '@/lib/types';
+import type { AuditEntry, Candidate, Election, Position, RosterStudent, Voter } from '@/lib/types';
 
 const EMPTY_RESULTS: ResultsCounts = { perCandidate: {}, perPosition: {} };
 
@@ -28,6 +30,7 @@ export function useAdminElectionData(enabled: boolean) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [voters, setVoters] = useState<Voter[]>([]);
+  const [students, setStudents] = useState<RosterStudent[]>([]);
   const [results, setResults] = useState<ResultsCounts>(EMPTY_RESULTS);
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,10 +40,14 @@ export function useAdminElectionData(enabled: boolean) {
   const refreshResults = useCallback(async () => {
     try {
       const next = await loadResults();
-      if (activeRef.current) setResults(next);
-    } catch {
-      // A results fetch failure leaves the last known counts in place; turnout
-      // (from the voter registry) still updates live, so the console stays usable.
+      if (activeRef.current) {
+        setResults(next);
+        setErrorMessage('');
+      }
+    } catch (error) {
+      // Keep the last known counts visible, but make a failed live refresh
+      // actionable instead of silently presenting stale/zero results.
+      if (activeRef.current) setErrorMessage(friendlyAdminError(error, 'Unable to load live results.'));
     }
   }, []);
 
@@ -51,11 +58,12 @@ export function useAdminElectionData(enabled: boolean) {
 
     async function load() {
       try {
-        const [nextElection, nextPositions, nextCandidates, nextVoters] = await Promise.all([
+        const [nextElection, nextPositions, nextCandidates, nextVoters, nextStudents] = await Promise.all([
           loadElection(),
           loadPositions(),
           loadCandidates(),
           loadVoters(),
+          loadStudents(),
         ]);
         if (!activeRef.current) return;
 
@@ -63,11 +71,13 @@ export function useAdminElectionData(enabled: boolean) {
         setPositions(nextPositions);
         setCandidates(nextCandidates);
         setVoters(nextVoters);
+        setStudents(nextStudents);
         setErrorMessage('');
 
         unsubscribers.push(
           watchCandidates(setCandidates, (error) => setErrorMessage(error.message)),
           watchVoters(setVoters, (error) => setErrorMessage(error.message)),
+          watchStudents(setStudents, (error) => setErrorMessage(error.message)),
           watchElection(setElection, (error) => setErrorMessage(error.message)),
           watchAudit(setAuditEntries, (error) => setErrorMessage(error.message)),
           watchLiveResults(setResults, (error) => setErrorMessage(error.message)),
@@ -92,16 +102,23 @@ export function useAdminElectionData(enabled: boolean) {
     setCandidates(await loadCandidates());
   }, []);
 
+  /** Re-fetch the roster immediately after an import. */
+  const refreshStudents = useCallback(async () => {
+    setStudents(await loadStudents());
+  }, []);
+
   return {
     election,
     positions,
     candidates,
     voters,
+    students,
     results,
     auditEntries,
     loading,
     errorMessage,
     refreshCandidates,
+    refreshStudents,
     refreshResults,
   };
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3,
+  BookUser,
   CheckSquare,
   Clock3,
   LayoutDashboard,
@@ -20,11 +21,14 @@ import { hasAdminAccess } from '@/lib/auth/guards-core';
 import { ELECTION_ID } from '@/lib/constants';
 import { positionGroup } from '@/lib/election/candidates';
 import { initials } from '@/lib/initials';
+import type { AdminAuthFonts } from './AdminAuthForm';
 import CandidatesPanel from './console/CandidatesPanel';
 import ConfirmDialog, { type ConfirmState } from './console/ConfirmDialog';
 import LifecyclePanel from './console/LifecyclePanel';
+import LiveDataStatus from './console/LiveDataStatus';
 import OverviewPanel from './console/OverviewPanel';
 import ResultsPanel from './console/ResultsPanel';
+import RosterPanel from './console/RosterPanel';
 import VotersPanel from './console/VotersPanel';
 import { scrollToTop, type AdminPanel } from './console/shared';
 import { useAdminElectionData } from './console/useAdminElectionData';
@@ -39,11 +43,12 @@ const NAV_ITEMS: Array<{ key: AdminPanel; label: string; icon: typeof LayoutDash
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'candidates', label: 'Candidates', icon: UserPlus },
   { key: 'voters', label: 'Voters', icon: Users },
+  { key: 'roster', label: 'Roster', icon: BookUser },
   { key: 'results', label: 'Results', icon: BarChart3 },
   { key: 'lifecycle', label: 'Lifecycle', icon: Clock3 },
 ];
 
-export default function AdminRedesignConsole() {
+export default function AdminRedesignConsole({ fonts }: { fonts: AdminAuthFonts }) {
   const { session, status, deniedReason, signOutToHome } = useGuardedSession((current) => {
     // Signed out → send to sign-in (not a 403). 403 is only for a signed-in
     // account that lacks admin access.
@@ -67,11 +72,13 @@ export default function AdminRedesignConsole() {
     positions,
     candidates,
     voters,
+    students,
     results,
     auditEntries,
     loading: dataLoading,
     errorMessage,
     refreshCandidates,
+    refreshStudents,
     refreshResults,
   } = useAdminElectionData(status === 'ready');
 
@@ -85,6 +92,34 @@ export default function AdminRedesignConsole() {
     media.addEventListener('change', sync);
     return () => media.removeEventListener('change', sync);
   }, []);
+
+  // The mockup CSS references --font-figtree / --font-jetbrains-mono; define
+  // them with the bundled webfont tokens (same override set as the auth form).
+  useEffect(() => {
+    const body = document.body;
+    const figtreeStack = `${fonts.figtree}, "Figtree", "Segoe UI", Arial, sans-serif`;
+    const monoStack = `${fonts.jetBrainsMono}, "JetBrains Mono", ui-monospace, monospace`;
+    const overrides: Record<string, string> = {
+      '--font-figtree': fonts.figtree,
+      '--font-jetbrains-mono': fonts.jetBrainsMono,
+      '--font': figtreeStack,
+      '--font-body': figtreeStack,
+      '--font-display': figtreeStack,
+      '--mono': monoStack,
+      '--font-mono': monoStack,
+    };
+    const previous = new Map<string, string>();
+    for (const [prop, value] of Object.entries(overrides)) {
+      previous.set(prop, body.style.getPropertyValue(prop));
+      body.style.setProperty(prop, value);
+    }
+    return () => {
+      for (const [prop, value] of previous) {
+        if (value) body.style.setProperty(prop, value);
+        else body.style.removeProperty(prop);
+      }
+    };
+  }, [fonts.figtree, fonts.jetBrainsMono]);
 
   // mobile drawer: lock scroll, trap focus, close on Escape
   useEffect(() => {
@@ -217,8 +252,7 @@ export default function AdminRedesignConsole() {
         </aside>
 
         <main className="main">
-          {errorMessage && <p className="form-message is-error" role="alert">{errorMessage}</p>}
-          {dataLoading && <p className="form-message" role="status">Loading live election data…</p>}
+          <LiveDataStatus loading={dataLoading} error={errorMessage} />
 
           <OverviewPanel
             active={activePanel === 'overview'}
@@ -240,6 +274,16 @@ export default function AdminRedesignConsole() {
             onRequestConfirm={setConfirmState}
           />
           <VotersPanel active={activePanel === 'voters'} voters={voters} />
+          <RosterPanel
+            active={activePanel === 'roster'}
+            actorUid={actorUid}
+            students={students}
+            voters={voters}
+            election={election}
+            loading={dataLoading}
+            onRefreshStudents={refreshStudents}
+            onRequestConfirm={setConfirmState}
+          />
           <ResultsPanel
             active={activePanel === 'results'}
             candidates={candidates}

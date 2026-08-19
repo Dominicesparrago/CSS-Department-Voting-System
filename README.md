@@ -40,6 +40,59 @@ Because submission is one transaction (anonymous ballots + lock) and no document
 ever stores a uid alongside a choice, no query — by any admin — can link a vote
 to a person.
 
+## The official roster
+
+Voter eligibility is not self-asserted. The `students/{studentNo}` collection is
+the authoritative roster and is written **only** by the `importRoster` Cloud
+Function, which re-validates every row and rejects malformed/duplicate records
+before they can become eligible. Admins import the Excel/CSV file from the
+**Roster** tab of the admin console (browser-side parsing via SheetJS; the
+server is the source of truth for validation and writes). The `submitBallot`
+function then binds the authenticated account to its roster record — the record
+must exist, be active and eligible, and match the account's year level,
+section, first + last name, and (when present) school email — before any
+ballot is accepted. The name check is tolerant of case, middle names, and
+common suffixes (e.g. "Jr."), but a made-up name on a real Student ID is
+rejected, so the committee can defend the roster as fake-data-free.
+Optionally, an `eligibleSections` array on the election document limits voting
+to specific sections; an absent/empty array allows every active eligible
+student.
+
+Rules deny roster writes to all clients (function-only), allow admins to read
+the whole roster, and allow a student to read only their own record — so the
+ballot can deny early with a clear message without exposing other students'
+data. Vote secrecy is unaffected: participation lives on `voters/{uid}` and
+choices on anonymous ballots, never on the roster.
+
+### Import formats
+
+Two layouts are accepted:
+
+- **Flat file with a Student ID column** — the template in the Roster tab. Each
+  row carries a 7–9 digit student number and rows are keyed by it; re-importing
+  updates in place. This is the strongest form: the registered ID is bound
+  directly to a roster record.
+- **Masterlist workbook without IDs** — one sheet per section named like
+  `CS 1A` / `CS 2B` (the sheet name supplies section + year level), with a
+  Name column in `Surname, Firstname` order and a Status column of `Enrolled` /
+  `Enlisted`. Rows keep no student number and are matched to voters by
+  **first + last name + section + year level** — exactly one active, eligible
+  match is required, so a voter is never bound to the wrong record and
+  off-list names are denied. Because the file has no ID column, the ID a
+  student types at registration cannot be verified against the roster; the
+  name + section match is the identity check (the trade-off of going
+  ID-less). Sheets that are not roster sheets (e.g. a cover/Summary sheet)
+  are skipped; an explicit Section/Year Level column wins over the sheet name.
+
+Admins can also **remove** roster entries from the Roster tab: a per-row
+delete or a "Remove all" (both confirm first, both permanent — the student can
+no longer vote). Removing entries is logged to `audit`.
+
+The ballot page's early denial now asks the `checkMyRosterStatus` Cloud
+Function (server-side, returns only the caller's own result) so masterlist
+voters — who have no `students/{studentNo}` record to read — get the same
+clear early message as ID-keyed voters.
+
 ## Local development
 
 ```bash

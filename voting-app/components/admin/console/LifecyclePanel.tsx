@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { publishElection, setElectionStatus, setRegistrationOpen } from '@/lib/admin/adminData';
+import { friendlyAdminError } from '@/lib/admin/adminErrors';
 import { AUDIT_ACTION_LABELS, auditDetail } from '@/lib/admin/auditPresentation';
 import { formatTimestamp } from '@/lib/format';
 import type { AuditEntry, Election } from '@/lib/types';
@@ -32,7 +33,7 @@ export default function LifecyclePanel({ active, actorUid, election, auditEntrie
       await action();
       setMessage({ text: successText });
     } catch (error) {
-      setMessage({ text: (error as Error).message, error: true });
+      setMessage({ text: friendlyAdminError(error, 'Unable to complete this lifecycle action.'), error: true });
     } finally {
       setBusy('');
     }
@@ -61,7 +62,7 @@ export default function LifecyclePanel({ active, actorUid, election, auditEntrie
       <div className="head"><div><span className="eyebrow">Phases</span><h1>Lifecycle</h1><p>Control registration, voting, and result publication. Actions are logged.</p></div></div>
       <NoticeLine notice={message} />
       <div className="life">
-        <div className="lifebox"><span className={`state${registrationOpen ? '' : ' off'}`}><span className="d" />{registrationOpen ? 'Open' : 'Closed'}</span><h3>Registration</h3><p>Students can create accounts and verify their details.</p><button className="btn btn-ghost btn-sm" type="button" disabled={busy === 'registration'} onClick={() => updateRegistration(!registrationOpen)}>{busy === 'registration' ? 'Updating…' : registrationOpen ? 'Close registration' : 'Open registration'}</button></div>
+        <div className="lifebox"><span className={`state${registrationOpen ? '' : ' off'}`}><span className="d" />{registrationOpen ? 'Open' : 'Closed'}</span><h3>Registration</h3><p>Students can create accounts and verify their details.</p><button className="btn btn-ghost btn-sm" type="button" disabled={busy === 'registration'} onClick={() => onRequestConfirm({ title: registrationOpen ? 'Close registration?' : 'Open registration?', body: registrationOpen ? 'Students will immediately be unable to sign up or verify their details. You can reopen registration later if needed.' : 'Students will be able to create accounts and verify their details.', confirmLabel: registrationOpen ? 'Close registration' : 'Open registration', danger: registrationOpen, action: () => void updateRegistration(!registrationOpen) })}>{busy === 'registration' ? 'Updating…' : registrationOpen ? 'Close registration' : 'Open registration'}</button></div>
         <div className="lifebox"><span className={`state${votingOpen ? '' : ' off'}`}><span className="d" />{votingOpen ? 'Open' : election?.status === 'draft' ? 'Not started' : 'Closed'}</span><h3>Voting</h3><p>Verified students can submit their ballots.</p>{votingOpen ? <button className="btn btn-danger btn-sm" type="button" disabled={busy === 'closed'} onClick={() => onRequestConfirm({ title: 'Close the polls?', body: 'Students will immediately be unable to submit ballots. You can reopen voting later if needed.', confirmLabel: 'Close polls', danger: true, action: () => void updateVoting('closed') })}>{busy === 'closed' ? 'Updating…' : 'Close polls'}</button> : <button className="btn btn-primary btn-sm" type="button" disabled={busy === 'open' || resultsPublished} onClick={() => updateVoting('open')}>{busy === 'open' ? 'Updating…' : 'Open voting'}</button>}</div>
         <div className="lifebox"><span className={`state${resultsPublished ? '' : ' off'}`}><span className="d" />{resultsPublished ? 'Published' : 'Hidden'}</span><h3>Results</h3><p>Publish official tallies to students after polls close.</p><button className="btn btn-primary btn-sm" type="button" disabled={!canPublish || busy === 'publish'} onClick={() => onRequestConfirm({ title: 'Publish official results?', body: 'Tallies will be recomputed from the immutable vote records and become visible to all students.', confirmLabel: 'Publish results', action: () => void publishResults() })}>{busy === 'publish' ? 'Publishing…' : 'Publish results'}</button></div>
       </div>

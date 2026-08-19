@@ -2,7 +2,7 @@
 
 import BrandMark from '@/components/BrandMark';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { LogOut, LockKeyhole, Vote } from 'lucide-react';
+import { LockKeyhole, LogOut, Pencil, ShieldCheck, TriangleAlert, Vote, X } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import type { Candidate, Election, Position, Selections, VoterProfile } from '@/lib/types';
 import { selectedCandidatesByPosition, unansweredPositions } from '@/lib/student/ballotState';
@@ -72,10 +72,13 @@ export default function BallotContent({
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [modalState, setModalState] = useState<{ position: Position | null; candidate: Candidate | null }>({ position: null, candidate: null });
+  const [showMobileBallotBar, setShowMobileBallotBar] = useState(true);
   const sheetCloseRef = useRef<HTMLButtonElement>(null);
+  const ballotEndRef = useRef<HTMLDivElement>(null);
 
   const selectedCount = requiredPositions.filter((p) => selections[p.id]).length;
   const complete = true;
+  const hasSelections = selectedCount > 0;
   const progressPercent = requiredPositions.length ? Math.round((selectedCount / requiredPositions.length) * 100) : 0;
   const unanswered = unansweredPositions(requiredPositions, selections);
   const selectedReview = selectedCandidatesByPosition(requiredPositions, candidatesByPosition, selections);
@@ -104,6 +107,16 @@ export default function BallotContent({
       document.removeEventListener('keydown', onKey);
     };
   }, [reviewing]);
+
+  useEffect(() => {
+    const ballotEnd = ballotEndRef.current;
+    if (!ballotEnd || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setShowMobileBallotBar(!entry.isIntersecting);
+    }, { threshold: 0.2 });
+    observer.observe(ballotEnd);
+    return () => observer.disconnect();
+  }, []);
 
   async function handleConfirm() {
     setSubmitMsg('');
@@ -297,7 +310,7 @@ export default function BallotContent({
             </div>
           </div>
 
-          <div className="ballot-end">
+          <div ref={ballotEndRef} className="ballot-end">
             <a className="btn btn-ghost" href="#student-route">Back to top</a>
             <button
               className="btn btn-primary"
@@ -325,13 +338,13 @@ export default function BallotContent({
           <span>
             <span className="pct">{progressPercent}%</span>
             <br />
-            <span className="lbl">{complete ? 'Review' : 'Progress'}</span>
+            <span className="lbl">{hasSelections ? 'Review' : 'Start'}</span>
           </span>
         </span>
       </button>
 
       <button
-        className={`mobile-ballot-bar${complete ? ' ready' : ''}`}
+        className={`mobile-ballot-bar${complete ? ' ready' : ''}${showMobileBallotBar ? '' : ' is-hidden'}`}
         type="button"
         style={{ '--p': progressPercent } as CSSProperties}
         onClick={() => {
@@ -342,7 +355,7 @@ export default function BallotContent({
         <span className="mp-ring"><span>{progressPercent}%</span></span>
         <span className="mp-text">
           <strong>{selectedCount} / {ballotCount} selected</strong>
-          <small>{complete ? 'Tap to review your ballot' : 'Tap to jump to the next race'}</small>
+          <small>{hasSelections ? 'Tap to review your ballot' : 'Review your ballot anytime'}</small>
         </span>
         <span className="mp-cta">{complete ? 'Review' : 'Next'}</span>
       </button>
@@ -355,9 +368,14 @@ export default function BallotContent({
                 <h2>Review your ballot</h2>
                 <p>Check every selection. Submitting is final and counted exactly once.</p>
               </div>
-              <button ref={sheetCloseRef} className="sclose" type="button" onClick={() => setReviewing(false)} aria-label="Back to ballot">x</button>
+              <button ref={sheetCloseRef} className="sclose" type="button" onClick={() => setReviewing(false)} aria-label="Close review">
+                <X size={18} aria-hidden="true" />
+              </button>
             </div>
-            <div className="warn">Once submitted you cannot change your ballot.</div>
+            <div className="warn">
+              <TriangleAlert size={16} aria-hidden="true" />
+              <span>Once submitted you cannot change your ballot.</span>
+            </div>
             <div className="rlist">
               {selectedReview.map(({ position, candidate }) => (
                 <div key={position.id} className="ritem">
@@ -368,7 +386,10 @@ export default function BallotContent({
                       <div className="nm">{candidate?.name || 'Awaiting selection'}</div>
                     </div>
                   </div>
-                  <a href={`#race-${position.id}`} onClick={() => setReviewing(false)}>Edit</a>
+                  <a href={`#race-${position.id}`} onClick={() => setReviewing(false)}>
+                    <Pencil size={12} aria-hidden="true" />
+                    Edit
+                  </a>
                 </div>
               ))}
             </div>
@@ -383,7 +404,14 @@ export default function BallotContent({
             <div className="sheet-actions">
               <button className="btn btn-ghost" type="button" onClick={() => setReviewing(false)}>Back to ballot</button>
               <button className="btn btn-primary" type="button" disabled={submitBusy} onClick={handleConfirm}>
-                {submitBusy ? 'Submitting...' : 'Submit final vote'}
+                {submitBusy ? (
+                  'Submitting...'
+                ) : (
+                  <>
+                    <ShieldCheck size={18} aria-hidden="true" />
+                    Submit final vote
+                  </>
+                )}
               </button>
             </div>
           </div>

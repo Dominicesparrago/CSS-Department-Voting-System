@@ -47,7 +47,7 @@ export default function LiveVoteSummary({ aggregate, candidates, positions, posi
   );
   const winner = useMemo(() => currentWinner(rows), [rows]);
   const ringStyle = useMemo(() => ({ background: chartGradient(rows) }), [rows]);
-  const totalVotes = aggregate.turnout.total;
+  const totalVotes = total;
   const positionShare = percent(total, aggregate.turnout.total || total);
 
   return (
@@ -74,7 +74,7 @@ export default function LiveVoteSummary({ aggregate, candidates, positions, posi
             <div className="hole">
               <div>
                 <b className="grad"><CountUp value={totalVotes} /></b>
-                <small>Total votes</small>
+                <small>Votes in race</small>
               </div>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function LiveVoteSummary({ aggregate, candidates, positions, posi
           </div>
           <div className="tby-row" style={{ marginBottom: 16 }}>
             <span className="tby-yr">Votes in race</span>
-            <span className="tby-v"><b>{total}</b><small>{positionShare}% of total turnout</small></span>
+            <span className="tby-v"><b>{total}</b><small> {positionShare}% of total turnout</small></span>
           </div>
 
           {rows.length === 0 ? (
@@ -129,7 +129,7 @@ export default function LiveVoteSummary({ aggregate, candidates, positions, posi
                 </div>
                 <span className="tby-v">
                   <b>{row.votes}</b>
-                  <small>{row.share}%</small>
+                  <small> {row.share}%</small>
                 </span>
               </div>
             ))

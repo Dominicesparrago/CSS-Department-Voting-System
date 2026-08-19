@@ -9,6 +9,7 @@ import { hasErrors, validateGuest, validateLogin, validateRegistration, type Fie
 import { watchSession } from '@/lib/auth/session';
 import { hasAdminAccess } from '@/lib/auth/guards-core';
 import { watchAppConfig } from '@/lib/appConfig';
+import { sectionLettersForYear } from '@/lib/constants';
 
 type Tab = 'login' | 'register' | 'guest';
 
@@ -20,7 +21,6 @@ const YEAR_OPTIONS = [
   { value: '3', label: '3rd Year' },
   { value: '4', label: '4th Year' },
 ];
-const SECTION_LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)); // A–Z
 
 export default function AuthCard() {
   const router = useRouter();
@@ -57,13 +57,13 @@ export default function AuthCard() {
   const [guestBusy, setGuestBusy] = useState(false);
   // canonical section format app-wide: BSCS-<year><letter> (e.g. BSCS-3A)
   const guestSectionOptions = guestValues.yearLevel
-    ? SECTION_LETTERS.map((letter) => ({
+    ? sectionLettersForYear(Number(guestValues.yearLevel)).map((letter) => ({
         value: `BSCS-${guestValues.yearLevel}${letter}`,
         label: `BSCS-${guestValues.yearLevel}${letter}`,
       }))
     : [];
   const regSectionOptions = regValues.yearLevel
-    ? SECTION_LETTERS.map((letter) => ({
+    ? sectionLettersForYear(Number(regValues.yearLevel)).map((letter) => ({
         value: `BSCS-${regValues.yearLevel}${letter}`,
         label: `BSCS-${regValues.yearLevel}${letter}`,
       }))

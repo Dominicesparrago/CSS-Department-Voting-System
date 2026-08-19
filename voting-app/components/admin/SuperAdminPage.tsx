@@ -4,14 +4,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarClock,
   ChevronDown,
+  Contact,
+  Database,
+  Download,
   ExternalLink,
   FileText,
   LayoutDashboard,
+  ListChecks,
   LockKeyhole,
   LogOut,
   Menu,
+  RotateCcw,
+  Search,
   Settings,
   ShieldCheck,
+  Stethoscope,
+  TriangleAlert,
   Users,
   Vote,
   type LucideIcon,
@@ -22,29 +30,38 @@ import SuperAdminResultsFeature from '@/components/admin/SuperAdminResultsFeatur
 import { DesignOverviewSection } from '@/components/admin/SuperAdminDesignTest';
 import RouteLoading from '@/components/RouteLoading';
 import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
-import { buildAggregate } from '@/lib/admin/adminCore';
+import LiveDataStatus from '@/components/admin/console/LiveDataStatus';
+import BackupCenter from '@/components/admin/console/BackupCenter';
+import CandidateImportPanel from '@/components/admin/console/CandidateImportPanel';
+import DatabaseDoctor from '@/components/admin/console/DatabaseDoctor';
+import ElectionManagementPanel from '@/components/admin/console/ElectionManagementPanel';
+import ExportCenter from '@/components/admin/console/ExportCenter';
+import PositionsPanel from '@/components/admin/console/PositionsPanel';
+import { downloadFile } from '@/components/admin/console/shared';
+import { auditToCsv, buildAggregate, resultsToCsv, votersToCsv } from '@/lib/admin/adminCore';
 import { useGuardedSession } from '@/hooks/useGuardedSession';
 import { watchAudit } from '@/lib/admin/adminData';
 import { AUDIT_ACTION_LABELS, auditDetail } from '@/lib/admin/auditPresentation';
 import { DEFAULT_APP_CONFIG, watchAppConfig } from '@/lib/appConfig';
 import { hasSuperAdminClaim } from '@/lib/auth/guards-core';
-import { ELECTION_ID } from '@/lib/constants';
+import { ELECTION_ID, SECTION_LETTERS_BY_YEAR } from '@/lib/constants';
 import { positionGroup } from '@/lib/election/candidates';
-import { formatTimestamp } from '@/lib/format';
+import { formatTimestamp, yearLabel } from '@/lib/format';
 import {
   grantAdmin,
   createAdminAccount,
+  resetVoterRegistration,
   revokeAdmin,
-  updateElectionTitle,
   watchAdmins,
   watchAllElections,
 } from '@/lib/superadmin/superadminData';
 import { useAdminElectionData } from '@/components/admin/console/useAdminElectionData';
 import type { CustomSelectOption } from '@/components/ui/CustomSelect';
 import type { OneTimeVoteFonts } from '@/components/voter/OneTimeVoteForm';
-import type { AdminEntry, AppConfig, AuditEntry, Election } from '@/lib/types';
+import type { AdminEntry, AppConfig, AuditEntry, Candidate, Election, Position, Voter } from '@/lib/types';
+import type { ResultsCounts } from '@/lib/admin/adminCore';
 
-type SuperTab = 'dashboard' | 'admins' | 'elections' | 'audit' | 'settings';
+type SuperTab = 'dashboard' | 'oversight' | 'admins' | 'voters' | 'elections' | 'audit' | 'settings' | 'backups' | 'doctor' | 'export';
 
 const MIN_REASON_LENGTH = 8; // mirrored by the validAdminGrant security rule
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,8 +73,13 @@ function emailInitials(email: string): string {
 
 const TABS: { key: SuperTab; label: string; icon: LucideIcon }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'oversight', label: 'Positions & candidates', icon: ListChecks },
   { key: 'admins', label: 'Admins', icon: Users },
+  { key: 'voters', label: 'Voters', icon: Contact },
   { key: 'elections', label: 'Elections', icon: Vote },
+  { key: 'backups', label: 'Backups & reset', icon: Database },
+  { key: 'doctor', label: 'Database doctor', icon: Stethoscope },
+  { key: 'export', label: 'Export center', icon: Download },
   { key: 'audit', label: 'Audit log', icon: FileText },
   { key: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -116,6 +138,7 @@ export default function SuperAdminPage({ fonts }: { fonts: OneTimeVoteFonts }) {
     return { kind: 'allow' };
   }, 'Unable to verify super admin credentials.');
   const [activeTab, setActiveTab] = useState<SuperTab>('dashboard');
+  const [oversightSection, setOversightSection] = useState<'overview' | 'positions' | 'import'>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [elections, setElections] = useState<Election[]>([]);
@@ -261,8 +284,7 @@ export default function SuperAdminPage({ fonts }: { fonts: OneTimeVoteFonts }) {
 
         <main className="main">
           <section className="panel on superadmin-panel">
-            {liveData.loading && <p className="superadmin-data-loading" role="status">Loading live election data…</p>}
-            {dataError && <p className="form-message is-error" role="alert">{dataError}</p>}
+            <LiveDataStatus loading={liveData.loading} error={dataError} />
             {activeTab === 'dashboard' && (
               <div className="superadmin-applied-design">
                 {liveData.positions.length > 0 && (
@@ -285,8 +307,42 @@ export default function SuperAdminPage({ fonts }: { fonts: OneTimeVoteFonts }) {
                 />
               </div>
             )}
+            {activeTab === 'oversight' && (
+              <>
+                <div className="pos-switch" role="group" aria-label="Oversight section">
+                  {([['overview', 'Overview'], ['positions', 'Positions'], ['import', 'Import candidates']] as const).map(([key, label]) => (
+                    <button key={key} className={oversightSection === key ? 'on' : ''} type="button" aria-pressed={oversightSection === key} onClick={() => setOversightSection(key)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {oversightSection === 'overview' && (
+                  <OversightPanel
+                    positions={liveData.positions}
+                    candidates={liveData.candidates}
+                    results={liveData.results}
+                    electionTitle={electionTitle}
+                  />
+                )}
+                {oversightSection === 'positions' && <PositionsPanel positions={liveData.positions} />}
+                {oversightSection === 'import' && <CandidateImportPanel />}
+              </>
+            )}
             {activeTab === 'admins' && <AdminsPanel admins={admins} actorUid={actorUid} actorEmail={actorEmail} />}
-            {activeTab === 'elections' && <ElectionsPanel elections={elections} actorUid={actorUid} />}
+            {activeTab === 'voters' && <VotersPanel voters={liveData.voters} actorUid={actorUid} />}
+            {activeTab === 'elections' && <ElectionManagementPanel elections={elections} positions={liveData.positions} />}
+            {activeTab === 'backups' && <BackupCenter />}
+            {activeTab === 'doctor' && <DatabaseDoctor />}
+            {activeTab === 'export' && (
+              <ExportCenter
+                candidates={liveData.candidates}
+                positions={liveData.positions}
+                voters={liveData.voters}
+                roster={liveData.students}
+                results={liveData.results}
+                auditEntries={auditEntries}
+              />
+            )}
             {activeTab === 'audit' && <AuditPanel entries={auditEntries} />}
             {activeTab === 'settings' && <SettingsPanel config={config} actorUid={actorUid} />}
           </section>
@@ -559,103 +615,281 @@ function AdminsPanel({ admins, actorUid, actorEmail }: { admins: AdminEntry[]; a
   );
 }
 
-const ELECTION_STATUS_LABELS: Record<Election['status'], string> = {
-  draft: 'draft',
-  open: 'active',
-  closed: 'closed',
-  published: 'published',
-};
+function nameInitials(fullName: string): string {
+  return fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'V';
+}
 
-function ElectionsPanel({ elections, actorUid }: { elections: Election[]; actorUid: string }) {
-  const [editingId, setEditingId] = useState('');
-  const [title, setTitle] = useState('');
-  const [busy, setBusy] = useState(false);
+interface RosterIssue {
+  kind: 'empty' | 'dupe' | 'year' | 'section';
+  position: Position;
+  label: string;
+  detail: string;
+}
+
+/** Positions/candidates oversight: roster sanity checks + official tally export. */
+function OversightPanel({ positions, candidates, results, electionTitle }: {
+  positions: Position[];
+  candidates: Candidate[];
+  results: ResultsCounts;
+  electionTitle: string;
+}) {
+  const issues = useMemo<RosterIssue[]>(() => {
+    const found: RosterIssue[] = [];
+    const candidatesById = new Map(candidates.map((c) => [c.id, c]));
+
+    // 1. Positions with no active candidate
+    for (const position of positions) {
+      const hasActive = candidates.some((c) => c.positionId === position.id && c.active);
+      if (!hasActive) {
+        found.push({
+          kind: 'empty',
+          position,
+          label: 'No active candidate',
+          detail: `${position.order}. ${position.name} has no candidate visible on the ballot.`,
+        });
+      }
+    }
+
+    // 2. Duplicate candidate names within a position
+    for (const position of positions) {
+      const names = candidates
+        .filter((c) => c.positionId === position.id)
+        .map((c) => c.name.trim().toLowerCase());
+      const seen = new Set<string>();
+      const dupes = new Set<string>();
+      for (const name of names) {
+        if (seen.has(name)) dupes.add(name);
+        seen.add(name);
+      }
+      if (dupes.size > 0) {
+        found.push({
+          kind: 'dupe',
+          position,
+          label: 'Duplicate names',
+          detail: `${position.name}: ${[...dupes].join(', ')}`,
+        });
+      }
+    }
+
+    // 3. Year-scope positions with a candidate from the wrong year level
+    for (const candidate of candidates) {
+      const position = positions.find((p) => p.id === candidate.positionId);
+      if (!position) continue;
+      if (position.scope === 'year' && position.yearLevel && candidate.yearLevel !== position.yearLevel) {
+        found.push({
+          kind: 'year',
+          position,
+          label: 'Year mismatch',
+          detail: `${candidate.name} (${yearLabel(candidate.yearLevel)}) filed under ${position.name} (${yearLabel(position.yearLevel)}).`,
+        });
+      }
+    }
+
+    // 4. Section letter outside the year's allowed range
+    for (const candidate of candidates) {
+      const letters = SECTION_LETTERS_BY_YEAR[candidate.yearLevel] ?? [];
+      if (letters.length === 0) continue;
+      const letter = candidate.section.replace(/^BSCS-\d/i, '').trim().toUpperCase();
+      if (letter && !letters.includes(letter)) {
+        found.push({
+          kind: 'section',
+          position: positions.find((p) => p.id === candidate.positionId) ?? { id: '', name: 'Unknown position', scope: 'department', order: 0 },
+          label: 'Section out of range',
+          detail: `${candidate.name} (${candidate.section}) — year ${candidate.yearLevel} only has sections A–${letters[letters.length - 1]}.`,
+        });
+      }
+    }
+
+    return found;
+  }, [positions, candidates]);
+
+  const emptyCount = issues.filter((i) => i.kind === 'empty').length;
+  const issueCount = issues.length;
+  const activeCandidates = candidates.filter((c) => c.active).length;
+  const coveredPositions = positions.filter((p) => candidates.some((c) => c.positionId === p.id && c.active)).length;
+
+  const ISSUE_META: Record<RosterIssue['kind'], { label: string; className: string }> = {
+    empty: { label: 'No candidate', className: 'err' },
+    dupe: { label: 'Duplicate', className: 'warn' },
+    year: { label: 'Year', className: 'warn' },
+    section: { label: 'Section', className: 'warn' },
+  };
+
+  return (
+    <>
+      <header className="head">
+        <div>
+          <span className="eyebrow">Roster integrity</span>
+          <h1>Positions &amp; candidates</h1>
+          <p>{positions.length} positions · {activeCandidates} active candidates · {coveredPositions}/{positions.length} covered. Sanity checks flag gaps that would show up on the ballot.</p>
+        </div>
+        <div className="head-actions">
+          <button
+            className="btn btn-ghost btn-sm"
+            type="button"
+            onClick={() => downloadFile(`css-tally-${ELECTION_ID}.csv`, resultsToCsv({ results, candidates, positions }), 'text/csv;charset=utf-8')}
+          >
+            <Download size={14} style={{ marginRight: 6 }} />
+            Tally CSV
+          </button>
+        </div>
+      </header>
+
+      <div className="student-facts">
+        {[
+          { icon: ListChecks, value: String(positions.length), label: 'Positions' },
+          { icon: Users, value: String(activeCandidates), label: 'Active candidates' },
+          { icon: TriangleAlert, value: issueCount === 0 ? '0' : String(issueCount), label: issueCount === 0 ? 'All clear' : 'Open issues' },
+        ].map(({ icon: Icon, value, label }) => (
+          <article className="fact" key={label}>
+            <span className="ic"><Icon size={20} /></span>
+            <div><div className={`num${issueCount > 0 && label === 'Open issues' ? ' grad' : ''}`}>{value}</div><div className="lbl">{label}</div></div>
+          </article>
+        ))}
+      </div>
+
+      {issueCount === 0 ? (
+        <div className="state-block">
+          <strong>Roster looks clean</strong>
+          <small>Every position has an active candidate, no duplicate names, and all years/sections line up with the ballot rules.</small>
+        </div>
+      ) : (
+        <div className="superadmin-list" aria-label="Roster issues">
+          <div className="block-label">
+            <h2>{issueCount} issue{issueCount === 1 ? '' : 's'} found</h2>
+            <small>{emptyCount > 0 ? `${emptyCount} unfilled position${emptyCount === 1 ? '' : 's'} · ` : ''}fix these before opening the ballot</small>
+          </div>
+          {issues.map((issue, index) => {
+            const meta = ISSUE_META[issue.kind];
+            return (
+              <div className="superadmin-row" key={`${issue.kind}-${issue.position.id}-${index}`}>
+                <span className={`tag ${meta.className}`}>{meta.label}</span>
+                <div>
+                  <strong>{issue.label}</strong>
+                  <p>{issue.detail}</p>
+                </div>
+                <div className="superadmin-actions">
+                  <span className="tag">{issue.position.name}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Voter exception handling: search the registry and reset broken registrations. */
+function VotersPanel({ voters, actorUid }: { voters: Voter[]; actorUid: string }) {
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'voted' | 'pending'>('all');
+  const [dialog, setDialog] = useState<ReasonDialogState | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
-  const ordered = useMemo(
-    () => [...elections].sort((a, b) => (a.id === ELECTION_ID ? -1 : b.id === ELECTION_ID ? 1 : a.id.localeCompare(b.id))),
-    [elections],
-  );
+  const votedCount = voters.filter((voter) => voter.hasVoted?.[ELECTION_ID] === true).length;
 
-  async function saveTitle(electionId: string) {
-    if (!title.trim() || busy) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      await updateElectionTitle(electionId, title, actorUid);
-      setNotice({ text: 'Election title updated.' });
-      setEditingId('');
-    } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
-    } finally {
-      setBusy(false);
-    }
+  const filteredVoters = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return voters.filter((voter) => {
+      if (filter === 'voted' && voter.hasVoted?.[ELECTION_ID] !== true) return false;
+      if (filter === 'pending' && voter.hasVoted?.[ELECTION_ID] === true) return false;
+      return `${voter.fullName} ${voter.studentNo ?? ''} ${voter.email} ${voter.section}`.toLowerCase().includes(needle);
+    });
+  }, [search, voters, filter]);
+
+  function requestReset(voter: Voter) {
+    setDialog({
+      title: `Reset registration for ${voter.fullName}?`,
+      body: `Deletes the voter record and frees ${voter.studentNo ?? 'their student number'} / ${voter.email} so they can register again. Use only for genuinely broken registrations (e.g. a typo'd student number or email).`,
+      confirmLabel: 'Reset registration',
+      danger: true,
+      action: async (reason) => {
+        await resetVoterRegistration({ uid: voter.id, reason, actorUid });
+        setNotice({ text: `Registration reset for ${voter.fullName}.` });
+      },
+    });
   }
 
   return (
     <>
       <header className="head">
         <div>
-          <span className="eyebrow">Cycles</span>
-          <h1>Elections</h1>
-          <p>Live election records. Lifecycle (open, close, publish) is controlled from the admin console.</p>
+          <span className="eyebrow">Exception handling</span>
+          <h1>Voters</h1>
+          <p>{voters.length} registered · {votedCount} voted. Reset frees a broken one-time registration (student number + email) for a fresh attempt.</p>
+        </div>
+        <div className="head-actions">
+          <button
+            className="btn btn-ghost btn-sm"
+            type="button"
+            disabled={filteredVoters.length === 0}
+            onClick={() => downloadFile(`css-voters-${filter}-${ELECTION_ID}.csv`, votersToCsv(filteredVoters, ELECTION_ID), 'text/csv;charset=utf-8')}
+          >
+            <Download size={14} style={{ marginRight: 6 }} />
+            Export CSV
+          </button>
         </div>
       </header>
       <NoticeLine notice={notice} />
-      {ordered.length === 0 ? (
+      <div className="pos-switch" role="group" aria-label="Filter voters by status">
+        {([['all', 'All'], ['voted', 'Voted'], ['pending', 'Not yet voted']] as const).map(([key, label]) => (
+          <button key={key} className={filter === key ? 'on' : ''} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="field" style={{ maxWidth: 420 }}>
+        <span className="sr-only">Search voters</span>
+        <div style={{ position: 'relative', minWidth: 0 }}>
+          <Search size={16} style={{ position: 'absolute', top: '50%', left: 14, transform: 'translateY(-50%)', color: 'var(--muted)' }} aria-hidden="true" />
+          <input
+            aria-label="Search voters by name, student number, email, or section"
+            placeholder="Search name, student no., email, section…"
+            style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 40 }}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+      </div>
+      {filteredVoters.length === 0 ? (
         <div className="state-block">
-          <strong>No elections found</strong>
-          <small>The election document is created during deployment seeding.</small>
+          <strong>No voters found</strong>
+          <small>{voters.length ? 'Try another search or filter.' : 'Registered voters will appear here.'}</small>
         </div>
       ) : (
-        <div className="superadmin-list">
-          {ordered.map((election) => (
-            <div className="superadmin-row" key={election.id}>
-              <Vote size={20} />
-              <div>
-                {editingId === election.id ? (
-                  <form
-                    className="field"
-                    onSubmit={(event) => { event.preventDefault(); void saveTitle(election.id); }}
+        <div className="superadmin-list" aria-label="Registered voters">
+          {filteredVoters.map((voter) => {
+            const voted = voter.hasVoted?.[ELECTION_ID] === true;
+            return (
+              <div className="superadmin-row" key={voter.id}>
+                <span className="student-avatar">{nameInitials(voter.fullName)}</span>
+                <div>
+                  <strong>{voter.fullName}</strong>
+                  <p>
+                    {voter.studentNo || '—'} · {voter.email} · {yearLabel(voter.yearLevel)} {voter.section}
+                    {voter.guest ? ' · one-time' : ''}
+                  </p>
+                </div>
+                <div className="superadmin-actions">
+                  <span className={`tag${voted ? ' active' : ''}`}>{voted ? 'Voted' : 'Not yet'}</span>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    type="button"
+                    disabled={voted}
+                    title={voted ? 'Cannot reset a voter who has already cast a ballot.' : 'Reset this registration'}
+                    onClick={() => requestReset(voter)}
                   >
-                    <span className="sr-only">Election title</span>
-                    <input value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
-                  </form>
-                ) : (
-                  <strong>{election.title || election.id}</strong>
-                )}
-                <p>
-                  {election.id}
-                  {election.id === ELECTION_ID ? ' · current election' : ''}
-                  {' · registration '}{election.registrationOpen === false ? 'closed' : 'open'}
-                </p>
+                    <RotateCcw size={14} style={{ marginRight: 6 }} />
+                    Reset
+                  </button>
+                </div>
               </div>
-              <div className="superadmin-actions">
-                <span className={`tag ${election.status === 'open' ? 'active' : election.status}`}>{ELECTION_STATUS_LABELS[election.status] ?? election.status}</span>
-                {editingId === election.id ? (
-                  <>
-                    <button className="btn btn-ghost btn-sm" type="button" disabled={busy} onClick={() => setEditingId('')}>Cancel</button>
-                    <button className="btn btn-primary btn-sm" type="button" disabled={busy || !title.trim()} onClick={() => void saveTitle(election.id)}>
-                      {busy ? 'Saving…' : 'Save title'}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={() => { setEditingId(election.id); setTitle(election.title ?? ''); setNotice(null); }}
-                    >
-                      Rename
-                    </button>
-                    <a className="btn btn-primary btn-sm" href="/admin">Manage</a>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+      <ReasonDialog state={dialog} onClose={() => setDialog(null)} />
     </>
   );
 }
@@ -679,6 +913,17 @@ function AuditPanel({ entries }: { entries: AuditEntry[] }) {
           <span className="eyebrow">Traceability</span>
           <h1>Audit log</h1>
           <p>Immutable record of privileged actions across the admin console and this control center.</p>
+        </div>
+        <div className="head-actions">
+          <button
+            className="btn btn-ghost btn-sm"
+            type="button"
+            disabled={entries.length === 0}
+            onClick={() => downloadFile(`css-audit-${ELECTION_ID}.csv`, auditToCsv(entries), 'text/csv;charset=utf-8')}
+          >
+            <Download size={14} style={{ marginRight: 6 }} />
+            Export CSV
+          </button>
         </div>
       </header>
       {entries.length === 0 ? (

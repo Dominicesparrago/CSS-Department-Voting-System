@@ -1141,53 +1141,9 @@ function WinnersByPositionSection({
               </div>
             </div>
           </article>
-          <div className="design-position-grid" data-design-id="02B" aria-label="Position result cards">
-            {positionResults.map((result) => <PositionResultCard key={result.position.id} result={result} />)}
-          </div>
         </>
       )}
     </section>
-  );
-}
-
-function PositionResultCard({ result }: { result: PositionResult }) {
-  const { position, rows, total, winner } = result;
-  const maxVotes = Math.max(1, ...rows.map((row) => row.votes));
-  const winnerIds = new Set(winner.leaders.map((row) => row.candidate.id));
-  const winnerLabel = winner.kind === 'winner'
-    ? winner.leaders[0].candidate.name
-    : winner.kind === 'tie'
-      ? 'Tie in this position'
-      : rows.length === 0 ? 'No candidates' : 'No votes yet';
-
-  return (
-    <article className="design-position-card">
-      <div className="design-position-card-head">
-        <div><span className="design-position-order">{String(position.order).padStart(2, '0')}</span><div><h3>{position.name}</h3><small>{position.scope === 'year' ? `${yearLabel(position.yearLevel)} representative` : 'Department-wide position'}</small></div></div>
-        <span className={`design-position-winner-tag${winner.kind === 'tie' ? ' is-tie' : winner.kind === 'none' ? ' is-empty' : ''}`}>
-          {winner.kind === 'winner' ? 'Winner' : winner.kind === 'tie' ? 'Tied' : 'Pending'}
-        </span>
-      </div>
-      <div className="design-position-winner-line">
-        <Trophy size={15} aria-hidden="true" />
-        <strong>{winnerLabel}</strong>
-        {winner.kind !== 'none' && <span>{winner.leaders.map((row) => `${formatNumber(row.votes)} · ${formatPercent(row.votes, total)}`).join(' / ')}</span>}
-      </div>
-      {rows.length === 0 ? (
-        <div className="design-position-empty">No candidates available for this position.</div>
-      ) : (
-        <div className="design-position-results" aria-label={`${position.name} candidate results`}>
-          <div className="design-position-bars">
-            {rows.map((row) => (
-              <div className={`design-position-row${winnerIds.has(row.candidate.id) ? ' is-winner' : ''}`} key={row.candidate.id}>
-                <div className="design-position-row-head"><span><i style={{ background: row.color }} />{row.candidate.name}</span><b>{formatNumber(row.votes)} <small>{formatPercent(row.votes, total)}</small></b></div>
-                <div className="design-position-track"><i style={{ width: `${(row.votes / maxVotes) * 100}%`, background: row.color }} /></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </article>
   );
 }
 

@@ -5,7 +5,7 @@ import { BarChart3, CheckSquare, Contact, Users } from 'lucide-react';
 import AnimatedBarFill from '@/components/admin/AnimatedBarFill';
 import CountUp from '@/components/CountUp';
 import type { CustomSelectOption } from '@/components/ui/CustomSelect';
-import { cumulativeTurnoutFromVoters, resultsToCsv, type Aggregate } from '@/lib/admin/adminCore';
+import { resultsToCsv, type Aggregate } from '@/lib/admin/adminCore';
 import { ELECTION_ID } from '@/lib/constants';
 import { percent, yearLabel } from '@/lib/format';
 import type { Candidate, Election, Position, Voter } from '@/lib/types';
@@ -18,6 +18,8 @@ const STATUS_META: Record<Election['status'], { label: string; cls: string }> = 
   open: { label: 'Voting open', cls: 'is-open' },
   closed: { label: 'Voting closed', cls: 'is-closed' },
   published: { label: 'Results published', cls: 'is-published' },
+  finalized: { label: 'Results finalized', cls: 'is-finalized' },
+  archived: { label: 'Archived', cls: 'is-archived' },
 };
 
 interface OverviewPanelProps {
@@ -44,7 +46,15 @@ export default function OverviewPanel({
   const turnoutPercent = percent(aggregate.turnout.total, aggregate.eligible.total);
   const activeCandidates = candidates.filter((candidate) => candidate.active).length;
   const statusMeta = STATUS_META[election?.status ?? 'draft'];
-  const momentum = useMemo(() => cumulativeTurnoutFromVoters(voters, ELECTION_ID), [voters]);
+  // Ballots are anonymous and never readable by clients, so the curve derives
+  // from each voter's participation lock (`votedAt`) — one timestamp per cast
+  // ballot, which is exactly the data the momentum chart needs.
+  const momentumBallots = useMemo(
+    () => voters
+      .filter((voter) => voter.hasVoted?.[ELECTION_ID] === true && voter.votedAt?.[ELECTION_ID] != null)
+      .map((voter) => ({ votedAt: voter.votedAt![ELECTION_ID].toDate() })),
+    [voters],
+  );
   const turnoutByYear = useMemo(
     () => [1, 2, 3, 4].map((year) => ({
       year,
@@ -170,7 +180,7 @@ export default function OverviewPanel({
 
           <div className="ov-block">
             <div className="block-label"><h2>Turnout momentum</h2><small>cumulative ballots over time</small></div>
-            <MomentumArea points={momentum} />
+            <MomentumArea ballots={momentumBallots} />
           </div>
         </>
       )}

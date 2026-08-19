@@ -1,6 +1,5 @@
 export const ELECTION_ID = "css_department_election_2026";
 
-// Fixed position IDs are duplicated in firebase/firestore.rules; update both files in lockstep.
 export const positions = [
   {
     id: "president",
@@ -12,7 +11,7 @@ export const positions = [
   },
   {
     id: "vp_internal",
-    name: "Vice President - Internal",
+    name: "Internal - VP",
     order: 2,
     scope: "department",
     yearLevel: null,
@@ -20,7 +19,7 @@ export const positions = [
   },
   {
     id: "vp_external",
-    name: "Vice President - External",
+    name: "External - VP",
     order: 3,
     scope: "department",
     yearLevel: null,
@@ -52,48 +51,32 @@ export const positions = [
   },
   {
     id: "pro",
-    name: "P.R.O",
+    name: "Public Relation Officer (PRO)",
     order: 7,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "business_manager_committee",
-    name: "Business Manager Committee",
+    id: "events_committee_chair",
+    name: "Event Committee Chair",
     order: 8,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "academic_committee_chair",
-    name: "Academic Committee Chair",
+    id: "assistant_event_committee_chair",
+    name: "Assistant Event Committee Chair",
     order: 9,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "research_committee_chair",
-    name: "Research Committee Chair",
+    id: "academic_research_committee_chair",
+    name: "Academic & Research Committee Chair",
     order: 10,
-    scope: "department",
-    yearLevel: null,
-    maxSelections: 1
-  },
-  {
-    id: "ict_committee_chair",
-    name: "ICT Committee Chair",
-    order: 11,
-    scope: "department",
-    yearLevel: null,
-    maxSelections: 1
-  },
-  {
-    id: "events_committee_chair",
-    name: "Events Committee Chair",
-    order: 12,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
@@ -101,65 +84,97 @@ export const positions = [
   {
     id: "sports_committee_chair",
     name: "Sports Committee Chair",
+    order: 11,
+    scope: "department",
+    yearLevel: null,
+    maxSelections: 1
+  },
+  {
+    id: "business_manager_committee",
+    name: "Business Manager Committee Chair",
+    order: 12,
+    scope: "department",
+    yearLevel: null,
+    maxSelections: 1
+  },
+  {
+    id: "community_environmental_committee_chair",
+    name: "Community & Environmental Committee Chair",
     order: 13,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "environmental_committee_chair",
-    name: "Environmental Committee Chair",
+    id: "documentation_committee_chair",
+    name: "Documentation Committee Chair",
     order: 14,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "membership_committee_chair",
-    name: "Membership Committee Chair",
+    id: "designer_committee_chair",
+    name: "Designer Committee Chair",
     order: 15,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "community_committee_chair",
-    name: "Community Committee Chair",
+    id: "caption_committee_chair",
+    name: "Caption Committee Chair",
     order: 16,
     scope: "department",
     yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "year_rep_4",
-    name: "4th Year Representative",
+    id: "sponsorship_partnership_committee_chair",
+    name: "Sponsorship/Partnership Committee Chair",
     order: 17,
-    scope: "year",
-    yearLevel: 4,
+    scope: "department",
+    yearLevel: null,
     maxSelections: 1
   },
   {
-    id: "year_rep_3",
-    name: "3rd Year Representative",
+    id: "project_hackathon_committee_chair",
+    name: "Project/Hackathon Committee Chair",
     order: 18,
-    scope: "year",
-    yearLevel: 3,
-    maxSelections: 1
-  },
-  {
-    id: "year_rep_2",
-    name: "2nd Year Representative",
-    order: 19,
-    scope: "year",
-    yearLevel: 2,
+    scope: "department",
+    yearLevel: null,
     maxSelections: 1
   },
   {
     id: "year_rep_1",
     name: "1st Year Representative",
-    order: 20,
+    order: 19,
     scope: "year",
     yearLevel: 1,
+    maxSelections: 1
+  },
+  {
+    id: "year_rep_2",
+    name: "2nd Year Representative",
+    order: 20,
+    scope: "year",
+    yearLevel: 2,
+    maxSelections: 1
+  },
+  {
+    id: "year_rep_3",
+    name: "3rd Year Representative",
+    order: 21,
+    scope: "year",
+    yearLevel: 3,
+    maxSelections: 1
+  },
+  {
+    id: "year_rep_4",
+    name: "4th Year Representative",
+    order: 22,
+    scope: "year",
+    yearLevel: 4,
     maxSelections: 1
   }
 ];

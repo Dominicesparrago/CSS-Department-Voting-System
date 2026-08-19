@@ -6,6 +6,7 @@ import { deleteCandidate, saveCandidate, validateCandidatePhoto } from '@/lib/ad
 import { candidatesForPosition } from '@/lib/election/candidates';
 import { toMillis, yearLabel } from '@/lib/format';
 import { initials } from '@/lib/initials';
+import { sectionLettersForYear } from '@/lib/constants';
 import type { Candidate, Position } from '@/lib/types';
 import NoticeLine, { type Notice } from './NoticeLine';
 import { scrollToTop, YEAR_LEVEL_OPTIONS } from './shared';
@@ -91,9 +92,8 @@ export default function CandidatesPanel({
   }, []);
 
   const sectionOptions = useMemo(() => {
-    const year = form.yearLevel || '1';
-    const letters = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)); // A–Z
-    const base = letters.map((letter) => ({ value: `BSCS-${year}${letter}`, label: `BSCS-${year}${letter}` }));
+    const year = Number(form.yearLevel || '1');
+    const base = sectionLettersForYear(year).map((letter) => ({ value: `BSCS-${year}${letter}`, label: `BSCS-${year}${letter}` }));
     // keep unconventional existing sections selectable when editing older records
     if (form.section && !base.some((option) => option.value === form.section)) {
       base.unshift({ value: form.section, label: `${form.section} (current)` });
@@ -285,7 +285,7 @@ export default function CandidatesPanel({
                 onChange={(section) => setForm((current) => ({ ...current, section }))}
               />
             </div>
-            <label>Platform<textarea required placeholder="Goals and priorities…" value={form.platform} onChange={(event) => setForm((current) => ({ ...current, platform: event.target.value }))} /></label>
+            <label>Platform <span className="optional-label">(optional)</span><textarea placeholder="Goals and priorities…" value={form.platform} onChange={(event) => setForm((current) => ({ ...current, platform: event.target.value }))} /></label>
             <div className="photo">
               <div className="prev">
                 {form.photoPreviewUrl

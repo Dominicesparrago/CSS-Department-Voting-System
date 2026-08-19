@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -13,6 +14,7 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebaseDb, getFirebaseFunctions } from '../firebase/init';
 import { snapshotRecords } from '../firebase/firestore';
 import { createAudit } from '../admin/adminData';
+import { ELECTION_ID } from '../constants';
 import type { AdminEntry, AppConfig, Election } from '../types';
 
 /**
@@ -86,4 +88,48 @@ export async function saveAppConfig(config: Pick<AppConfig, 'allowGuestVoters' |
     updatedAt: serverTimestamp(),
   });
   await createAudit(actorUid, 'config.set', 'config/app', { ...config }, 'superadmin');
+}
+
+/**
+ * Exception handling for a bricked one-time registration. Deletes the voter
+ * record and its student-number/email index entries so the same credentials can
+ * be registered again (e.g. a typo'd student number or email). Refuses voters
+ * who have already cast a ballot — their participation lock lives on this doc,
+ * and deleting it would let the same person vote twice.
+ */
+export async function resetVoterRegistration(params: { uid: string; reason: string; actorUid: string }): Promise<void> {
+  const db = getFirebaseDb();
+  const voterRef = doc(db, 'voters', params.uid);
+  const snapshot = await getDoc(voterRef);
+  if (!snapshot.exists()) throw new Error('Voter record not found.');
+  const voter = snapshot.data() as {
+    studentNo?: string;
+    email?: string;
+    fullName?: string;
+    hasVoted?: Record<string, boolean>;
+  };
+
+  if (voter.hasVoted?.[ELECTION_ID] === true) {
+    throw new Error('This voter has already cast a ballot — their registration cannot be reset.');
+  }
+
+  const email = voter.email?.trim().toLowerCase();
+  await Promise.all([
+    deleteDoc(voterRef),
+    voter.studentNo ? deleteDoc(doc(db, 'studentIndex', voter.studentNo)) : Promise.resolve(),
+    email ? deleteDoc(doc(db, 'emailIndex', email)) : Promise.resolve(),
+  ]);
+
+  await createAudit(
+    params.actorUid,
+    'voter.reset',
+    `voters/${params.uid}`,
+    {
+      fullName: voter.fullName ?? '',
+      studentNo: voter.studentNo ?? '',
+      email: voter.email ?? '',
+      reason: params.reason.trim(),
+    },
+    'superadmin',
+  );
 }

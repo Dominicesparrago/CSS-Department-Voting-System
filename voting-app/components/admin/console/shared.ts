@@ -1,7 +1,7 @@
 import { ELECTION_ID } from '@/lib/constants';
 import type { Voter } from '@/lib/types';
 
-export type AdminPanel = 'overview' | 'candidates' | 'voters' | 'results' | 'lifecycle';
+export type AdminPanel = 'overview' | 'candidates' | 'voters' | 'roster' | 'results' | 'lifecycle';
 
 export const YEAR_LEVEL_OPTIONS = [
   { value: '1', label: '1st Year' },

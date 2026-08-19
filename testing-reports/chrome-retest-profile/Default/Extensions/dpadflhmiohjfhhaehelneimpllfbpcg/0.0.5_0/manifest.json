@@ -1,0 +1,47 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "icon128.plasmo.b89b7dfa.png",
+         "16": "icon16.plasmo.00ac8b83.png",
+         "32": "icon32.plasmo.9ad0c5b6.png",
+         "48": "icon48.plasmo.cae3a6b3.png",
+         "64": "icon64.plasmo.e4b604fc.png"
+      },
+      "default_popup": "popup.html"
+   },
+   "author": "zhangxiaoqiang02",
+   "background": {
+      "service_worker": "background.d0591844.js"
+   },
+   "content_scripts": [ {
+      "css": [  ],
+      "js": [ "contents.4683de87.js" ],
+      "matches": [ "\u003Call_urls>" ]
+   }, {
+      "css": [  ],
+      "js": [ "contents.c10c11b1.js" ],
+      "matches": [ "\u003Call_urls>" ]
+   } ],
+   "description": "TeraBox Download Assistant",
+   "host_permissions": [ "https://*/*" ],
+   "icons": {
+      "128": "icon128.plasmo.b89b7dfa.png",
+      "16": "icon16.plasmo.00ac8b83.png",
+      "32": "icon32.plasmo.9ad0c5b6.png",
+      "48": "icon48.plasmo.cae3a6b3.png",
+      "64": "icon64.plasmo.e4b604fc.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApV7EhyKG3Xsh0TngxDFgLG/l+3fbOoPmyMA1efRl6MdTGeBY98rShAD9oChH2lfWm5lDT+0uOOypOL1/pzy9ucFs3MCSocrlLFPlc3KFuk5Fucnzf6PPipWDalzC+gk0F0J1EUmEnm4cy7n1RpqJmog4WbT+GHr47WlF6MURw4Iz8g9w0W2aBYgDSUgudKyxp8uelXPJyzgi69nLQ9p1MN3s6mNqZJAZ+H/7dR90MbtXul6EK/4fJ+VER74nDWVLR5ZhZ1I9/5YsffD2Qnc54Opeo09YOQZwViFOr9qf3G8uESHYLtoW9bUwBNK3WB+msyrQX2oSU8GU01cUY6Id7wIDAQAB",
+   "manifest_version": 3,
+   "name": "TeraBox Download Assistant",
+   "permissions": [ "nativeMessaging", "downloads" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "0.0.5",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "contents.7578acc3.css" ]
+   }, {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "contents.7578acc3.css" ]
+   } ]
+}

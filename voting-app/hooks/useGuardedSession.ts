@@ -38,7 +38,26 @@ export function useGuardedSession(
       return;
     }
 
-    if (!session) return;
+    // Signed out (or no session yet): let each route's guard decide where to go
+    // (most redirect home; the admin route redirects to its own sign-in).
+    // Without this, a page left in 'ready' state against a null session crashes
+    // on non-null session access, and signed-out visitors hang on the loader.
+    if (!session) {
+      const decision = evaluateRef.current({
+        user: null,
+        voterProfile: null,
+        claims: null,
+        adminViaRegistry: false,
+      });
+      if (decision.kind === 'redirect') {
+        setStatus('loading');
+        router.replace(decision.to);
+        return;
+      }
+      setDeniedReason(decision.kind === 'deny' ? decision.reason : 'Signed out.');
+      setStatus('denied');
+      return;
+    }
 
     const decision = evaluateRef.current(session);
     if (decision.kind === 'redirect') {

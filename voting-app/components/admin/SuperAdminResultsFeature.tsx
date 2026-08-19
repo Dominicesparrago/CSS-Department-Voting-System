@@ -348,32 +348,30 @@ export default function SuperAdminResultsFeature({
             <span>Add an election position to begin showing results.</span>
           </div>
         ) : (
-          <div className="design-result-grid">
-            <article className={`design-winner-card${winner.kind === 'tie' ? ' is-tie' : ''}`}>
-              <div className="design-card-topline">
-                <span className="design-kicker">{selectedPosition.name}</span>
-                <span className={`design-winner-badge${winner.kind === 'tie' ? ' is-tie' : ''}`}>
-                  <Trophy size={13} aria-hidden="true" />
-                  {winner.kind === 'winner' ? 'Current winner' : winner.kind === 'tie' ? 'Tied lead' : 'Awaiting votes'}
-                </span>
-              </div>
-              <div className="design-winner-icon"><Trophy size={25} aria-hidden="true" /></div>
-              <p className="design-winner-label">{winner.kind === 'none' ? 'Race status' : 'Leading candidate'}</p>
-              <h2>{winnerName}</h2>
-              {winner.kind === 'tie' && <p className="design-tie-list">{winner.leaders.map((row) => row.candidate.name).join(' · ')}</p>}
-              <p className="design-winner-copy">
-                {winner.kind === 'none'
-                  ? 'No votes yet. The current winner will appear here as ballots are recorded.'
-                  : winner.kind === 'tie'
-                    ? 'The highest vote count is shared. No single winner is declared.'
-                    : 'Leading this position with the highest recorded vote count.'}
-              </p>
-              <div className="design-winner-stats">
-                <div><strong>{formatNumber(winnerVotes)}</strong><span>Votes</span></div>
-                <div><strong>{formatVotePercent(winnerVotes, total)}</strong><span>Of race</span></div>
-                <div><strong>{formatNumber(total)}</strong><span>Total votes</span></div>
-              </div>
-            </article>
+<div className="design-result-grid">
+              <article className={`design-winner-card${winner.kind === 'tie' ? ' is-tie' : ''}`}>
+                <div className="design-winner-header">
+                  <span className="design-winner-status-label">RACE STATUS</span>
+                </div>
+                <div className="design-winner-main">
+                  <div className="design-winner-icon-row">
+                    <div className="design-winner-icon"><Trophy size={25} aria-hidden="true" /></div>
+                    <h2>{winner.kind === 'none' ? 'No votes yet' : winnerName}</h2>
+                  </div>
+                  <p className="design-winner-copy">
+                    {winner.kind === 'none'
+                      ? 'No votes yet. The current winner will appear here as ballots are recorded.'
+                      : winner.kind === 'tie'
+                        ? 'The highest vote count is shared. No single winner is declared.'
+                        : 'Leading this position with the highest recorded vote count.'}
+                  </p>
+                </div>
+                <div className="design-winner-stats">
+                  <div><strong>{formatNumber(winnerVotes)}</strong><span>Votes</span></div>
+                  <div><strong>{formatVotePercent(winnerVotes, total)}</strong><span>Of race</span></div>
+                  <div><strong>{formatNumber(total)}</strong><span>Total votes</span></div>
+                </div>
+              </article>
 
             <div className="superadmin-candidate-graph">
               <div className="design-card-heading">

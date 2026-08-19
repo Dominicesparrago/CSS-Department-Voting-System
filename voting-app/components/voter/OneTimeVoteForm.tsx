@@ -8,6 +8,7 @@ import { loginGuest } from '@/lib/auth/authService';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { hasErrors, validateGuest, type FieldErrors } from '@/lib/auth/validation';
 import { watchSession } from '@/lib/auth/session';
+import { sectionLettersForYear } from '@/lib/constants';
 
 const EMPTY_VALUES = { studentNo: '', email: '', fullName: '', yearLevel: '', section: '' };
 const YEAR_OPTIONS = [
@@ -16,7 +17,6 @@ const YEAR_OPTIONS = [
   { value: '3', label: '3rd Year' },
   { value: '4', label: '4th Year' },
 ];
-const SECTION_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCharCode(65 + index));
 
 export interface OneTimeVoteFonts {
   figtree: string;
@@ -26,6 +26,12 @@ export interface OneTimeVoteFonts {
 export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) {
   const router = useRouter();
   const redirected = useRef(false);
+  // True while loginGuest() is in flight. The session watcher fires the moment
+  // signInAnonymously resolves — before the voter/index batch has committed — and
+  // the local cache can surface that pending write as an existing voter profile,
+  // which would redirect to /vote on a registration that then fails. handleSubmit
+  // owns the redirect; it only navigates after loginGuest resolves.
+  const submittingRef = useRef(false);
   const [values, setValues] = useState(EMPTY_VALUES);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState('');
@@ -65,7 +71,7 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
 
   const sectionOptions = useMemo(() => {
     if (!values.yearLevel) return [];
-    return SECTION_LETTERS.map((letter) => {
+    return sectionLettersForYear(Number(values.yearLevel)).map((letter) => {
       const section = `BSCS-${values.yearLevel}${letter}`;
       return { value: section, label: section };
     });
@@ -73,6 +79,7 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
 
   useEffect(() => {
     const unsubscribe = watchSession((session) => {
+      if (submittingRef.current) return;
       if (!session.user || redirected.current) return;
       redirected.current = true;
       if (hasAdminAccess(session)) {
@@ -107,6 +114,7 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
 
     setBusy(true);
     setMessage('Preparing your secure voting session...');
+    submittingRef.current = true;
     try {
       await loginGuest(nextValues);
       redirected.current = true;
@@ -114,6 +122,7 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
     } catch (error) {
       setMessage(friendlyAuthError(error));
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }

@@ -1,0 +1,66 @@
+[36m[1mi  emulators:[22m[39m Starting emulators: auth, functions, firestore, storage
+[33m[1m!  functions:[22m[39m The following emulators are not running, calls to these services from the Functions emulator will affect production: [1mapphosting, database, hosting, pubsub, dataconnect[22m
+[36m[1mi  firestore:[22m[39m Firestore Emulator logging to [1mfirestore-debug.log[22m
+[32m[1m+  firestore:[22m[39m Firestore Emulator was started in standard edition.
+[32m[1m+  firestore:[22m[39m Firestore Emulator UI websocket is running on 9150.
+[33m[1m! [22m[39m Unexpected rules runtime error: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/C:/Users/Dominic/.cache/firebase/emulators/cloud-storage-rules-runtime-v1.1.3.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+
+[36m[1mi  functions:[22m[39m Watching "C:\Users\Dominic\Desktop\Cursor\CSS Department Voting System\CSS-Department-Voting-System\firebase\functions" for Cloud Functions...
+[33m[1m! [22m[39m [1m[33mfunctions: [39m[22mpackage.json indicates an outdated version of firebase-functions. Please upgrade using [1mnpm install --save firebase-functions@latest[22m in your functions directory.
+[33m[1m! [22m[39m [1m[33mfunctions: [39m[22mPlease note that there will be breaking changes when you upgrade.
+[32m[1m+  functions:[22m[39m Using node@22 from host.
+Serving at port 8396
+
+[32m[1m+  functions:[22m[39m Loaded functions definitions from source: submitBallot, getResults, createAdminAccount, publishTally.
+[32m[1m+  functions[us-central1-submitBallot]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/css-department-voting-sy-f46a5/us-central1/submitBallot).
+[32m[1m+  functions[us-central1-getResults]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/css-department-voting-sy-f46a5/us-central1/getResults).
+[32m[1m+  functions[us-central1-createAdminAccount]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/css-department-voting-sy-f46a5/us-central1/createAdminAccount).
+[32m[1m+  functions[us-central1-publishTally]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/css-department-voting-sy-f46a5/us-central1/publishTally).
+
+[90m┌─────────────────────────────────────────────────────────────┐[39m
+[90m│[39m [32m✔[39m  [1mAll emulators ready! It is now safe to connect your app.[22m [90m│[39m
+[90m│[39m [36mi[39m  View Emulator UI at [4m[1mhttp://127.0.0.1:4000/[22m[24m               [90m│[39m
+[90m└─────────────────────────────────────────────────────────────┘[39m
+
+[90m┌────────────────[39m[90m┬────────────────[39m[90m┬─────────────────────────────────┐[39m
+[90m│[39m[33m Emulator       [39m[90m│[39m[33m Host:Port      [39m[90m│[39m[33m View in Emulator UI             [39m[90m│[39m
+[90m├────────────────[39m[90m┼────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m Authentication [90m│[39m 127.0.0.1:9099 [90m│[39m [4m[1mhttp://127.0.0.1:4000/auth[22m[24m      [90m│[39m
+[90m├────────────────[39m[90m┼────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m Functions      [90m│[39m 127.0.0.1:5001 [90m│[39m [4m[1mhttp://127.0.0.1:4000/functions[22m[24m [90m│[39m
+[90m├────────────────[39m[90m┼────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m Firestore      [90m│[39m 127.0.0.1:8081 [90m│[39m [4m[1mhttp://127.0.0.1:4000/firestore[22m[24m [90m│[39m
+[90m├────────────────[39m[90m┼────────────────[39m[90m┼─────────────────────────────────┤[39m
+[90m│[39m Storage        [90m│[39m 127.0.0.1:9199 [90m│[39m [4m[1mhttp://127.0.0.1:4000/storage[22m[24m   [90m│[39m
+[90m└────────────────[39m[90m┴────────────────[39m[90m┴─────────────────────────────────┘[39m
+[90m  Emulator Hub host: 127.0.0.1 port: 4400[39m
+[90m  Other reserved ports:[39m 4500, 9150
+
+Issues? Report them at [4m[1mhttps://github.com/firebase/firebase-tools/issues[22m[24m and attach the *-debug.log files.
+ 
+[36m[1mi  functions:[22m[39m Beginning execution of "us-central1-getResults"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "us-central1-getResults" in 66.4673ms
+[36m[1mi  functions:[22m[39m Beginning execution of "us-central1-getResults"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"MISSING"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "us-central1-getResults" in 7.1159ms
+[36m[1mi  functions:[22m[39m Beginning execution of "us-central1-submitBallot"
+[36m[1mi  functions:[22m[39m Finished "us-central1-submitBallot" in 27.9075ms
+[36m[1mi  functions:[22m[39m Beginning execution of "us-central1-submitBallot"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "us-central1-submitBallot" in 12700.2757ms
+[33m[1m!  firestore:[22m[39m Fatal error occurred: 
+   Firestore Emulator has exited with code: 3221225786, 
+   stopping all running emulators
+[36m[1mi  ui:[22m[39m Stopping Emulator UI
+[36m[1mi  functions:[22m[39m Stopping Functions Emulator
+[36m[1mi  firestore:[22m[39m Stopping Firestore Emulator
+[36m[1mi  auth:[22m[39m Stopping Authentication Emulator
+[36m[1mi  storage:[22m[39m Stopping Storage Emulator
+[36m[1mi  eventarc:[22m[39m Stopping Eventarc Emulator
+[36m[1mi  tasks:[22m[39m Stopping Cloud Tasks Emulator
+[36m[1mi  hub:[22m[39m Stopping emulator hub
+[36m[1mi  logging:[22m[39m Stopping Logging Emulator

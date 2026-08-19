@@ -1,6 +1,6 @@
-import type { Candidate, Position, Voter } from '../types';
+import type { AuditEntry, Candidate, Position, Voter } from '../types';
 import { candidatesForPosition } from '../election/candidates';
-import { percent, toMillis } from '../format';
+import { formatTimestamp, percent, toMillis } from '../format';
 
 export function byId<T extends { id: string }>(records: T[]): Record<string, T> {
   return Object.fromEntries(records.map((r) => [r.id, r]));
@@ -166,6 +166,20 @@ export function votersToCsv(voters: Voter[], electionId: string): string {
     voter.section,
     voter.eligible ? 'yes' : 'no',
     hasVoted(voter, electionId) ? 'voted' : 'not yet',
+  ]);
+  return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
+}
+
+/** Audit trail export: every privileged action with actor, target, and details. */
+export function auditToCsv(entries: AuditEntry[]): string {
+  const header = ['ts', 'actorUid', 'actorRole', 'action', 'target', 'details'];
+  const rows = entries.map((entry) => [
+    formatTimestamp(entry.ts),
+    entry.actorUid,
+    entry.actorRole ?? '',
+    entry.action,
+    entry.target,
+    entry.details ? JSON.stringify(entry.details) : '',
   ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
 }

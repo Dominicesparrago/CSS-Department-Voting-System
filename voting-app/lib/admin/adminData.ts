@@ -37,17 +37,21 @@ export async function loadVoters(): Promise<Voter[]> {
  * never readable by the client — the server returns only per-candidate and
  * per-position totals, so no ballot can be traced to a voter.
  */
-export async function loadResults(electionId = ELECTION_ID): Promise<ResultsCounts> {
+export async function loadResults(electionId = ELECTION_ID): Promise<ResultsCounts & { ballotCount: number }> {
   const call = httpsCallable<{ electionId: string }, ResultsCounts & { ballotCount: number }>(
     getFirebaseFunctions(),
     'getResults',
   );
   const { data } = await call({ electionId });
-  return { perCandidate: data.perCandidate ?? {}, perPosition: data.perPosition ?? {} };
+  return {
+    perCandidate: data.perCandidate ?? {},
+    perPosition: data.perPosition ?? {},
+    ballotCount: data.ballotCount ?? 0,
+  };
 }
 
 export function watchLiveResults(
-  onChange: (results: ResultsCounts) => void,
+  onChange: (results: ResultsCounts & { ballotCount: number }) => void,
   onError: (e: Error) => void,
   electionId = ELECTION_ID,
 ): () => void {
@@ -56,13 +60,14 @@ export function watchLiveResults(
     doc(db, 'tallies', electionId),
     (snapshot) => {
       if (!snapshot.exists()) {
-        onChange({ perCandidate: {}, perPosition: {} });
+        onChange({ perCandidate: {}, perPosition: {}, ballotCount: 0 });
         return;
       }
-      const data = snapshot.data() as Partial<ResultsCounts>;
+      const data = snapshot.data() as Partial<ResultsCounts> & { ballotCount?: number };
       onChange({
         perCandidate: data.perCandidate ?? {},
         perPosition: data.perPosition ?? {},
+        ballotCount: data.ballotCount ?? 0,
       });
     },
     onError,
@@ -132,9 +137,11 @@ export async function saveCandidate(params: {
   candidate: CandidateInput;
   photoFile?: File | null;
   actorUid: string;
+  electionId?: string;
 }): Promise<string> {
   const db = getFirebaseDb();
   const { candidate, photoFile, actorUid } = params;
+  const electionId = params.electionId ?? ELECTION_ID;
   const photoError = validateCandidatePhoto(photoFile ?? null);
   if (photoError) throw new Error(photoError);
 
@@ -145,7 +152,7 @@ export async function saveCandidate(params: {
   const photoFields = photoFile ? await uploadCandidatePhoto(candidateRef.id, photoFile) : {};
 
   const payload = {
-    electionId: ELECTION_ID,
+    electionId,
     positionId: candidate.positionId,
     name: candidate.name.trim(),
     section: candidate.section.trim(),
@@ -180,6 +187,12 @@ export async function setCandidateActive(candidateId: string, active: boolean, a
   const db = getFirebaseDb();
   await updateDoc(doc(db, 'candidates', candidateId), { active, updatedAt: serverTimestamp() });
   await createAudit(actorUid, 'candidate.active.set', `candidates/${candidateId}`, { active });
+}
+
+export async function setCandidateArchived(candidateId: string, archived: boolean, actorUid: string): Promise<void> {
+  const db = getFirebaseDb();
+  await updateDoc(doc(db, 'candidates', candidateId), { archived, updatedAt: serverTimestamp() });
+  await createAudit(actorUid, 'candidate.archived.set', `candidates/${candidateId}`, { archived });
 }
 
 export async function deleteCandidate(candidateId: string, actorUid: string): Promise<void> {

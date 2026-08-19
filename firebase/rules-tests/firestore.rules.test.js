@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
 import {
+  deleteDoc,
   doc,
   getDoc,
   runTransaction,
@@ -96,6 +97,20 @@ async function seedBaseData(status = "open", registrationOpen = true, allowGuest
       yearLevel: 3,
       section: "BSCS 3-A",
       eligible: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    // Official roster record for student2 (written by the importRoster function
+    // in production; seeded here with rules disabled).
+    await setDoc(doc(db, "students/1234567"), {
+      studentNo: "1234567",
+      fullName: "Student Two",
+      email: "student.two.scc@gmail.com",
+      yearLevel: 2,
+      section: "BSCS 2-A",
+      status: "active",
+      eligible: true,
+      importedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -351,6 +366,38 @@ async function testReadVisibility() {
   await assertSucceeds(getDoc(doc(authedDb("student2"), `tallies/${electionId}`)));
 }
 
+// The official roster is function-written only. Students may read their own
+// record; admins may read any; nobody may write.
+async function testRosterRules() {
+  await seedBaseData("open");
+
+  // The student whose locked voter profile carries this studentNo may read it.
+  await assertSucceeds(getDoc(doc(authedDb("student2"), "students/1234567")));
+  // An admin may read the roster.
+  await assertSucceeds(getDoc(doc(authedDb("admin", { admin: true }), "students/1234567")));
+  // No other student may read another student's roster record.
+  await assertFails(getDoc(doc(authedDb("student3"), "students/1234567")));
+  // A signed-out client may not read roster records.
+  await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), "students/1234567")));
+
+  // No client — student or admin — may create, update, or delete roster records.
+  const forged = {
+    studentNo: "9990001",
+    fullName: "Forged",
+    section: "BSCS-1A",
+    yearLevel: 1,
+    status: "active",
+    eligible: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  await assertFails(setDoc(doc(authedDb("student2"), "students/9990001"), forged));
+  await assertFails(setDoc(doc(authedDb("admin", { admin: true }), "students/9990001"), forged));
+  await assertFails(updateDoc(doc(authedDb("student2"), "students/1234567"), { status: "inactive" }));
+  await assertFails(updateDoc(doc(authedDb("admin", { admin: true }), "students/1234567"), { status: "inactive" }));
+  await assertFails(deleteDoc(doc(authedDb("admin", { admin: true }), "students/1234567")));
+}
+
 // Tallies are written only by the publishTally function (Admin SDK) — no client,
 // not even an admin, may write them directly.
 async function testTallyWritesDenied() {
@@ -374,6 +421,7 @@ try {
   await testBallotsAreFunctionOnly();
   await testReadVisibility();
   await testTallyWritesDenied();
+  await testRosterRules();
   console.log("Firestore rules tests passed.");
 } finally {
   await testEnv.cleanup();

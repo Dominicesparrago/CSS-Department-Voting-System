@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node phase0.integrity.test.js && node firestore.rules.test.js && node phase7.superadmin.test.js && node storage.rules.test.js",
+    "test": "node phase0.integrity.test.js && node firestore.rules.test.js && node phase7.superadmin.test.js && node storage.rules.test.js && node roster-import-smoke.mjs",
+    "test:roster": "node roster-import-smoke.mjs",
     "test:phase0": "node phase0.integrity.test.js",
     "test:phase2": "node phase2.auth.test.js",
     "test:phase3": "node phase3.vote.test.js",

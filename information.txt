@@ -26,9 +26,9 @@ Department Positions
 
 President
 
-Vice President - Internal
+Internal - VP
 
-Vice President - External
+External - VP
 
 Secretary
 
@@ -36,33 +36,39 @@ Treasurer
 
 Auditor
 
-P.R.O
+Public Relation Officer (PRO)
 
-Business Manager Committee
+Event Committee Chair
 
-Academic Committee Chair
+Assistant Event Committee Chair
 
-Research Committee Chair
-
-ICT Committee Chair
-
-Events Committee Chair
+Academic & Research Committee Chair
 
 Sports Committee Chair
 
-Environmental Committee Chair
+Business Manager Committee Chair
 
-Membership Committee Chair
+Community & Environmental Committee Chair
 
-Community Committee Chair
+Documentation Committee Chair
 
-4th Year Representative
+Designer Committee Chair
 
-3rd Year Representative
+Caption Committee Chair
+
+Sponsorship/Partnership Committee Chair
+
+Project/Hackathon Committee Chair
+
+1st Year Representative
 
 2nd Year Representative
 
-1st Year Representative
+3rd Year Representative
+
+4th Year Representative
+
+Sections: 1st yr A-J · 2nd yr A-H · 3rd yr A-F · 4th yr A-C (format BSCS-<year><letter>)
 
 No Alliance just a person candidates.
 

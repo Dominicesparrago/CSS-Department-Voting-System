@@ -24,6 +24,17 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Backup JSON payloads are written by the Admin SDK (backup functions) and
+    // downloadable only by the superadmin (claims-based, like storage isAdmin).
+    match /backups/{file} {
+      allow read: if isSignedIn()
+        && (
+          ("superadmin" in request.auth.token && request.auth.token.superadmin == true)
+          || ("role" in request.auth.token && request.auth.token.role == "superadmin")
+        );
+      allow write: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -60,8 +60,43 @@ service cloud.firestore {
       return /databases/$(database)/documents/emailIndex/$(email);
     }
 
+    // Results become public once published; finalized and archived elections are
+    // historical records that remain readable exactly like published ones.
     function electionPublished(electionId) {
-      return get(electionPath(electionId)).data.status == "published";
+      return get(electionPath(electionId)).data.status in ["published", "finalized", "archived"];
+    }
+
+    // Locking/finalization guards. Election data becomes read-only for ordinary
+    // admins while the election is locked (active-protection) or finalized
+    // (results locked). Superadmin keeps a controlled, audited emergency override.
+    function electionLocked(electionId) {
+      return electionId is string && get(electionPath(electionId)).data.get("locked", false) == true;
+    }
+
+    function electionFinalized(electionId) {
+      return electionId is string && get(electionPath(electionId)).data.get("status", "draft") == "finalized";
+    }
+
+    // The reference election for voter/position locks (single-active-election model).
+    function currentElectionLocked() {
+      return electionLocked("css_department_election_2026");
+    }
+
+    function currentElectionFinalized() {
+      return electionFinalized("css_department_election_2026");
+    }
+
+    // Admin writes to shared/global election data (positions, voters) are refused
+    // while the current election is locked or finalized, unless superadmin.
+    function configWritable() {
+      return isAdmin()
+        && (isSuperAdmin() || (!currentElectionLocked() && !currentElectionFinalized()));
+    }
+
+    // Per-election candidate writes follow the candidate's own election state.
+    function candidateWritable(electionId) {
+      return isAdmin()
+        && (isSuperAdmin() || (!electionLocked(electionId) && !electionFinalized(electionId)));
     }
 
     function registrationOpen(electionId) {
@@ -234,17 +269,27 @@ service cloud.firestore {
 
     match /elections/{electionId} {
       allow read: if isSignedIn() || electionPublished(electionId);
-      allow create, update, delete: if isAdmin();
+      // Creating a new (draft) election is always allowed for admins; editing or
+      // deleting an existing election is refused while it is locked or finalized
+      // unless superadmin performs a controlled emergency action.
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin()
+        && (isSuperAdmin()
+          || (!resource.data.get("locked", false)
+            && resource.data.get("status", "draft") != "finalized"));
     }
 
     match /positions/{positionId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      // Positions are shared reference data; guarded by the current election's
+      // lock/finalized state so an active election can't be reconfigured.
+      allow create, update, delete: if configWritable();
     }
 
     match /candidates/{candidateId} {
       allow read: if isSignedIn() || electionPublished(resource.data.electionId);
-      allow create, update, delete: if isAdmin();
+      allow create: if candidateWritable(request.resource.data.electionId);
+      allow update, delete: if candidateWritable(resource.data.electionId);
     }
 
     match /voters/{uid} {
@@ -252,8 +297,28 @@ service cloud.firestore {
       allow create: if isAdmin() || validVoterCreate(uid) || validGuestVoterCreate(uid);
       // The participation lock (hasVoted/votedAt) is set only by the trusted
       // submitBallot function via the Admin SDK; clients may edit profile fields.
-      allow update: if isAdmin() || validVoterProfileUpdate(uid);
-      allow delete: if isAdmin();
+      // Admin edits to voter records (eligibility, registration fixes) are refused
+      // while the current election is locked or finalized, unless superadmin.
+      allow update: if (isAdmin() && (isSuperAdmin() || (!currentElectionLocked() && !currentElectionFinalized())))
+        || validVoterProfileUpdate(uid);
+      allow delete: if isAdmin() && (isSuperAdmin() || (!currentElectionLocked() && !currentElectionFinalized()));
+    }
+
+    function isOwnRosterStudent(studentNo) {
+      return isSignedIn()
+        && exists(voterPath(request.auth.uid))
+        && get(voterPath(request.auth.uid)).data.studentNo == studentNo;
+    }
+
+    // Official student roster, keyed by student number. Written ONLY by the
+    // importRoster function via the Admin SDK (which bypasses these rules); no
+    // client — voter or admin — may create, update, or delete roster records.
+    // Admins can read the whole roster; a student can read only their own
+    // record (their own name/section/email/status), so the ballot can give a
+    // clear early denial without exposing other students' data.
+    match /students/{studentNo} {
+      allow read: if isAdmin() || isOwnRosterStudent(studentNo);
+      allow create, update, delete: if false;
     }
 
     match /studentIndex/{studentNo} {
@@ -307,6 +372,15 @@ service cloud.firestore {
     match /config/{configId} {
       allow read: if true;
       allow create, update: if isSuperAdmin() && validConfigWrite();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Backup metadata (the JSON payload lives in Storage under backups/). Read
+    // by admins so the backup list is visible; written only by the trusted
+    // createBackup/restoreBackup functions (Admin SDK) or the superadmin.
+    match /backups/{backupId} {
+      allow read: if isAdmin();
+      allow create, update: if isSuperAdmin();
       allow delete: if isSuperAdmin();
     }
 

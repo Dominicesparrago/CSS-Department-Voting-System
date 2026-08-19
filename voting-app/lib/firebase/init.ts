@@ -52,10 +52,14 @@ function connectLocalEmulators(auth: Auth, db: Firestore, storage: FirebaseStora
   const useEmulators = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
   if (useEmulators && !(globalThis as Record<string, unknown>).__CSS_VOTE_EMULATORS_CONNECTED__) {
     const firestorePort = Number(process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_PORT ?? 8081);
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    connectFirestoreEmulator(db, '127.0.0.1', firestorePort);
-    connectStorageEmulator(storage, '127.0.0.1', 9199);
-    connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+    // Keep the emulator origin aligned with the page origin. Browsers treat
+    // localhost and 127.0.0.1 as different origins, which can make callable
+    // Functions fail their CORS preflight when the app is opened on localhost.
+    const host = window.location.hostname || '127.0.0.1';
+    connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+    connectFirestoreEmulator(db, host, firestorePort);
+    connectStorageEmulator(storage, host, 9199);
+    connectFunctionsEmulator(functions, host, 5001);
     (globalThis as Record<string, unknown>).__CSS_VOTE_EMULATORS_CONNECTED__ = true;
   }
 }
