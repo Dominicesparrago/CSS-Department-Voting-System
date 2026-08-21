@@ -30,16 +30,31 @@ export default function BinaryRain({ id }: { id?: string }) {
     const glyphs = ['0', '1'];
     let rafId = 0;
     let last = 0;
-    const styles = window.getComputedStyle(document.documentElement);
-    const brand = styles.getPropertyValue('--brand').trim();
-    const sparkle = styles.getPropertyValue('--tint-400').trim();
-    const mono = styles.getPropertyValue('--font-jetbrains-mono').trim();
 
-    // dimmed brand glyphs read as background texture, not content (mockup parity)
-    const hexMatch = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(brand);
-    const brandDim = hexMatch
-      ? `rgba(${parseInt(hexMatch[1], 16)}, ${parseInt(hexMatch[2], 16)}, ${parseInt(hexMatch[3], 16)}, 0.5)`
-      : 'rgba(34, 184, 160, 0.5)';
+    function readColors() {
+      const styles = window.getComputedStyle(document.documentElement);
+      const brand = styles.getPropertyValue('--brand').trim();
+      const sparkle = styles.getPropertyValue('--tint-400').trim();
+      const mono = styles.getPropertyValue('--font-jetbrains-mono').trim();
+      const canvasColor = styles.getPropertyValue('--canvas').trim();
+
+      // dimmed brand glyphs read as background texture, not content (mockup parity)
+      const hexMatch = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(brand);
+      const brandDim = hexMatch
+        ? `rgba(${parseInt(hexMatch[1], 16)}, ${parseInt(hexMatch[2], 16)}, ${parseInt(hexMatch[3], 16)}, 0.5)`
+        : 'rgba(34, 184, 160, 0.5)';
+
+      // trail fill must match the page canvas so glyphs decay into the background
+      // (dark canvas → near-black trails; light canvas → near-white trails)
+      const canvasHex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(canvasColor);
+      const trailFill = canvasHex
+        ? `rgba(${parseInt(canvasHex[1], 16)}, ${parseInt(canvasHex[2], 16)}, ${parseInt(canvasHex[3], 16)}, 0.2)`
+        : 'rgba(10, 14, 15, 0.2)';
+
+      return { brandDim, sparkle, mono, trailFill };
+    }
+
+    let colors = readColors();
 
     function resize() {
       const scale = window.devicePixelRatio || 1;
@@ -58,14 +73,14 @@ export default function BinaryRain({ id }: { id?: string }) {
       if (time - last > 64) {
         last = time;
         // translucent fill instead of clearRect: previous glyphs decay into fading trails
-        ctx!.fillStyle = 'rgba(10, 14, 15, 0.2)';
+        ctx!.fillStyle = colors.trailFill;
         ctx!.fillRect(0, 0, width, height);
-        ctx!.font = `${fontSize}px ${mono || 'ui-monospace'}, monospace`;
+        ctx!.font = `${fontSize}px ${colors.mono || 'ui-monospace'}, monospace`;
 
         columns.forEach((y, i) => {
           const x = i * fontSize;
           const glyph = glyphs[(Math.random() * glyphs.length) | 0];
-          ctx!.fillStyle = Math.random() < 0.04 ? sparkle : brandDim;
+          ctx!.fillStyle = Math.random() < 0.04 ? colors.sparkle : colors.brandDim;
           ctx!.fillText(glyph, x, y);
           // probabilistic reset staggers the columns so restarts never sync up
           columns[i] = y > height && Math.random() > 0.975 ? 0 : y + fontSize;
@@ -79,9 +94,22 @@ export default function BinaryRain({ id }: { id?: string }) {
     window.addEventListener('resize', resize);
     rafId = window.requestAnimationFrame(draw);
 
+    // re-read brand/trail colors when the theme flips so the rain follows
+    // the active data-theme without needing a remount
+    const themeObserver = new MutationObserver(() => {
+      colors = readColors();
+      ctx!.fillStyle = colors.trailFill;
+      ctx!.fillRect(0, 0, width, height);
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
     return () => {
       window.removeEventListener('resize', resize);
       window.cancelAnimationFrame(rafId);
+      themeObserver.disconnect();
     };
   }, [id, pathname]);
 

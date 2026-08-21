@@ -1,7 +1,9 @@
 /* ============================================================
    CSS DEPARTMENT VOTING — design system (tokens + base)
-   Xodespace dark-teal theme. Glassmorphism over a deep black
-   canvas; teal/brand accents for action and "chosen" states.
+   Xodespace dark-teal theme (default) with a full light theme
+   applied via [data-theme="light"] on <html>. Glassmorphism
+   over a deep black canvas; teal/brand accents for action and
+   "chosen" states.
    Source of truth: information.txt (palette + visual style).
    Typeface: Figtree (primary), JetBrains Mono (micro labels).
    ============================================================ */
@@ -46,6 +48,8 @@
   --danger: #ff6b81;
   --rose: #ff6b81;
   --amber: #f5c451;
+  --blue: #8cb4ff;
+  --purple: #de8fff;
 
   /* derived gradients */
   --grad-action: linear-gradient(118deg, var(--teal-glow), var(--brand) 60%, var(--teal-200));
@@ -60,6 +64,9 @@
     var(--teal-200)
   );
   --grad-mark: conic-gradient(from 140deg, var(--teal-200), var(--teal-glow), var(--teal-600), var(--brand), var(--teal-200));
+  --panel-grad: linear-gradient(150deg, var(--teal-900), rgba(13, 19, 20, 0.7));
+  --cta-grad: linear-gradient(150deg, rgba(15, 76, 92, 0.5), rgba(10, 14, 15, 0.7));
+  --amber-btn-grad: linear-gradient(135deg, #f5c451, #ffdf8a);
 
   --glow: 0 0 40px rgba(34, 184, 160, 0.28);
   --glow-strong: 0 0 64px rgba(34, 184, 160, 0.4);
@@ -83,6 +90,143 @@
   --font-mono: var(--mono);
 
   --maxw: 1200px;
+
+  /* ============ semantic surface/state tokens ============
+     These map every hardcoded glass fill in the system so a
+     single [data-theme] switch re-tints every surface. */
+
+  /* page canvas + ink */
+  --canvas: var(--black);
+  --ink-solid: #0a0e0f;
+  --canvas-glow-1: rgba(28, 171, 184, 0.16);
+  --canvas-glow-2: rgba(15, 76, 92, 0.26);
+
+  /* glass surface tiers (dark: translucent ink; light: white glass) */
+  --glass-subtle: rgba(10, 14, 15, 0.4);
+  --glass-field: rgba(10, 14, 15, 0.6);
+  --glass-field-focus: rgba(13, 19, 20, 0.82);
+  --glass-elevated: rgba(10, 14, 15, 0.78);
+  --glass-panel: rgba(13, 19, 20, 0.97);
+  --card-bg: rgba(255, 255, 255, 0.025);
+  --toggle-bg: rgba(255, 255, 255, 0.08);
+  --overlay: rgba(5, 8, 9, 0.74);
+  --overlay-soft: rgba(5, 8, 9, 0.6);
+  --glass-plot: rgba(4, 10, 11, 0.22);
+  --announce-bg: rgba(11, 43, 60, 0.35);
+  --panel: #10191a;
+
+  /* tracks + hairlines */
+  --track: rgba(120, 200, 190, 0.16);
+  --track-2: rgba(120, 200, 190, 0.1);
+  --ring-track: rgba(120, 200, 190, 0.18);
+  --line-soft: rgba(120, 200, 190, 0.08);
+  --line-strong: rgba(120, 200, 190, 0.25);
+
+  /* form option fills */
+  --option-bg: #0d1314;
+  --option-bg-checked: #0f4c5c;
+
+  /* animated background blobs */
+  --blob-1: radial-gradient(circle, rgba(28, 171, 184, 0.5), transparent 65%);
+  --blob-2: radial-gradient(circle, rgba(34, 184, 160, 0.4), transparent 65%);
+  --blob-3: radial-gradient(circle, rgba(15, 76, 92, 0.6), transparent 65%);
+}
+
+/* ============================================================
+   LIGHT THEME — flip the same token surface via [data-theme].
+   Brand/accent hues are re-tuned for contrast on white; every
+   semantic token re-tints so the whole app flips consistently.
+   ============================================================ */
+[data-theme="light"] {
+  /* canvas + ink */
+  --black: #0a0e0f; /* keep: dark text on brand fills */
+  --black-2: #ffffff;
+  --black-tinted: #dcece8;
+  --light: #102a30; /* primary text becomes dark ink on light */
+  --white: #ffffff;
+
+  /* teal ramp (brand darkened for text contrast on white) */
+  --teal-900: #0b3b4a;
+  --teal-800: #0d4a5c;
+  --teal-dark: #0f5c6e;
+  --teal-600: #126e80;
+  --teal-500: #0e7e90;
+  --teal-mid: #17899a;
+  --teal-glow: #1cabb8;
+  --brand: #0e8a77;
+  --teal-300: #1fa890;
+  --teal-200: #1f9a86;
+  --tint-400: #127a6c;
+  --tint-200: #b5ece2;
+
+  /* derived gradients (re-tuned so gradient text stays readable on light) */
+  --grad-action: linear-gradient(118deg, var(--teal-glow), var(--brand) 60%, var(--teal-200));
+  --grad-action-hot: linear-gradient(118deg, var(--teal-200), var(--teal-glow));
+  --grad-ink: linear-gradient(100deg, var(--tint-400), var(--teal-glow) 42%, var(--brand) 72%, var(--teal-200));
+
+  /* muted ink */
+  --ink: var(--light);
+  --muted: rgba(16, 42, 48, 0.7);
+  --muted-soft: rgba(16, 42, 48, 0.52);
+
+  /* lines + glass surfaces */
+  --line: rgba(13, 59, 74, 0.14);
+  --line-2: rgba(13, 59, 74, 0.24);
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.85);
+  --surface-3: rgba(255, 255, 255, 0.92);
+
+  /* semantic */
+  --danger: #d43f52;
+  --rose: #d43f52;
+  --amber: #9a6a00;
+  --blue: #2f6bb3;
+  --purple: #7a3fb0;
+
+  /* glows + shadows soften for daylight */
+  --glow: 0 0 40px rgba(34, 184, 160, 0.22);
+  --glow-strong: 0 0 64px rgba(34, 184, 160, 0.3);
+  --glow-chosen: 0 0 0 1px var(--brand), 0 12px 34px rgba(13, 59, 74, 0.18);
+  --shadow: 0 30px 80px rgba(16, 42, 48, 0.22);
+  --shadow-soft: 0 16px 44px rgba(16, 42, 48, 0.16);
+
+  /* semantic surface/state tokens — light values */
+  --canvas: #eaf4f1;
+  --ink-solid: #0a0e0f;
+  --canvas-glow-1: rgba(34, 184, 160, 0.12);
+  --canvas-glow-2: rgba(15, 76, 92, 0.08);
+
+  --glass-subtle: rgba(255, 255, 255, 0.55);
+  --glass-field: rgba(255, 255, 255, 0.78);
+  --glass-field-focus: rgba(255, 255, 255, 0.98);
+  --glass-elevated: rgba(255, 255, 255, 0.88);
+  --glass-panel: rgba(255, 255, 255, 0.98);
+  --card-bg: rgba(255, 255, 255, 0.5);
+  --toggle-bg: rgba(13, 59, 74, 0.12);
+  --overlay: rgba(16, 42, 48, 0.5);
+  --overlay-soft: rgba(16, 42, 48, 0.34);
+  --glass-plot: rgba(13, 59, 74, 0.05);
+  --announce-bg: rgba(13, 59, 74, 0.06);
+  --panel: #f6f1e3;
+
+  --track: rgba(13, 59, 74, 0.16);
+  --track-2: rgba(13, 59, 74, 0.1);
+  --ring-track: rgba(13, 59, 74, 0.16);
+  --line-soft: rgba(13, 59, 74, 0.08);
+  --line-strong: rgba(13, 59, 74, 0.26);
+
+  --option-bg: #ffffff;
+  --option-bg-checked: #cdeae4;
+
+  --blob-1: radial-gradient(circle, rgba(28, 171, 184, 0.28), transparent 65%);
+  --blob-2: radial-gradient(circle, rgba(34, 184, 160, 0.22), transparent 65%);
+  --blob-3: radial-gradient(circle, rgba(15, 76, 92, 0.26), transparent 65%);
+
+  --panel-grad: linear-gradient(150deg, #e3f4f0, rgba(255, 255, 255, 0.85));
+  --cta-grad: linear-gradient(150deg, rgba(15, 76, 92, 0.12), rgba(255, 255, 255, 0.88));
+  --amber-btn-grad: linear-gradient(135deg, #f2c14e, #ffdf8a);
+
+  color-scheme: light;
 }
 
 * {
@@ -107,10 +251,11 @@ body {
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(ellipse 60% 50% at 6% -8%, rgba(28, 171, 184, 0.16), transparent 62%),
-    radial-gradient(ellipse 84% 66% at 50% 116%, rgba(15, 76, 92, 0.26), transparent 64%),
-    var(--black);
+    radial-gradient(ellipse 60% 50% at 6% -8%, var(--canvas-glow-1), transparent 62%),
+    radial-gradient(ellipse 84% 66% at 50% 116%, var(--canvas-glow-2), transparent 64%),
+    var(--canvas);
   overflow-x: clip;
+  transition: background-color 0.3s var(--ease), color 0.3s var(--ease);
 }
 
 /* masked teal grid, faded toward the top (real element rendered by the root layout) */
@@ -126,6 +271,10 @@ body {
   opacity: 0.45;
   -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 0%, #000 8%, transparent 88%);
   mask-image: radial-gradient(ellipse 90% 85% at 50% 0%, #000 8%, transparent 88%);
+}
+
+[data-theme="light"] .grid-overlay {
+  opacity: 0.28;
 }
 
 button,
@@ -160,7 +309,7 @@ a {
   height: 620px;
   top: -180px;
   left: -120px;
-  background: radial-gradient(circle, rgba(28, 171, 184, 0.5), transparent 65%);
+  background: var(--blob-1);
   animation: drift 24s ease-in-out infinite;
 }
 
@@ -169,7 +318,7 @@ a {
   height: 540px;
   top: 38%;
   right: -160px;
-  background: radial-gradient(circle, rgba(34, 184, 160, 0.4), transparent 65%);
+  background: var(--blob-2);
   animation: drift 30s ease-in-out infinite reverse;
 }
 
@@ -178,8 +327,12 @@ a {
   height: 500px;
   bottom: -160px;
   left: 28%;
-  background: radial-gradient(circle, rgba(15, 76, 92, 0.6), transparent 65%);
+  background: var(--blob-3);
   animation: drift 36s ease-in-out infinite;
+}
+
+[data-theme="light"] .bg-blobs .blob {
+  opacity: 0.35;
 }
 
 @keyframes drift {
@@ -205,6 +358,10 @@ a {
   pointer-events: none;
   -webkit-mask-image: radial-gradient(ellipse 95% 90% at 50% 30%, #000 35%, transparent 94%);
   mask-image: radial-gradient(ellipse 95% 90% at 50% 30%, #000 35%, transparent 94%);
+}
+
+[data-theme="light"] .binary-rain {
+  opacity: 0.16;
 }
 
 /* ---------- type primitives ---------- */
@@ -265,6 +422,11 @@ h3 {
 ::selection {
   background: rgba(34, 184, 160, 0.3);
   color: var(--white);
+}
+
+[data-theme="light"] ::selection {
+  background: rgba(34, 184, 160, 0.28);
+  color: var(--black);
 }
 
 :focus-visible {

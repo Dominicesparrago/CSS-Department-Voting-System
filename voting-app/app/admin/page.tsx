@@ -87,22 +87,22 @@ const SHARED_COMPONENT_OVERRIDES = [
   '#admin-redesign .roster-block+.roster-block{margin-top:28px;padding-top:28px;border-top:1px solid var(--line)}',
   '#admin-redesign .roster-block .block-label{margin-bottom:14px}',
   // import drop zone (the file input itself is the control)
-  '#admin-redesign .drop-zone{position:relative;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:16px;border:1.5px dashed var(--line-2);border-radius:var(--radius-md);background:rgba(10,14,15,.35);color:var(--muted);font-size:.84rem;font-weight:400;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}',
-  '#admin-redesign .drop-zone:hover{border-color:var(--brand);background:rgba(34,184,160,.06)}',
+  '#admin-redesign .drop-zone{position:relative;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:16px;border:1.5px dashed var(--line-2);border-radius:var(--radius-md);background:var(--glass-subtle);color:var(--muted);font-size:.84rem;font-weight:400;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}',
+  '#admin-redesign .drop-zone:hover{border-color:var(--brand);background:var(--card-bg)}',
   '#admin-redesign .drop-zone.disabled{opacity:.55;pointer-events:none}',
   '#admin-redesign .drop-zone input[type=file]{position:absolute;inset:0;width:100%;height:100%;min-height:0;padding:0;opacity:0;cursor:pointer}',
-  '#admin-redesign .dz-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(34,184,160,.1);border:1px solid var(--line-2);color:var(--brand);flex:0 0 auto}',
+  '#admin-redesign .dz-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--card-bg);border:1px solid var(--line-2);color:var(--brand);flex:0 0 auto}',
   '#admin-redesign .dz-t{display:grid;gap:3px;min-width:0}',
   '#admin-redesign .dz-t b{color:var(--light);font-weight:600;font-size:.92rem}',
   '#admin-redesign .dz-t small{color:var(--muted-soft);font-size:.78rem;line-height:1.45}',
-  '#admin-redesign .dz-btn{justify-self:start;margin-top:4px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line-2);border-radius:var(--radius-md);color:var(--light);font-size:.78rem;font-weight:600;background:rgba(255,255,255,.03);transition:border-color .2s var(--ease),background .2s var(--ease)}',
+  '#admin-redesign .dz-btn{justify-self:start;margin-top:4px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line-2);border-radius:var(--radius-md);color:var(--light);font-size:.78rem;font-weight:600;background:var(--card-bg);transition:border-color .2s var(--ease),background .2s var(--ease)}',
   '#admin-redesign .drop-zone:hover .dz-btn{border-color:var(--brand);background:rgba(34,184,160,.1)}',
   // import summary stat tiles + rejected-row disclosure
   '#admin-redesign .import-summary{margin-top:16px}',
   '#admin-redesign .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:10px}',
-  '#admin-redesign .fact{display:grid;gap:3px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.35)}',
+  '#admin-redesign .fact{display:grid;gap:3px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--glass-subtle)}',
   '#admin-redesign .fact .num{font-family:var(--font);font-weight:800;font-size:1.35rem;line-height:1.1;letter-spacing:-.02em}',
-  '#admin-redesign .fact .num.warn{color:#ff6b81}',
+  '#admin-redesign .fact .num.warn{color:var(--danger)}',
   '#admin-redesign .fact .lbl{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}',
   '#admin-redesign .rej-details{margin-top:12px}',
   '#admin-redesign .rej-toggle{display:inline-flex;align-items:center;color:var(--brand);font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;background:none;border:0;padding:4px 0;list-style:none}',
@@ -130,7 +130,7 @@ const SHARED_COMPONENT_OVERRIDES = [
   '#admin-redesign .mono-id{font-family:var(--mono);font-size:.78rem;color:var(--muted)}',
   // status badges (.tag-win is the shared green pill; muted + amber are new)
   '#admin-redesign .tag-muted{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted);font-family:var(--mono);font-size:.62rem;font-weight:600;white-space:nowrap}',
-  '#admin-redesign .tag-warn{display:inline-block;padding:3px 10px;border-radius:999px;color:#f5c451;border:1px solid rgba(245,196,81,.35);background:rgba(245,196,81,.08);font-family:var(--mono);font-size:.62rem;font-weight:600;white-space:nowrap}',
+  '#admin-redesign .tag-warn{display:inline-block;padding:3px 10px;border-radius:999px;color:var(--amber);border:1px solid rgba(245,196,81,.35);background:rgba(245,196,81,.08);font-family:var(--mono);font-size:.62rem;font-weight:600;white-space:nowrap}',
   // roster table sizing/density
   '#admin-redesign .roster-browse{min-width:0}',
   '#admin-redesign .roster-browse table{min-width:820px}',
@@ -140,8 +140,8 @@ const SHARED_COMPONENT_OVERRIDES = [
   '#admin-redesign .row-act{width:34px;height:34px;min-height:34px;padding:0;border-radius:9px}',
   // contain the roster table in a fixed-height scroll region so "Show more"
   // pages within the table instead of pushing the page itself out of view
-  '#admin-redesign .roster-scroll{max-height:clamp(320px,58vh,700px);overflow:auto;border:1px solid var(--line);border-radius:var(--radius-md);background:rgba(10,14,15,.35);scrollbar-width:thin;scrollbar-color:rgba(34,184,160,.45) transparent}',
-  '#admin-redesign .roster-scroll thead th{position:sticky;top:0;z-index:2;background:rgba(10,14,15,.97)}',
+  '#admin-redesign .roster-scroll{max-height:clamp(320px,58vh,700px);overflow:auto;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--glass-subtle);scrollbar-width:thin;scrollbar-color:var(--brand) transparent}',
+  '#admin-redesign .roster-scroll thead th{position:sticky;top:0;z-index:2;background:var(--glass-panel)}',
   '#admin-redesign .roster-scroll .state-block{border:0;background:none;border-radius:0}',
   // custom scrollbar inside the roster container (webkit + firefox)
   '#admin-redesign .roster-scroll::-webkit-scrollbar,#admin-redesign .roster-scroll .twrap::-webkit-scrollbar{width:10px;height:10px}',
@@ -210,7 +210,10 @@ function loadMockupStyles(): string {
     throw new Error('Unable to load styles from mockups/admin-redesign.html.');
   }
 
-  const fontAwareStyles = styles
+  // The mockup is a frozen reference: instead of editing it, re-tint its
+  // hardcoded glass fills at load time so every surface follows the theme
+  // token system (dark by default, [data-theme="light"] flips them).
+  const themedStyles = styles
     .replace(
       "--font:'Figtree','Segoe UI',Arial,sans-serif",
       "--font:var(--font-figtree),'Figtree','Segoe UI',Arial,sans-serif",
@@ -218,16 +221,51 @@ function loadMockupStyles(): string {
     .replace(
       "--mono:'JetBrains Mono',ui-monospace,monospace",
       "--mono:var(--font-jetbrains-mono),'JetBrains Mono',ui-monospace,monospace",
-    );
+    )
+    // page canvas glows + base (body background)
+    .replace(/rgba\(28, 171, 184, 0\.16\)|rgba\(28,171,184,\.16\)/g, 'var(--canvas-glow-1)')
+    .replace(/rgba\(15, 76, 92, 0\.26\)|rgba\(15,76,92,\.26\)/g, 'var(--canvas-glow-2)')
+    .replace(/,var\(--black\)\}/, ',var(--canvas)}')
+    // dark glass surfaces
+    .replace(/rgba\(10, 14, 15, 0\.95\)|rgba\(10,14,15,\.95\)/g, 'var(--glass-panel)')
+    .replace(/rgba\(10, 14, 15, 0\.72\)|rgba\(10,14,15,\.72\)/g, 'var(--glass-elevated)')
+    .replace(/rgba\(10, 14, 15, 0\.6\)|rgba\(10,14,15,\.6\)/g, 'var(--glass-field)')
+    .replace(/rgba\(10, 14, 15, 0\.55\)|rgba\(10,14,15,\.55\)/g, 'var(--glass-field)')
+    .replace(/rgba\(10, 14, 15, 0\.5\)|rgba\(10,14,15,\.5\)/g, 'var(--glass-field)')
+    .replace(/rgba\(10, 14, 15, 0\.4\)|rgba\(10,14,15,\.4\)/g, 'var(--glass-subtle)')
+    .replace(/rgba\(10, 14, 15, 0\.2\)|rgba\(10,14,15,\.2\)/g, 'var(--glass-subtle)')
+    .replace(/rgba\(13, 19, 20, 0\.98\)|rgba\(13,19,20,\.98\)/g, 'var(--glass-panel)')
+    .replace(/rgba\(13, 19, 20, 0\.97\)|rgba\(13,19,20,\.97\)/g, 'var(--glass-panel)')
+    .replace(/rgba\(13, 19, 20, 0\.82\)|rgba\(13,19,20,\.82\)/g, 'var(--glass-field-focus)')
+    // scrims
+    .replace(/rgba\(5, 8, 9, 0\.74\)|rgba\(5,8,9,\.74\)/g, 'var(--overlay)')
+    .replace(/rgba\(5, 8, 9, 0\.6\)|rgba\(5,8,9,\.6\)/g, 'var(--overlay-soft)')
+    // white cards + teal tracks
+    .replace(/rgba\(255, 255, 255, 0\.02\)|rgba\(255,255,255,\.02\)/g, 'var(--card-bg)')
+    .replace(/rgba\(120, 200, 190, 0\.22\)|rgba\(120,200,190,\.22\)/g, 'var(--line-2)')
+    .replace(/rgba\(120, 200, 190, 0\.16\)|rgba\(120,200,190,\.16\)/g, 'var(--track)')
+    .replace(/rgba\(120, 200, 190, 0\.12\)|rgba\(120,200,190,\.12\)/g, 'var(--line)')
+    // accent text + native option fills
+    .replace(/color:#ff6b81/gi, 'color:var(--danger)')
+    .replace(/color:#f5c451/gi, 'color:var(--amber)')
+    .replace(/background:#0d1314/gi, 'background:var(--option-bg)');
 
-  const root = postcss.parse(fontAwareStyles);
+  const root = postcss.parse(themedStyles);
   root.walkRules((rule) => {
     const parent = rule.parent;
     if (parent?.type === 'atrule' && /keyframes$/i.test((parent as AtRule).name)) return;
 
+    // drop the mockup's own :root token block: it re-declares dark values
+    // that would shadow the theme's [data-theme="light"] overrides. The page
+    // inherits the design-system tokens from theme.css instead.
+    if (rule.selectors.some((selector) => selector.trim() === ':root')) {
+      rule.remove();
+      return;
+    }
+
     rule.selectors = rule.selectors.map((selector) => {
       const trimmed = selector.trim();
-      if (trimmed === ':root' || trimmed === 'html' || trimmed === 'body') {
+      if (trimmed === 'html' || trimmed === 'body') {
         return '#admin-redesign';
       }
       if (trimmed.startsWith('body')) {
