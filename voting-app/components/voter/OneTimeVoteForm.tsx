@@ -10,7 +10,7 @@ import { hasErrors, validateGuest, type FieldErrors } from '@/lib/auth/validatio
 import { watchSession } from '@/lib/auth/session';
 import { sectionLettersForYear } from '@/lib/constants';
 
-const EMPTY_VALUES = { studentNo: '', email: '', fullName: '', yearLevel: '', section: '' };
+const EMPTY_VALUES = { fullName: '', yearLevel: '', section: '' };
 const YEAR_OPTIONS = [
   { value: '1', label: '1st Year' },
   { value: '2', label: '2nd Year' },
@@ -101,8 +101,6 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
     setMessage('');
 
     const nextValues = {
-      studentNo: values.studentNo.trim(),
-      email: values.email.trim().toLowerCase(),
       fullName: values.fullName.trim(),
       yearLevel: Number(values.yearLevel),
       section: values.section.trim(),
@@ -149,39 +147,6 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
             aria-describedby={errors.fullName ? 'one-time-full-name-error' : undefined}
           />
           {errors.fullName && <span id="one-time-full-name-error" className="field-error">{errors.fullName}</span>}
-        </label>
-
-        <label className="field">
-          <span>Student Email</span>
-          <input
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={values.email}
-            onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
-            aria-invalid={Boolean(errors.email)}
-            aria-describedby={errors.email ? 'one-time-email-error' : undefined}
-            placeholder="juan.delacruz.scc@gmail.com"
-          />
-          {errors.email && <span id="one-time-email-error" className="field-error">{errors.email}</span>}
-        </label>
-
-        <label className="field">
-          <span>Student ID</span>
-          <input
-            name="studentNo"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            required
-            value={values.studentNo}
-            onChange={(event) => setValues((current) => ({ ...current, studentNo: event.target.value }))}
-            aria-invalid={Boolean(errors.studentNo)}
-            aria-describedby={errors.studentNo ? 'one-time-student-id-error' : undefined}
-            placeholder="20261234"
-          />
-          {errors.studentNo && <span id="one-time-student-id-error" className="field-error">{errors.studentNo}</span>}
         </label>
 
         <div className="field">

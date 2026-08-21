@@ -14,8 +14,6 @@ interface RegisterValues {
 }
 
 interface GuestValues {
-  studentNo: string;
-  email: string;
   fullName: string;
   yearLevel: number;
   section: string;
@@ -95,26 +93,15 @@ export async function loginGuest(values: GuestValues) {
 
   try {
     const now = serverTimestamp();
-    const email = normalizeEmail(values.email);
     const batch = writeBatch(db);
     batch.set(doc(db, 'voters', user.uid), {
-      studentNo: values.studentNo,
       fullName: values.fullName,
-      email,
       yearLevel: values.yearLevel,
       section: values.section,
       eligible: true,
       guest: true,
       createdAt: now,
       updatedAt: now,
-    });
-    batch.set(doc(db, 'studentIndex', values.studentNo), {
-      uid: user.uid,
-      createdAt: now,
-    });
-    batch.set(doc(db, 'emailIndex', email), {
-      uid: user.uid,
-      createdAt: now,
     });
     await batch.commit();
     return user;

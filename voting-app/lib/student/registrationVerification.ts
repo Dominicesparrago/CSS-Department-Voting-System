@@ -2,7 +2,6 @@ import { httpsCallable } from 'firebase/functions';
 import { getFirebaseFunctions } from '../firebase/init';
 import { ELECTION_ID } from '../constants';
 import type { VoterProfile } from '../types';
-import { verifyStudentAgainstRoster, normalizeSection, namesMatch } from '../firebase/init';
 
 export type RosterVerificationState =
   | 'verified'

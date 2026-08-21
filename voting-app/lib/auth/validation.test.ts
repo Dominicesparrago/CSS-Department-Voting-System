@@ -61,30 +61,27 @@ describe('validateRegistration', () => {
 });
 
 describe('validateGuest', () => {
-  it('passes valid guests and requires a student number', () => {
+  it('passes valid guests', () => {
     expect(validateGuest({
-      studentNo: '20261234',
-      email: 'guest.one.scc@gmail.com',
       fullName: 'Guest One',
       yearLevel: 1,
       section: 'BSCS-1A',
     })).toEqual({});
   });
 
-  it('still enforces the institutional email', () => {
-    const errors = validateGuest({ studentNo: '20261234', email: 'guest@gmail.com', fullName: 'G', yearLevel: 1, section: 'BSCS-1A' });
-    expect(errors.email).toBeTruthy();
+  it('requires full name', () => {
+    const errors = validateGuest({ fullName: '', yearLevel: 1, section: 'BSCS-1A' });
+    expect(errors.fullName).toBeTruthy();
   });
 
-  it('rejects invalid student ids', () => {
-    const errors = validateGuest({
-      studentNo: '12',
-      email: 'guest.one.scc@gmail.com',
-      fullName: 'Guest One',
-      yearLevel: 1,
-      section: 'BSCS-1A',
-    });
-    expect(errors.studentNo).toBeTruthy();
+  it('requires year level', () => {
+    const errors = validateGuest({ fullName: 'G', yearLevel: 5, section: 'BSCS-1A' });
+    expect(errors.yearLevel).toBeTruthy();
+  });
+
+  it('requires section', () => {
+    const errors = validateGuest({ fullName: 'G', yearLevel: 1, section: '' });
+    expect(errors.section).toBeTruthy();
   });
 });
 
