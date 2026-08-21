@@ -1,6 +1,7 @@
 import { createUserWithEmailAndPassword, deleteUser, signInAnonymously, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { getFirebaseAuth, getFirebaseDb } from '../firebase/init';
+import { httpsCallable } from 'firebase/functions';
+import { getFirebaseAuth, getFirebaseDb, getFirebaseFunctions } from '../firebase/init';
+import { verifyStudentRegistration, normalizeSection, namesMatch } from '../student/registrationVerification';
 
 interface RegisterValues {
   email: string;
@@ -9,6 +10,7 @@ interface RegisterValues {
   fullName: string;
   yearLevel: number;
   section: string;
+  electionId?: string;
 }
 
 interface GuestValues {
@@ -24,8 +26,23 @@ function normalizeEmail(email: string): string {
 }
 
 export async function registerStudent(values: RegisterValues) {
+  // Step 1: Verify student against official Google Sheet roster
+  const verification = await verifyStudentRegistration(
+    values.studentNo,
+    values.fullName,
+    values.email,
+    values.yearLevel,
+    values.section
+  );
+
+  if (!verification.ok) {
+    throw new Error(verification.message);
+  }
+
+  // Step 2: Create Firebase user and register
   const auth = getFirebaseAuth();
   const db = getFirebaseDb();
+
   const credential = await createUserWithEmailAndPassword(auth, values.email, values.password);
   const { user } = credential;
 
@@ -40,6 +57,9 @@ export async function registerStudent(values: RegisterValues) {
       yearLevel: values.yearLevel,
       section: values.section,
       eligible: true,
+      electionsRegistered: {
+        [values.electionId || ELECTION_ID]: true,
+      },
       createdAt: now,
       updatedAt: now,
     });

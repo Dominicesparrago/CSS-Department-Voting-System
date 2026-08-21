@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, SearchX, ShieldCheck, Trash2, Upload, UserCheck, Users, Vote } from 'lucide-react';
+import { Download, SearchX, ShieldCheck, Trash2, Upload, UserCheck, Users, Vote, GoogleIcon } from 'lucide-react';
 import CustomSelect, { type CustomSelectOption } from '@/components/ui/CustomSelect';
 import { buildRosterTemplateCsv, normalizeName, parseRosterFile, rosterToCsv } from '@/lib/admin/rosterImport';
 import { importRosterRows, removeAllRosterStudents, removeRosterStudents, setEligibleSections } from '@/lib/admin/rosterData';
@@ -49,6 +49,18 @@ export default function RosterPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [summary, setSummary] = useState<RosterImportSummary | null>(null);
+  const [googleSheetsConfig, setGoogleSheetsConfig] = useState<{
+    connected: boolean;
+    spreadsheetId?: string;
+    spreadsheetTitle?: string;
+    worksheet?: string;
+    lastChecked?: string;
+    valid: boolean;
+    problem?: string;
+  }>({
+    connected: false,
+    valid: false,
+  });
   const [busy, setBusy] = useState('');
   const [replace, setReplace] = useState(false);
   const [search, setSearch] = useState('');
@@ -209,6 +221,104 @@ export default function RosterPanel({
     }
   }
 
+  // Google Sheets connection handlers
+  async function handleConnectSheets() {
+    if (!googleSheetsConfig.spreadsheetId) return;
+    setBusy('connect-sheets');
+    setNotice(null);
+    try {
+      // Validate the spreadsheet structure
+      const validation = await validateGoogleSheetStructure(
+        googleSheetsConfig.spreadsheetId,
+        googleSheetsConfig.worksheet || 'Students'
+      );
+      
+      if (!validation.ok) {
+        setGoogleSheetsConfig((prev) => ({
+          ...prev,
+          connected: false,
+          valid: false,
+          problem: validation.problem,
+        }));
+        setNotice({
+          text: 'Spreadsheet validation failed: ' + (validation.problem || 'Unknown error'),
+          error: true,
+        });
+        setBusy('');
+        return;
+      }
+
+      // Store the configuration - mark as connected
+      setGoogleSheetsConfig((prev) => ({
+        ...prev,
+        connected: true,
+        spreadsheetTitle: 'SCC CSS Official Student Roster',
+        valid: validation.ok,
+        lastChecked: new Date().toLocaleString(),
+      }));
+      
+      setNotice({
+        text: 'Google Sheets connected successfully.',
+        error: false,
+      });
+    } catch (error) {
+      console.error('Google Sheets connection error:', error);
+      setNotice({
+        text: 'Failed to connect Google Sheets: ' + (error.message || 'Unknown error'),
+        error: true,
+      });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function disconnectGoogleSheets() {
+    // Clear the Google Sheets configuration
+    setGoogleSheetsConfig({
+      connected: false,
+      spreadsheetId: undefined,
+      spreadsheetTitle: undefined,
+      worksheet: undefined,
+      valid: false,
+    });
+    setNotice({
+      text: 'Google Sheets disconnected.',
+      error: false,
+    });
+  }
+
+  async function refreshRosterValidation() {
+    if (!googleSheetsConfig.spreadsheetId) return;
+    setBusy('refresh');
+    setNotice(null);
+    try {
+      const validation = await validateGoogleSheetStructure(
+        googleSheetsConfig.spreadsheetId,
+        googleSheetsConfig.worksheet || 'Students'
+      );
+      
+      setGoogleSheetsConfig((prev) => ({
+        ...prev,
+        valid: validation.ok,
+        problem: validation.ok ? undefined : validation.problem,
+        lastChecked: new Date().toLocaleString(),
+      }));
+      
+      setNotice({
+        text: validation.ok ? 'Roster validation successful.' : 'Roster validation failed: ' + (validation.problem || 'Unknown error'),
+        error: !validation.ok,
+      });
+    } catch (error) {
+      console.error('Roster validation error:', error);
+      setNotice({
+        text: 'Roster validation error: ' + (error.message || 'Unknown error'),
+        error: true,
+      });
+    } finally {
+      setBusy('');
+    }
+  }
+
   function exportCsv() {
     downloadFile(`css-roster-${ELECTION_ID}.csv`, rosterToCsv(filteredStudents, hasParticipated), 'text/csv;charset=utf-8');
   }
@@ -298,6 +408,8 @@ export default function RosterPanel({
     }
   }
 
+  }
+
   const importSummaryFacts: Array<[string, number]> = [
     ['Imported', summary ? summary.inserted + summary.updated : 0],
     ['New', summary?.inserted ?? 0],
@@ -372,9 +484,71 @@ export default function RosterPanel({
               </div>
             </form>
 
-            {summary && (
-              <div className="import-summary">
-                <div className="block-label"><h2>Import results</h2><small>{summary.total} rows processed by the server</small></div>
+            {/* Google Sheets Official Roster Connection */}
+            {googleSheetsConfig.connected ? (
+              <div className="google-sheets-connected">
+                <div className="head-actions">
+                  <span className="chip">
+                    <strong>Connected:</strong> {googleSheetsConfig.spreadsheetTitle || 'Spreadsheet'}
+                  </span>
+                  <span className="chip">
+                    <strong>Worksheet:</strong> {googleSheetsConfig.worksheet || '—'}
+                  </span>
+                  <span className={`chip ${googleSheetsConfig.valid ? 'valid' : 'invalid'}`}>
+                    {googleSheetsConfig.valid ? 'Valid' : 'Requires Attention'}
+                  </span>
+                </div>
+                <div className="head-actions">
+                  <button className="btn btn-ghost btn-xs" type="button" onClick={disconnectGoogleSheets}>
+                    Disconnect
+                  </button>
+                  <button className="btn btn-primary btn-xs" type="button" onClick={refreshRosterValidation}>
+                    Refresh
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="google-sheets-disconnected">
+                <label className="form-label">
+                  <GoogleIcon size={18} aria-hidden="true" /> Connect Google Sheets
+                </label>
+                <p className="muted small">
+                  Connect your school's Google Sheet as the official roster authority.
+                  Verification will use Student ID matching against the sheet.
+                </p>
+                <div className="google-sheets-setup">
+                  <input
+                    type="text"
+                    id="spreadsheetUrl"
+                    className="input"
+                    placeholder="Paste Google Sheet URL"
+                    value={googleSheetsConfig.spreadsheetId || ''}
+                    onChange={(e) => {
+                      const url = e.target.value.trim();
+                      let sheetId = '';
+                      try {
+                        const match = url.match(/[\/#]d{10,}/);
+                        if (match) sheetId = match[0].replace(/\/?$/, '');
+                      } catch {}
+                      setGoogleSheetsConfig((prev) => ({
+                        ...prev,
+                        spreadsheetId: sheetId || undefined,
+                      }));
+                    }}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={handleConnectSheets}
+                    disabled={!googleSheetsConfig.spreadsheetId}
+                  >
+                    {busy === 'connect-sheets' ? 'Connecting…' : 'Configure'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="block-label"><h2>Import results</h2><small>{summary.total} rows processed by the server</small></div>
                 <div className="facts">
                   {importSummaryFacts.map(([label, value]) => (
                     <div className="fact" key={label}>

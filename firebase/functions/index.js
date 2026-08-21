@@ -24,6 +24,18 @@ const {
   ROSTER_BATCH_SIZE,
 } = require('./constants');
 const { readAllDocs } = require('./dbHelpers');
+const {
+  googleOAuthInit,
+  googleOAuthCallback,
+  googleOAuthRevoke,
+  googleOAuthGetSheetsInfo,
+  fetchFromGoogleSheets,
+  readRosterFromGoogleSheet,
+  validateGoogleSheetStructure,
+  verifyStudentAgainstRoster,
+  normalizeSection,
+  namesMatch,
+} = require('./googleOAuth');
 
 initializeApp();
 const db = getFirestore();
@@ -579,4 +591,16 @@ Object.assign(module.exports,
   require('./candidateOps'),
   require('./positionOps'),
   require('./rosterStudentOps'),
+  {
+    googleOAuthInit,
+    googleOAuthCallback,
+    googleOAuthRevoke,
+    googleOAuthGetSheetsInfo,
+    fetchFromGoogleSheets,
+    readRosterFromGoogleSheet,
+    validateGoogleSheetStructure,
+    verifyStudentAgainstRoster,
+    normalizeSection,
+    namesMatch,
+  },
 );

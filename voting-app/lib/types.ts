@@ -11,6 +11,7 @@ export interface VoterProfile {
   eligible: boolean;
   guest?: boolean;
   hasVoted?: Record<string, boolean>;
+  electionsRegistered?: Record<string, boolean>;
   votedAt?: Record<string, Timestamp>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
