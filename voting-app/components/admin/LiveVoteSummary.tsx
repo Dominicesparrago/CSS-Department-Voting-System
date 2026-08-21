@@ -19,7 +19,7 @@ const COLORS = ['#22b8a0', '#8cb4ff', '#f4b860', '#f58d9e', '#7fd3ff', '#c7a3ff'
 
 function chartGradient(rows: { votes: number }[]): string {
   const total = rows.reduce((sum, row) => sum + row.votes, 0);
-  if (total <= 0) return 'linear-gradient(145deg, rgba(34,184,160,.16), rgba(255,255,255,.06))';
+  if (total <= 0) return 'linear-gradient(145deg, rgba(34,184,160,.16), var(--card-bg))';
 
   let cursor = 0;
   const segments = rows.map((row, index) => {

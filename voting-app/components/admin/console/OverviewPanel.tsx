@@ -157,7 +157,7 @@ export default function OverviewPanel({
               <div className="ring-wrap">
                 <div
                   className="donut"
-                  style={{ background: `conic-gradient(var(--brand) 0 ${turnoutPercent}%, rgba(120,200,190,.16) ${turnoutPercent}% 100%)` }}
+                  style={{ background: `conic-gradient(var(--brand) 0 ${turnoutPercent}%, var(--track) ${turnoutPercent}% 100%)` }}
                 >
                   <div className="hole"><div><b className="grad"><CountUp value={turnoutPercent} />%</b><small>{aggregate.turnout.total} / {aggregate.eligible.total}</small></div></div>
                 </div>
