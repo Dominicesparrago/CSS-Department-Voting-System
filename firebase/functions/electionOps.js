@@ -27,6 +27,10 @@ exports.createElection = onCall(async (request) => {
   const data = request.data || {};
   const title = typeof data.title === 'string' ? data.title.trim() : '';
   if (title.length < 2) throw new HttpsError('invalid-argument', 'Election title is required.');
+  if (title.length > 120) throw new HttpsError('invalid-argument', 'Election title is too long (max 120).');
+  if (Array.isArray(data.positions) && data.positions.length > 50) {
+    throw new HttpsError('invalid-argument', 'At most 50 positions may be linked to an election.');
+  }
 
   const positions = Array.isArray(data.positions)
     ? data.positions.map(String).filter((p) => p.length > 0 && p.length <= 64)
@@ -35,6 +39,12 @@ exports.createElection = onCall(async (request) => {
     const existing = await db.getAll(positions.map((id) => db.doc(`positions/${id}`)));
     const missing = existing.filter((d) => !d.exists).map((d) => d.id);
     if (missing.length) throw new HttpsError('invalid-argument', `Unknown position(s): ${missing.join(', ')}.`);
+  }
+  if (Array.isArray(data.eligibleSections) && data.eligibleSections.length > 64) {
+    throw new HttpsError('invalid-argument', 'At most 64 eligible sections may be listed.');
+  }
+  if (data.metadata && typeof data.metadata === 'object' && JSON.stringify(data.metadata).length > 4096) {
+    throw new HttpsError('invalid-argument', 'metadata is too large (max 4KB).');
   }
 
   const id = data.id && /^[a-z0-9_-]{3,64}$/.test(data.id)
@@ -85,12 +95,15 @@ exports.updateElection = onCall(async (request) => {
   if (typeof data.title === 'string') {
     const t = data.title.trim();
     if (t.length < 2) throw new HttpsError('invalid-argument', 'Election title is too short.');
+    if (t.length > 120) throw new HttpsError('invalid-argument', 'Election title is too long (max 120).');
     patch.title = t;
     changed.push('title');
   }
   if (data.positions !== undefined) {
     if (!Array.isArray(data.positions)) throw new HttpsError('invalid-argument', 'positions must be an array.');
-    const ids = data.positions.map(String).filter((p) => p.length > 0);
+    if (data.positions.length > 50) throw new HttpsError('invalid-argument', 'At most 50 positions may be linked.');
+    const ids = data.positions.map(String).filter((p) => p.length > 0 && p.length <= 64);
+    if (ids.length > 50) throw new HttpsError('invalid-argument', 'At most 50 positions may be linked.');
     const existing = await db.getAll(ids.map((id) => db.doc(`positions/${id}`)));
     const missing = existing.filter((d) => !d.exists).map((d) => d.id);
     if (missing.length) throw new HttpsError('invalid-argument', `Unknown position(s): ${missing.join(', ')}.`);
@@ -99,7 +112,9 @@ exports.updateElection = onCall(async (request) => {
   }
   if (data.eligibleSections !== undefined) {
     if (!Array.isArray(data.eligibleSections)) throw new HttpsError('invalid-argument', 'eligibleSections must be an array.');
+    if (data.eligibleSections.length > 64) throw new HttpsError('invalid-argument', 'At most 64 eligible sections may be listed.');
     patch.eligibleSections = data.eligibleSections.map(String).map((s) => s.trim()).filter(Boolean).sort();
+    if (patch.eligibleSections.length > 64) throw new HttpsError('invalid-argument', 'At most 64 eligible sections may be listed.');
     changed.push('eligibleSections');
   }
   if (data.openAt !== undefined) {
@@ -114,6 +129,7 @@ exports.updateElection = onCall(async (request) => {
     if (!data.metadata || typeof data.metadata !== 'object' || Array.isArray(data.metadata)) {
       throw new HttpsError('invalid-argument', 'metadata must be an object.');
     }
+    if (JSON.stringify(data.metadata).length > 4096) throw new HttpsError('invalid-argument', 'metadata is too large (max 4KB).');
     patch.metadata = data.metadata;
     changed.push('metadata');
   }

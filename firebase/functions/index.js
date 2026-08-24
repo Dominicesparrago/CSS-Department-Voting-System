@@ -121,6 +121,9 @@ exports.submitBallot = onCall(
   const uid = auth.uid;
   const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
   const selections = (request.data && request.data.selections) || {};
+  if (selections && typeof selections === 'object' && Object.keys(selections).length > 30) {
+    throw new HttpsError('invalid-argument', 'Too many selections.');
+  }
 
   const { positions, candidatesById } = await loadPositionsAndCandidates(electionId);
 
@@ -297,6 +300,9 @@ exports.verifyStudentAgainstRoster = onCall(
     yearLevel: Number(data.yearLevel),
     section: String(data.section || '').trim(),
   };
+  if (voter.fullName.length > 120 || voter.email.length > 120 || voter.section.length > 32 || voter.studentNo.length > 20) {
+    return { ok: false, state: 'not-on-roster', message: 'Input exceeds allowed length.' };
+  }
   if (!voter.studentNo) {
     return { ok: false, state: 'not-on-roster', message: 'Student ID is required for verification.' };
   }
@@ -627,8 +633,23 @@ exports.publishTally = onCall(async (request) => {
     updatedAt: FieldValue.serverTimestamp(),
   };
 
-  await db.doc(`tallies/${electionId}`).set(tally);
-  await electionRef.update({ status: 'published', updatedAt: FieldValue.serverTimestamp() });
+  await db.runTransaction(async (tx) => {
+    const txElectionSnap = await tx.get(electionRef);
+    if (!txElectionSnap.exists || txElectionSnap.data().status !== 'closed') {
+      throw new HttpsError('failed-precondition', 'Close the election before publishing results.');
+    }
+    tx.set(db.doc(`tallies/${electionId}`), tally);
+    tx.update(electionRef, { status: 'published', updatedAt: FieldValue.serverTimestamp() });
+  });
+
+  await writeAudit(db, {
+    actorUid: request.auth.uid,
+    actorRole: actorRole(request.auth),
+    action: 'election.publish',
+    target: `elections/${electionId}`,
+    electionId,
+    details: { turnout: turnoutTotal },
+  });
 
   return { ok: true, turnout: turnoutTotal };
 });
