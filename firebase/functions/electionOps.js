@@ -18,11 +18,22 @@ function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
 }
 
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error && error.code && typeof error.code === 'string' && error instanceof HttpsError) throw error;
+  // Preserve already-thrown HttpsError by code string
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) {
+    throw error;
+  }
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 /**
  * Create a new draft election (superadmin). The ballot defaults to the current
  * positions whitelist unless one is provided.
  */
 exports.createElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const title = typeof data.title === 'string' ? data.title.trim() : '';
@@ -73,10 +84,20 @@ exports.createElection = onCall(async (request) => {
     details: { title, positions: positions.length },
   });
   return { ok: true, id };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('createElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for createElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'createElection failed: ' + msg);
+  }
 });
 
 /** Update an existing election's configurable fields (superadmin). */
 exports.updateElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : '';
@@ -145,6 +166,15 @@ exports.updateElection = onCall(async (request) => {
     details: { fields: changed, force: data.force === true },
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('updateElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for updateElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'updateElection failed: ' + msg);
+  }
 });
 
 /**
@@ -155,6 +185,7 @@ exports.updateElection = onCall(async (request) => {
  * audited here.
  */
 exports.setElectionStatus = onCall(async (request) => {
+  try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
@@ -185,10 +216,20 @@ exports.setElectionStatus = onCall(async (request) => {
     details: { from: current.status, to: nextStatus, force },
   });
   return { ok: true, from: current.status, to: nextStatus };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('setElectionStatus unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for setElectionStatus: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'setElectionStatus failed: ' + msg);
+  }
 });
 
 /** Open or close registration (admin). Refused while the election is locked/finalized. */
 exports.setRegistrationOpen = onCall(async (request) => {
+  try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
@@ -218,6 +259,15 @@ exports.setRegistrationOpen = onCall(async (request) => {
     details: { registrationOpen: data.registrationOpen },
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('setRegistrationOpen unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for setRegistrationOpen: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'setRegistrationOpen failed: ' + msg);
+  }
 });
 
 /**
@@ -226,6 +276,7 @@ exports.setRegistrationOpen = onCall(async (request) => {
  * format server-side so client normalization can never diverge.
  */
 exports.setEligibleSections = onCall(async (request) => {
+  try {
   const { normalizeSection } = require('./rosterLogic');
   await assertAdmin(db, request.auth);
   const data = request.data || {};
@@ -263,6 +314,15 @@ exports.setEligibleSections = onCall(async (request) => {
     details: { sections, count: sections.length },
   });
   return { ok: true, sections };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('setEligibleSections unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for setEligibleSections: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'setEligibleSections failed: ' + msg);
+  }
 });
 
 /**
@@ -275,6 +335,7 @@ exports.setEligibleSections = onCall(async (request) => {
  * in-flight votes can never race the deletion pipeline.
  */
 exports.resetAllElectionData = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : '';
@@ -340,10 +401,20 @@ exports.resetAllElectionData = onCall(async (request) => {
   });
 
   return { ok: true, electionId, deleted };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('resetAllElectionData unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for resetAllElectionData: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'resetAllElectionData failed: ' + msg);
+  }
 });
 
 /** Archive a completed election (superadmin). */
 exports.archiveElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -367,10 +438,20 @@ exports.archiveElection = onCall(async (request) => {
     details: { from: status },
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('archiveElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for archiveElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'archiveElection failed: ' + msg);
+  }
 });
 
 /** Restore an archived election back to draft (superadmin). */
 exports.restoreElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -391,10 +472,20 @@ exports.restoreElection = onCall(async (request) => {
     details: {},
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('restoreElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for restoreElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'restoreElection failed: ' + msg);
+  }
 });
 
 /** Lock an election (superadmin). While locked, ordinary admin edits and voting are refused. */
 exports.lockElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -417,10 +508,20 @@ exports.lockElection = onCall(async (request) => {
     details: {},
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('lockElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for lockElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'lockElection failed: ' + msg);
+  }
 });
 
 /** Unlock an election (superadmin). Audited. Refused once finalized/archived — those are immutable states. */
 exports.unlockElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -443,6 +544,15 @@ exports.unlockElection = onCall(async (request) => {
     details: {},
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('unlockElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for unlockElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'unlockElection failed: ' + msg);
+  }
 });
 
 /**
@@ -450,6 +560,7 @@ exports.unlockElection = onCall(async (request) => {
  * so this must come from the server.
  */
 exports.estimateReset = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;
   const electionSnap = await db.doc(`elections/${electionId}`).get();
@@ -473,6 +584,15 @@ exports.estimateReset = onCall(async (request) => {
     votersLocked,
     positions,
   };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('estimateReset unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for estimateReset: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'estimateReset failed: ' + msg);
+  }
 });
 
 // scope -> which data to reset. 'assignments' maps to candidates in this schema.
@@ -485,15 +605,27 @@ const SCOPE_PLAN = {
 };
 
 async function verifyBackupForReset(backupId, electionId) {
-  const snap = await db.doc(`backups/${backupId}`).get();
+  try {
+    const snap = await db.doc(`backups/${backupId}`).get();
   if (!snap.exists) throw new HttpsError('failed-precondition', 'A backup must be created before a destructive reset. Create a backup first.');
   const meta = snap.data();
   if (meta.electionId !== electionId) {
     throw new HttpsError('failed-precondition', 'The backup is for a different election. Create a fresh backup for this election.');
   }
-  const [exists] = await getStorage().bucket().file(meta.storagePath).exists();
-  if (!exists) throw new HttpsError('failed-precondition', 'The backup payload is missing from storage. Reset aborted.');
-  return meta;
+    let exists;
+    try {
+      [exists] = await getStorage().bucket().file(meta.storagePath).exists();
+    } catch (storageError) {
+      console.error('verifyBackupForReset storage exists error:', storageError);
+      throw new HttpsError('unavailable', 'Unable to verify backup in Storage (' + (storageError.message || 'unknown') + '). Check Storage bucket permissions.');
+    }
+    if (!exists) throw new HttpsError('failed-precondition', 'The backup payload is missing from storage. Reset aborted.');
+    return meta;
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('verifyBackupForReset unexpected:', error);
+    throw new HttpsError('internal', 'Backup verification failed: ' + (error.message || 'unknown'));
+  }
 }
 
 async function clearVoterLocks(electionId) {
@@ -527,6 +659,7 @@ async function clearVoterLocks(electionId) {
  * registry, config, audit, or any other election).
  */
 exports.resetElectionData = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : '';
@@ -596,4 +729,13 @@ exports.resetElectionData = onCall(async (request) => {
   });
 
   return { ok: true, scope, deleted, preserved: preservedDataList() };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('resetElectionData unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for resetElectionData: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'resetElectionData failed: ' + msg);
+  }
 });

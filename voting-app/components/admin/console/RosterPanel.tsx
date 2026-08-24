@@ -1,5 +1,6 @@
 'use client';
 
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, SearchX, ShieldCheck, Trash2, Upload, UserCheck, Users, Vote } from 'lucide-react';
 import CustomSelect, { type CustomSelectOption } from '@/components/ui/CustomSelect';
@@ -187,7 +188,7 @@ export default function RosterPanel({
       });
       await onRefreshStudents();
     } catch (error) {
-      setNotice({ text: (error as Error).message || 'Unable to import the roster.', error: true });
+      setNotice({ text: getFunctionsErrorMessage(error) || 'Unable to import the roster.', error: true });
     } finally {
       setBusy('');
     }
@@ -203,7 +204,7 @@ export default function RosterPanel({
       setSectionsDirty(false);
       setNotice({ text: sections.length ? `Voting is now limited to ${sections.length} section${sections.length === 1 ? '' : 's'}.` : 'All active roster students are eligible again.' });
     } catch (error) {
-      setNotice({ text: (error as Error).message || 'Unable to save eligible sections.', error: true });
+      setNotice({ text: getFunctionsErrorMessage(error) || 'Unable to save eligible sections.', error: true });
     } finally {
       setBusy('');
     }
@@ -238,7 +239,7 @@ export default function RosterPanel({
       setNotice({ text: `Removed ${deleted} student${deleted === 1 ? '' : 's'} from the roster.` });
       await onRefreshStudents();
     } catch (error) {
-      setNotice({ text: (error as Error).message || 'Unable to remove this student.', error: true });
+      setNotice({ text: getFunctionsErrorMessage(error) || 'Unable to remove this student.', error: true });
     } finally {
       setBusy('');
     }
@@ -265,7 +266,7 @@ export default function RosterPanel({
       setNotice({ text: `Removed ${deleted} student${deleted === 1 ? '' : 's'} from the roster.` });
       await onRefreshStudents();
     } catch (error) {
-      setNotice({ text: (error as Error).message || 'Unable to remove the selected students.', error: true });
+      setNotice({ text: getFunctionsErrorMessage(error) || 'Unable to remove the selected students.', error: true });
     } finally {
       setBusy('');
     }
@@ -292,7 +293,7 @@ export default function RosterPanel({
       setNotice({ text: `Removed all ${deleted} students from the roster.` });
       await onRefreshStudents();
     } catch (error) {
-      setNotice({ text: (error as Error).message || 'Unable to remove the roster.', error: true });
+      setNotice({ text: getFunctionsErrorMessage(error) || 'Unable to remove the roster.', error: true });
     } finally {
       setBusy('');
     }

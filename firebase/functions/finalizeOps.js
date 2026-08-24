@@ -9,6 +9,13 @@ const { verifyResults } = require('./verifyLogic');
 const { recomputeElectionTally } = require('./tally');
 
 const db = getFirestore();
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error instanceof HttpsError) throw error;
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 
 async function loadVerificationData(electionId) {
   const [electionSnap, positionsSnap, candidatesSnap, ballotsSnap, tallySnap] = await Promise.all([
@@ -29,6 +36,7 @@ async function loadVerificationData(electionId) {
 
 /** Run the pre-finalization verification checklist (superadmin). */
 exports.verifyResults = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;
   const data = await loadVerificationData(electionId);
@@ -44,6 +52,18 @@ exports.verifyResults = onCall(async (request) => {
     details: { ok: result.ok },
   });
   return { ok: result.ok, checks: result.checks };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('verifyResults unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for verifyResults: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'verifyResults failed: ' + msg);
+  }
 });
 
 /**
@@ -52,6 +72,7 @@ exports.verifyResults = onCall(async (request) => {
  * flags the election as finalized (still publicly readable like published).
  */
 exports.finalizeElection = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;
   const electionSnap = await db.doc(`elections/${electionId}`).get();
@@ -89,4 +110,16 @@ exports.finalizeElection = onCall(async (request) => {
   });
 
   return { ok: true, turnout: tally.turnout.total };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('finalizeElection unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for finalizeElection: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'finalizeElection failed: ' + msg);
+  }
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CustomSelect, { type CustomSelectOption } from '@/components/ui/CustomSelect';
 import { deleteCandidate, saveCandidate, validateCandidatePhoto } from '@/lib/admin/adminData';
@@ -212,7 +213,7 @@ export default function CandidatesPanel({
       resetForm();
       await onRefreshCandidates();
     } catch (error) {
-      setMessage({ text: (error as Error).message, error: true });
+      setMessage({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }
@@ -238,7 +239,7 @@ export default function CandidatesPanel({
       setMessage({ text: 'Candidate removed.' });
       await onRefreshCandidates();
     } catch (error) {
-      setMessage({ text: (error as Error).message, error: true });
+      setMessage({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }

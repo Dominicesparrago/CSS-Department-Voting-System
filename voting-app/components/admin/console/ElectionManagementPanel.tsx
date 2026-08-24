@@ -1,5 +1,6 @@
 'use client';
 
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { useState } from 'react';
 import { Archive, CheckCircle2, LockKeyhole, Plus, RotateCcw, Stethoscope, UnlockKeyhole, Vote, TriangleAlert } from 'lucide-react';
 import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
@@ -50,7 +51,7 @@ export default function ElectionManagementPanel({ elections, positions }: { elec
         await fn();
         setNotice({ text: success });
       } catch (error) {
-        setNotice({ text: (error as Error).message, error: true });
+        setNotice({ text: getFunctionsErrorMessage(error), error: true });
       } finally {
         setBusy('');
       }
@@ -70,7 +71,7 @@ export default function ElectionManagementPanel({ elections, positions }: { elec
       setShowCreate(false);
       setTitle('');
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }
@@ -96,7 +97,7 @@ export default function ElectionManagementPanel({ elections, positions }: { elec
       setResetElectionId(null);
       setResetConfirmation('');
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }

@@ -1,5 +1,6 @@
 'use client';
 
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { useState } from 'react';
 import { Activity, CheckCircle2, Stethoscope, TriangleAlert, Wrench } from 'lucide-react';
 import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
@@ -44,7 +45,7 @@ export default function DatabaseDoctor() {
         setNotice({ text: 'Scan complete — the database looks healthy.' });
       }
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setRunning(false);
     }
@@ -61,7 +62,7 @@ export default function DatabaseDoctor() {
       await applyDatabaseRepair({ code: action.code, ids });
       setNotice({ text: `Repair applied — ${action.affected} record(s).` });
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }

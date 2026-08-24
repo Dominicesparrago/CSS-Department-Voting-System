@@ -15,6 +15,7 @@ import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
 import { downloadFile } from '@/components/admin/console/shared';
 import { backupsToCsv } from '@/lib/admin/exportCenter';
 import { formatTimestamp } from '@/lib/format';
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import {
   createBackup,
   deleteBackup,
@@ -93,7 +94,7 @@ export default function BackupCenter({ electionId }: { electionId?: string }) {
       setArmed(false);
       setForce(false);
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }
@@ -111,7 +112,7 @@ export default function BackupCenter({ electionId }: { electionId?: string }) {
       }
       setNotice({ text: `Backup created (${result.sizeBytes} bytes).` });
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }
@@ -125,7 +126,7 @@ export default function BackupCenter({ electionId }: { electionId?: string }) {
         const result = await restoreBackup({ backupId: record.id, overwrite: false });
         setNotice({ text: `Backup restored: ${result.counts.candidates ?? 0} candidates, ${result.counts.ballots ?? 0} ballots.` });
       } catch (error) {
-        setNotice({ text: (error as Error).message, error: true });
+        setNotice({ text: getFunctionsErrorMessage(error), error: true });
       } finally {
         setBusy('');
       }
@@ -155,7 +156,7 @@ export default function BackupCenter({ electionId }: { electionId?: string }) {
         await deleteBackup(record.id);
         setNotice({ text: 'Backup deleted.' });
       } catch (error) {
-        setNotice({ text: (error as Error).message, error: true });
+        setNotice({ text: getFunctionsErrorMessage(error), error: true });
       } finally {
         setBusy('');
       }
@@ -180,7 +181,7 @@ export default function BackupCenter({ electionId }: { electionId?: string }) {
       setArmed(false);
       setForce(false);
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setConfirming(false);
     }

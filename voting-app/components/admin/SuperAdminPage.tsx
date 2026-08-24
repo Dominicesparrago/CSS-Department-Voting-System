@@ -41,6 +41,7 @@ import { downloadFile } from '@/components/admin/console/shared';
 import { auditToCsv, buildAggregate, resultsToCsv, votersToCsv } from '@/lib/admin/adminCore';
 import { useGuardedSession } from '@/hooks/useGuardedSession';
 import { watchAudit } from '@/lib/admin/adminData';
+import { getFirestoreErrorMessage, getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { AUDIT_ACTION_LABELS, auditDetail } from '@/lib/admin/auditPresentation';
 import { DEFAULT_APP_CONFIG, watchAppConfig } from '@/lib/appConfig';
 import { hasSuperAdminClaim } from '@/lib/auth/guards-core';
@@ -389,7 +390,13 @@ function ReasonDialog({ state, onClose }: { state: ReasonDialogState | null; onC
       await state!.action(reason.trim());
       onClose();
     } catch (err) {
-      setError((err as Error).message || 'The action was rejected.');
+      // Prefer Firestore helper for direct writes, Functions helper for callables
+      const msg = (err as { code?: string })?.code?.startsWith('functions/') || (err as { code?: string })?.code?.includes('permission')
+        ? getFunctionsErrorMessage(err)
+        : (err as { code?: string })?.code
+          ? getFirestoreErrorMessage(err)
+          : (err as Error).message || 'The action was rejected.';
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -454,7 +461,7 @@ function AdminsPanel({ admins, actorUid, actorEmail }: { admins: AdminEntry[]; a
       setAccountPassword('');
       setNotice({ text: `${email} can now sign in as an admin.` });
     } catch (error) {
-      setNotice({ text: (error as Error).message || 'Unable to create the admin account.', error: true });
+      setNotice({ text: getFunctionsErrorMessage(error) || 'Unable to create the admin account.', error: true });
     } finally {
       setAccountBusy(false);
     }
@@ -987,7 +994,7 @@ function SettingsPanel({ config, actorUid }: { config: AppConfig; actorUid: stri
       await saveAppConfig({ ...config, [key]: !config[key] }, actorUid);
       setNotice({ text: 'Settings saved.' });
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFirestoreErrorMessage(error), error: true });
     } finally {
       setBusyKey('');
     }

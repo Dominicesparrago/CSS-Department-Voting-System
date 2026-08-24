@@ -1,5 +1,6 @@
 'use client';
 
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { useRef, useState } from 'react';
 import { FileUp, Upload, X } from 'lucide-react';
 import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
@@ -56,7 +57,7 @@ export default function CandidateImportPanel() {
       setSummary(result.summary);
       setNotice({ text: `Import finished: ${result.summary.inserted} inserted, ${result.summary.updated} updated.` });
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy(false);
     }

@@ -7,12 +7,20 @@ const { writeAudit } = require('./audit');
 const { normalizeSection } = require('./rosterLogic');
 
 const db = getFirestore();
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error instanceof HttpsError) throw error;
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 
 /**
  * Edit a single roster student's profile data (admin). Voting participation
  * locks are never modified here — only identity fields shown on the ballot.
  */
 exports.updateRosterStudent = onCall(async (request) => {
+  try {
   const data = request.data || {};
   await assertElectionConfigWritable(db, request.auth, data.electionId);
 
@@ -66,4 +74,16 @@ exports.updateRosterStudent = onCall(async (request) => {
     details: { fields: changed },
   });
   return { ok: true, fields: changed };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('updateRosterStudent unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for updateRosterStudent: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'updateRosterStudent failed: ' + msg);
+  }
 });

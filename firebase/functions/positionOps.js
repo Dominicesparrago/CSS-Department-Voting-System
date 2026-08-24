@@ -6,6 +6,13 @@ const { assertElectionConfigWritable, actorRole } = require('./authGuards');
 const { writeAudit } = require('./audit');
 
 const db = getFirestore();
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error instanceof HttpsError) throw error;
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
@@ -16,6 +23,7 @@ function slugify(text) {
  * positions by id, so renaming a position updates the display label only.
  */
 exports.savePosition = onCall(async (request) => {
+  try {
   const data = request.data || {};
   await assertElectionConfigWritable(db, request.auth, data.electionId);
 
@@ -63,6 +71,18 @@ exports.savePosition = onCall(async (request) => {
     details: { name, scope, maxSelections, order: patch.order, active: patch.active },
   });
   return { ok: true, id };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('savePosition unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for savePosition: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'savePosition failed: ' + msg);
+  }
 });
 
 async function positionNameTaken(name) {
@@ -75,6 +95,7 @@ async function positionNameTaken(name) {
  * it, to protect vote integrity — deactivate positions instead.
  */
 exports.deletePosition = onCall(async (request) => {
+  try {
   const data = request.data || {};
   await assertElectionConfigWritable(db, request.auth, data.electionId);
   const id = typeof data.id === 'string' ? data.id : '';
@@ -104,4 +125,16 @@ exports.deletePosition = onCall(async (request) => {
     details: { name: snap.data().name },
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('deletePosition unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for deletePosition: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'deletePosition failed: ' + msg);
+  }
 });

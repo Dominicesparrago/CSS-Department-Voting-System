@@ -10,11 +10,19 @@ const { runIntegrityChecks, buildReport, repairsFromChecks } = require('./doctor
 const { recomputeElectionTally } = require('./tally');
 
 const db = getFirestore();
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error instanceof HttpsError) throw error;
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 
 const MAX_IDS_RETURNED = 1000;
 
 /** Run the read-only integrity scan. */
 exports.databaseDoctor = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const [voters, students, studentIndex, emailIndex, candidates, ballots, positions, elections, tallies] = await Promise.all([
     readAllDocs(db, 'voters'),
@@ -47,6 +55,18 @@ exports.databaseDoctor = onCall(async (request) => {
   });
 
   return { ...report, checks: cappedChecks, repairs, scannedAt: new Date().toISOString() };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('databaseDoctor unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for databaseDoctor: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'databaseDoctor failed: ' + msg);
+  }
 });
 
 /**
@@ -54,6 +74,7 @@ exports.databaseDoctor = onCall(async (request) => {
  * back the ids the scan surfaced; each repair is audited.
  */
 exports.databaseRepair = onCall(async (request) => {
+  try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const code = typeof data.code === 'string' ? data.code : '';
@@ -99,4 +120,16 @@ exports.databaseRepair = onCall(async (request) => {
   });
 
   return { ok: true, code, affected };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('databaseRepair unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for databaseRepair: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'databaseRepair failed: ' + msg);
+  }
 });

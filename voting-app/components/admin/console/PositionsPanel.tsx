@@ -1,5 +1,6 @@
 'use client';
 
+import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
@@ -29,7 +30,7 @@ export default function PositionsPanel({ positions }: { positions: Position[] })
       setMaxSelections(1);
       setOrder(positions.length + 2);
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }
@@ -43,7 +44,7 @@ export default function PositionsPanel({ positions }: { positions: Position[] })
       await savePosition({ id: position.id, name: position.name, maxSelections: position.maxSelections ?? 1, order: position.order, active: !position.active });
       setNotice({ text: `Position ${position.active ? 'deactivated' : 'activated'}.` });
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }
@@ -59,7 +60,7 @@ export default function PositionsPanel({ positions }: { positions: Position[] })
       await deletePosition({ id: position.id });
       setNotice({ text: `Position deleted.` });
     } catch (error) {
-      setNotice({ text: (error as Error).message, error: true });
+      setNotice({ text: getFunctionsErrorMessage(error), error: true });
     } finally {
       setBusy('');
     }

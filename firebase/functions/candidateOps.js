@@ -8,6 +8,13 @@ const { DEFAULT_ELECTION_ID } = require('./constants');
 const { processCandidateImport } = require('./candidateImportLogic');
 
 const db = getFirestore();
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error instanceof HttpsError) throw error;
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 
 async function ballotsExist(electionId) {
   const snap = await db.collection('ballots').where('electionId', '==', electionId).limit(1).get();
@@ -57,6 +64,7 @@ async function assertCandidatesMutable(electionId) {
  * Refused once any ballot exists for the election (V-04).
  */
 exports.importCandidates = onCall(async (request) => {
+  try {
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : DEFAULT_ELECTION_ID;
   await assertElectionConfigWritable(db, request.auth, electionId);
@@ -106,6 +114,18 @@ exports.importCandidates = onCall(async (request) => {
   });
 
   return { ok: true, summary };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('importCandidates unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for importCandidates: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'importCandidates failed: ' + msg);
+  }
 });
 
 /**
@@ -114,6 +134,7 @@ exports.importCandidates = onCall(async (request) => {
  * only sanctioned path. Frozen once any ballot exists for the election.
  */
 exports.upsertCandidate = onCall(async (request) => {
+  try {
   const data = request.data || {};
   const normalized = normalizeCandidateInput(data, data.id);
   const electionId = normalized.electionId;
@@ -164,9 +185,22 @@ exports.upsertCandidate = onCall(async (request) => {
     details: { positionId: normalized.positionId, active: normalized.active },
   });
   return { ok: true, id: ref.id };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('upsertCandidate unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for upsertCandidate: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'upsertCandidate failed: ' + msg);
+  }
 });
 
 exports.setCandidateActive = onCall(async (request) => {
+  try {
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
   const active = data.active === true;
@@ -186,9 +220,22 @@ exports.setCandidateActive = onCall(async (request) => {
     details: { active },
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('setCandidateActive unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for setCandidateActive: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'setCandidateActive failed: ' + msg);
+  }
 });
 
 exports.setCandidateArchived = onCall(async (request) => {
+  try {
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
   const archived = data.archived === true;
@@ -208,9 +255,22 @@ exports.setCandidateArchived = onCall(async (request) => {
     details: { archived },
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('setCandidateArchived unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for setCandidateArchived: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'setCandidateArchived failed: ' + msg);
+  }
 });
 
 exports.deleteCandidate = onCall(async (request) => {
+  try {
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
   if (!candidateId) throw new HttpsError('invalid-argument', 'candidateId is required.');
@@ -229,4 +289,16 @@ exports.deleteCandidate = onCall(async (request) => {
     details: {},
   });
   return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('deleteCandidate unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for deleteCandidate: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'deleteCandidate failed: ' + msg);
+  }
 });

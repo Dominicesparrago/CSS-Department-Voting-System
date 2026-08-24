@@ -27,6 +27,13 @@ const { readAllDocs } = require('./dbHelpers');
 
 initializeApp();
 const db = getFirestore();
+function toHttpsError(error, fallbackCode, fallbackMessage) {
+  if (error instanceof HttpsError) throw error;
+  if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
+  console.error(`[${fallbackCode}] ${fallbackMessage}:`, error);
+  throw new HttpsError(fallbackCode, fallbackMessage);
+}
+
 
 function validateVoterProfile(voter, uid, electionId) {
   if (!voter) {
@@ -350,6 +357,7 @@ exports.verifyStudentAgainstRoster = onCall(
  * preserved).
  */
 exports.deleteRosterEntries = onCall(async (request) => {
+  try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   let ids = [];
@@ -390,6 +398,18 @@ exports.deleteRosterEntries = onCall(async (request) => {
   });
 
   return { ok: true, deleted };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('deleteRosterEntries unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for deleteRosterEntries: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'deleteRosterEntries failed: ' + msg);
+  }
 });
 
 /** Read every roster document id + status (paginated so large rosters are complete). */
@@ -407,6 +427,7 @@ async function readAllRosterDocs() {
  * the file (records and participation are preserved; status flips to inactive).
  */
 exports.importRoster = onCall(async (request) => {
+  try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   const rows = Array.isArray(data.rows) ? data.rows : [];
@@ -519,6 +540,18 @@ exports.importRoster = onCall(async (request) => {
   });
 
   return { ok: true, summary };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('importRoster unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for importRoster: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'importRoster failed: ' + msg);
+  }
 });
 
 function tallyFromBallots(ballotsSnap) {
@@ -537,60 +570,80 @@ function tallyFromBallots(ballotsSnap) {
  * returns only counts — admins never receive individual ballot documents.
  */
 exports.getResults = onCall(async (request) => {
-  await assertAdmin(db, request.auth);
-  const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
-  const ballotsSnap = await db.collection('ballots').where('electionId', '==', electionId).get();
-  return { ...tallyFromBallots(ballotsSnap), ballotCount: ballotsSnap.size };
-}
-
-);
+  try {
+    await assertAdmin(db, request.auth);
+    const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
+    const ballotsSnap = await db.collection('ballots').where('electionId', '==', electionId).get();
+    return { ...tallyFromBallots(ballotsSnap), ballotCount: ballotsSnap.size };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('getResults unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for getResults: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'getResults failed: ' + msg);
+  }
+});
 
 /**
  * Create a Firebase Auth account and its runtime admin registry entry. The
  * password is accepted only by this trusted callable and is never persisted.
  */
 exports.createAdminAccount = onCall(async (request) => {
-  assertSuperAdmin(request.auth);
-  const { email, password } = normalizeAdminAccountInput(request.data);
-  const adminRef = db.doc(`admins/${email}`);
-  const existingAdmin = await adminRef.get();
-  if (existingAdmin.exists) {
-    throw new HttpsError('already-exists', 'This email already has admin access.');
-  }
-
-  let userRecord;
   try {
-    userRecord = await getAuth().createUser({ email, password });
-  } catch (error) {
-    if (error && error.code === 'auth/email-already-exists') {
-      throw new HttpsError('already-exists', 'An account already exists for this email.');
+    assertSuperAdmin(request.auth);
+    const { email, password } = normalizeAdminAccountInput(request.data);
+    const adminRef = db.doc(`admins/${email}`);
+    const existingAdmin = await adminRef.get();
+    if (existingAdmin.exists) {
+      throw new HttpsError('already-exists', 'This email already has admin access.');
     }
-    throw new HttpsError('internal', 'Unable to create the admin account.');
-  }
 
-  try {
-    await adminRef.create({
-      email,
-      role: 'admin',
-      addedBy: request.auth.uid,
-      reason: 'Admin account created by superadmin',
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    await db.collection('audit').add({
-      ts: FieldValue.serverTimestamp(),
-      actorUid: request.auth.uid,
-      actorRole: 'superadmin',
-      action: 'admin.account.create',
-      target: `admins/${email}`,
-      details: { email, uid: userRecord.uid },
-    });
+    let userRecord;
+    try {
+      userRecord = await getAuth().createUser({ email, password });
+    } catch (error) {
+      if (error && error.code === 'auth/email-already-exists') {
+        throw new HttpsError('already-exists', 'An account already exists for this email.');
+      }
+      console.error('createAdminAccount createUser error:', error);
+      throw new HttpsError('internal', `Unable to create the admin account: ${error.message || error.code || 'unknown error'}. Check Auth configuration and password requirements.`);
+    }
+
+    try {
+      await adminRef.create({
+        email,
+        role: 'admin',
+        addedBy: request.auth.uid,
+        reason: 'Admin account created by superadmin',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      await db.collection('audit').add({
+        ts: FieldValue.serverTimestamp(),
+        actorUid: request.auth.uid,
+        actorRole: 'superadmin',
+        action: 'admin.account.create',
+        target: `admins/${email}`,
+        details: { email, uid: userRecord.uid },
+      });
+    } catch (error) {
+      await adminRef.delete().catch(() => {});
+      await getAuth().deleteUser(userRecord.uid).catch(() => {});
+      console.error('createAdminAccount Firestore error:', error);
+      throw new HttpsError('internal', `The admin account could not be registered: ${error.message || 'unknown error'}.`);
+    }
+
+    return { ok: true, email, uid: userRecord.uid };
   } catch (error) {
-    await adminRef.delete().catch(() => {});
-    await getAuth().deleteUser(userRecord.uid).catch(() => {});
-    throw new HttpsError('internal', 'The admin account could not be registered.');
+    if (error instanceof HttpsError) throw error;
+    console.error('createAdminAccount unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    throw new HttpsError('internal', 'createAdminAccount failed: ' + msg);
   }
-
-  return { ok: true, email, uid: userRecord.uid };
 });
 
 /**
@@ -598,6 +651,7 @@ exports.createAdminAccount = onCall(async (request) => {
  * writes tallies/{electionId}, then flips the election to published.
  */
 exports.publishTally = onCall(async (request) => {
+  try {
   await assertAdmin(db, request.auth);
   const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
 
@@ -652,6 +706,18 @@ exports.publishTally = onCall(async (request) => {
   });
 
   return { ok: true, turnout: turnoutTotal };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('publishTally unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for publishTally: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'publishTally failed: ' + msg);
+  }
 });
 
 // Superadmin Tier 1 & Tier 2 callables (registered separately so index.js stays
