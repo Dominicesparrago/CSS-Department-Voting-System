@@ -1,9 +1,11 @@
 import { getApps, initializeApp } from 'firebase/app';
+import { ReCaptchaV3Provider, initializeAppCheck } from 'firebase/app-check';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 import { connectStorageEmulator, getStorage } from 'firebase/storage';
 import type { FirebaseApp } from 'firebase/app';
+import type { AppCheck } from 'firebase/app-check';
 import type { Auth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import type { Functions } from 'firebase/functions';
@@ -15,6 +17,7 @@ let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
 let functionsInstance: Functions | null = null;
+let appCheckInstance: AppCheck | null = null;
 
 function assertFirebaseConfig() {
   const required = [
@@ -42,10 +45,33 @@ function getFirebaseServices() {
   functionsInstance ??= getFunctions(app);
 
   if (typeof window !== 'undefined') {
+    initAppCheck(app);
     connectLocalEmulators(authInstance, dbInstance, storageInstance, functionsInstance);
   }
 
   return { app, auth: authInstance, db: dbInstance, storage: storageInstance, functions: functionsInstance };
+}
+
+/**
+ * App Check (reCAPTCHA v3) tokens are attached to every Auth/Firestore/Functions
+ * call from this app. Server-side callables run with enforceAppCheck and the
+ * Firebase console enforces it for Firestore, so this must be initialized in the
+ * browser before any request fires. No-op until NEXT_PUBLIC_RECAPTCHA_SITE_KEY is
+ * configured (local dev/emulator sessions without a key simply skip it).
+ */
+function initAppCheck(instance: FirebaseApp): AppCheck | null {
+  if (appCheckInstance) return appCheckInstance;
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+  if (!siteKey) return null;
+  const debugToken = process.env.NEXT_PUBLIC_APPCHECK_DEBUG_TOKEN;
+  if (debugToken) {
+    (globalThis as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+  }
+  appCheckInstance = initializeAppCheck(instance, {
+    provider: new ReCaptchaV3Provider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+  return appCheckInstance;
 }
 
 function connectLocalEmulators(auth: Auth, db: Firestore, storage: FirebaseStorage, functions: Functions) {

@@ -219,6 +219,22 @@ async function testVoterSelfRegistration() {
   await seedBaseData();
   await assertSucceeds(createVoterWithStudentIndex(authedDb("newStudent"), "newStudent", "1112223"));
 
+  // The voter doc must be created atomically WITH its studentIndex entry
+  // (same batch/transaction). An unbound voter doc would let a second account
+  // claim an already-registered student number and vote alongside them.
+  await assertFails(
+    setDoc(doc(authedDb("unbound"), "voters/unbound"), {
+      studentNo: "5554443",
+      fullName: "Unbound Voter",
+      email: "unbound.voter.scc@gmail.com",
+      yearLevel: 2,
+      section: "BSCS 2-B",
+      eligible: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    })
+  );
+
   await assertFails(
     setDoc(doc(authedDb("badEmail"), "voters/badEmail"), {
       studentNo: "1112224",

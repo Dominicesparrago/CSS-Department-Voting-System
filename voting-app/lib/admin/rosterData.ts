@@ -1,10 +1,8 @@
-import { collection, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { getFirebaseDb, getFirebaseFunctions } from '../firebase/init';
 import { snapshotRecords } from '../firebase/firestore';
 import { ELECTION_ID } from '../constants';
-import { createAudit } from './adminData';
-import { normalizeSection } from './rosterImport';
 import type { RosterImportRow, RosterImportSummary, RosterStudent } from '../types';
 
 /**
@@ -88,22 +86,22 @@ export async function removeAllRosterStudents(): Promise<number> {
 
 /**
  * Configure which sections may vote in this election. An empty list means every
- * active, eligible roster student may vote (the default). Sections are
- * normalized to the canonical BSCS-<year><letter> format.
+ * active, eligible roster student may vote (the default). Sent to the trusted
+ * setEligibleSections callable, which re-normalizes server-side, enforces the
+ * lock/draft-or-open guard, and writes the audit entry.
  */
 export async function setEligibleSections(
   sections: string[],
   actorUid: string,
   electionId = ELECTION_ID,
 ): Promise<void> {
-  const db = getFirebaseDb();
-  const normalized = Array.from(new Set(sections.map(normalizeSection).filter(Boolean))).sort();
-  await updateDoc(doc(db, 'elections', electionId), {
-    eligibleSections: normalized,
-    updatedAt: serverTimestamp(),
-  });
-  await createAudit(actorUid, 'election.eligibleSections.set', `elections/${electionId}`, {
-    sections: normalized,
-    count: normalized.length,
-  });
+  const call = httpsCallable<
+    { electionId: string; sections: string[] },
+    { ok: boolean; sections: string[] }
+  >(getFirebaseFunctions(), 'setEligibleSections');
+  try {
+    await call({ electionId, sections });
+  } catch (error) {
+    throw new Error((error as { message?: string }).message || 'Unable to update eligible sections.');
+  }
 }

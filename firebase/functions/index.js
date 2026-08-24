@@ -24,31 +24,9 @@ const {
   ROSTER_BATCH_SIZE,
 } = require('./constants');
 const { readAllDocs } = require('./dbHelpers');
-const {
-  googleOAuthInit,
-  googleOAuthCallback,
-  googleOAuthRevoke,
-  googleOAuthGetSheetsInfo,
-  fetchFromGoogleSheets,
-  readRosterFromGoogleSheet,
-  validateGoogleSheetStructure,
-  verifyStudentAgainstRoster,
-  normalizeSection,
-  namesMatch,
-} = require('./googleOAuth');
 
 initializeApp();
 const db = getFirestore();
-
-function normalizeCountMap(input) {
-  return { ...(input || {}) };
-}
-
-function incrementCountMap(input, key, delta = 1) {
-  const next = normalizeCountMap(input);
-  next[key] = (next[key] || 0) + delta;
-  return next;
-}
 
 function validateVoterProfile(voter, uid, electionId) {
   if (!voter) {
@@ -91,6 +69,21 @@ function normalizeAdminAccountInput(data) {
   return { email, password };
 }
 
+function electionWindowMillis(value) {
+  if (value == null) return null;
+  if (typeof value.toMillis === 'function') {
+    try { return value.toMillis(); } catch { return null; }
+  }
+  if (typeof value._seconds === 'number') return value._seconds * 1000 + Math.floor((value._nanoseconds || 0) / 1e6);
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 async function loadPositionsAndCandidates(electionId) {
   const [positionsSnap, candidatesSnap] = await Promise.all([
     db.collection('positions').orderBy('order', 'asc').get(),
@@ -108,8 +101,21 @@ async function loadPositionsAndCandidates(electionId) {
  * Cast a ballot, including an intentionally empty ballot. The only path that writes votes. Ballots are stored
  * anonymously (random ids, no uid, no timestamp); the voter's participation lock
  * is set in the same transaction. No document ever links a person to a choice.
+ *
+ * The vote path deliberately never touches tallies/{electionId}: a single tally
+ * document sustains only ~1 write/sec, so incrementing it per vote would
+ * serialize every ballot under load. Counts are derived from immutable ballots
+ * on demand (getResults); publishTally writes the official tally at close.
  */
-exports.submitBallot = onCall(async (request) => {
+exports.submitBallot = onCall(
+  {
+    // Rejects requests without a valid App Check token once enforcement is
+    // enabled in the Firebase console (see docs/RATE_LIMIT_HARDENING.md).
+    enforceAppCheck: true,
+    // Keeps a warm instance so a simultaneous voting burst isn't absorbed by cold starts.
+    minInstances: 1,
+  },
+  async (request) => {
   const auth = request.auth;
   if (!auth) throw new HttpsError('unauthenticated', 'Sign in to vote.');
   const uid = auth.uid;
@@ -120,15 +126,24 @@ exports.submitBallot = onCall(async (request) => {
 
   const voterRef = db.doc(`voters/${uid}`);
   const electionRef = db.doc(`elections/${electionId}`);
-  const tallyRef = db.doc(`tallies/${electionId}`);
 
   await db.runTransaction(async (tx) => {
-    const [voterSnap, electionSnap, tallySnap] = await Promise.all([tx.get(voterRef), tx.get(electionRef), tx.get(tallyRef)]);
+    const [voterSnap, electionSnap] = await Promise.all([tx.get(voterRef), tx.get(electionRef)]);
     if (!electionSnap.exists || electionSnap.data().status !== 'open') {
       throw new HttpsError('failed-precondition', 'Voting is not open for this election.');
     }
     if (electionSnap.data().locked === true) {
       throw new HttpsError('failed-precondition', 'Voting is locked for this election.');
+    }
+    const electionData = electionSnap.data();
+    const nowMs = Date.now();
+    const openAtMs = electionWindowMillis(electionData.openAt);
+    const closeAtMs = electionWindowMillis(electionData.closeAt);
+    if (openAtMs != null && nowMs < openAtMs) {
+      throw new HttpsError('failed-precondition', 'Voting has not started yet.');
+    }
+    if (closeAtMs != null && nowMs > closeAtMs) {
+      throw new HttpsError('failed-precondition', 'Voting has ended.');
     }
     const voter = validateVoterProfile(voterSnap.exists ? voterSnap.data() : null, uid, electionId);
 
@@ -165,32 +180,6 @@ exports.submitBallot = onCall(async (request) => {
     for (const ballot of result.ballots) {
       tx.set(db.collection('ballots').doc(), ballot);
     }
-
-    const tally = tallySnap.exists ? tallySnap.data() : {};
-    const turnoutByYear = { 1: 0, 2: 0, 3: 0, 4: 0, ...((tally.turnout && tally.turnout.byYear) || {}) };
-    const nextTally = {
-      perCandidate: normalizeCountMap(tally.perCandidate),
-      perPosition: normalizeCountMap(tally.perPosition),
-      turnout: {
-        total: (tally.turnout && tally.turnout.total) || 0,
-        byYear: turnoutByYear,
-      },
-    };
-
-    result.ballots.forEach((ballot) => {
-      nextTally.perCandidate = incrementCountMap(nextTally.perCandidate, ballot.candidateId, 1);
-      nextTally.perPosition = incrementCountMap(nextTally.perPosition, ballot.positionId, 1);
-    });
-    nextTally.turnout.total += 1;
-    const yearKey = String(voter.yearLevel);
-    if (yearKey in nextTally.turnout.byYear) {
-      nextTally.turnout.byYear[yearKey] += 1;
-    }
-
-    tx.set(tallyRef, {
-      ...nextTally,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
 
     // Participation lock: proves the voter voted, carries no ballot content.
     tx.set(
@@ -277,10 +266,75 @@ async function checkVoterEligibility(get, uid, electionId) {
  * other students' data. The submitBallot function re-verifies everything
  * inside its write transaction, so this is UX, not security.
  */
-exports.checkMyRosterStatus = onCall(async (request) => {
+exports.checkMyRosterStatus = onCall(
+  { enforceAppCheck: true },
+  async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in to vote.');
   const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
   return checkVoterEligibility((ref) => ref.get(), request.auth.uid, electionId);
+  },
+);
+
+/**
+ * Registration-time roster verification for new sign-ups. Verifies the
+ * self-reported registration values against the official Firestore roster —
+ * the same records submitBallot enforces against. Returns only a verdict for
+ * the calling student; never other students' data.
+ *
+ * Intentionally callable before sign-in: it runs during registration, before
+ * the Auth account exists. App Check enforcement is the abuse control here
+ * (scripts/bots cannot mint reCAPTCHA tokens), not an auth requirement.
+ */
+exports.verifyStudentAgainstRoster = onCall(
+  { enforceAppCheck: true },
+  async (request) => {
+  const data = request.data || {};
+  const electionId = data.electionId || DEFAULT_ELECTION_ID;
+  const voter = {
+    studentNo: String(data.studentId || '').trim(),
+    fullName: String(data.fullName || '').trim(),
+    email: String(data.email || '').trim().toLowerCase(),
+    yearLevel: Number(data.yearLevel),
+    section: String(data.section || '').trim(),
+  };
+  if (!voter.studentNo) {
+    return { ok: false, state: 'not-on-roster', message: 'Student ID is required for verification.' };
+  }
+  try {
+    const rosterResult = await resolveRosterRecord((ref) => ref.get(), voter);
+    if (!rosterResult.ok) {
+      return { ok: false, state: 'not-on-roster', message: rosterResult.message };
+    }
+    const electionSnap = await db.doc(`elections/${electionId}`).get();
+    const eligibility = validateRosterEligibility({
+      voter,
+      roster: rosterResult.record,
+      election: electionSnap.exists ? electionSnap.data() : null,
+    });
+    if (!eligibility.ok) {
+      const stateByReason = {
+        'not-on-roster': 'not-on-roster',
+        inactive: 'ineligible',
+        'not-eligible': 'ineligible',
+        mismatch: 'mismatch',
+        'email-mismatch': 'email-mismatch',
+        'section-not-eligible': 'ineligible',
+      };
+      return {
+        ok: false,
+        state: stateByReason[eligibility.reason] || 'ineligible',
+        message: eligibility.message,
+      };
+    }
+    return { ok: true, state: 'verified', message: 'Student verified against the official roster.' };
+  } catch (error) {
+    console.error('Roster verification error:', error);
+    return {
+      ok: false,
+      state: 'verification_unavailable',
+      message: 'Roster verification failed due to a technical error. Please try again.',
+    };
+  }
 });
 
 /**
@@ -591,16 +645,4 @@ Object.assign(module.exports,
   require('./candidateOps'),
   require('./positionOps'),
   require('./rosterStudentOps'),
-  {
-    googleOAuthInit,
-    googleOAuthCallback,
-    googleOAuthRevoke,
-    googleOAuthGetSheetsInfo,
-    fetchFromGoogleSheets,
-    readRosterFromGoogleSheet,
-    validateGoogleSheetStructure,
-    verifyStudentAgainstRoster,
-    normalizeSection,
-    namesMatch,
-  },
 );

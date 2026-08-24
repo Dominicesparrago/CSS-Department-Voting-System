@@ -1,4 +1,5 @@
 import { createUserWithEmailAndPassword, deleteUser, signInAnonymously, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { getFirebaseAuth, getFirebaseDb, getFirebaseFunctions } from '../firebase/init';
 import { verifyStudentRegistration, normalizeSection, namesMatch } from '../student/registrationVerification';
@@ -24,7 +25,7 @@ function normalizeEmail(email: string): string {
 }
 
 export async function registerStudent(values: RegisterValues) {
-  // Step 1: Verify student against official Google Sheet roster
+  // Step 1: Verify student against the official roster
   const verification = await verifyStudentRegistration(
     values.studentNo,
     values.fullName,
@@ -55,9 +56,6 @@ export async function registerStudent(values: RegisterValues) {
       yearLevel: values.yearLevel,
       section: values.section,
       eligible: true,
-      electionsRegistered: {
-        [values.electionId || ELECTION_ID]: true,
-      },
       createdAt: now,
       updatedAt: now,
     });

@@ -7,7 +7,6 @@ import {
   loadPositions,
   loadResults,
   loadVoters,
-  watchLiveResults,
   watchAudit,
   watchCandidates,
   watchElection,
@@ -22,8 +21,9 @@ const EMPTY_RESULTS: ResultsCounts = { perCandidate: {}, perPosition: {} };
 
 /**
  * Loads the full admin dataset once, then keeps election/candidates/voters/audit
- * live through Firestore subscriptions. Vote counts come from the trusted live
- * tally doc, which the ballot callable updates transactionally on every vote.
+ * live through Firestore subscriptions. Vote counts are computed server-side by
+ * the trusted getResults callable and refresh on demand (refreshResults — the
+ * Results panel's Refresh button); there is no live tally subscription.
  */
 export function useAdminElectionData(enabled: boolean) {
   const [election, setElection] = useState<Election | null>(null);
@@ -80,7 +80,6 @@ export function useAdminElectionData(enabled: boolean) {
           watchStudents(setStudents, (error) => setErrorMessage(error.message)),
           watchElection(setElection, (error) => setErrorMessage(error.message)),
           watchAudit(setAuditEntries, (error) => setErrorMessage(error.message)),
-          watchLiveResults(setResults, (error) => setErrorMessage(error.message)),
         );
         await refreshResults();
       } catch (error) {

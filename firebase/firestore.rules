@@ -23,9 +23,12 @@ service cloud.firestore {
     }
 
     // Admins granted by the superadmin at runtime, keyed by sign-in email.
-    // Checked last so claim-based admins never pay the exists() read.
+    // Checked last so claim-based admins never pay the exists() read. The
+    // grant only counts for a VERIFIED address: whoever merely registers an
+    // unverified account under a granted email must not inherit its powers.
     function isRegistryAdmin() {
       return hasEmailToken()
+        && ("email_verified" in request.auth.token && request.auth.token.email_verified == true)
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
     }
 
@@ -146,6 +149,13 @@ service cloud.firestore {
         && request.resource.data.eligible == true
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
+        // One account per student number: the voter doc and its studentIndex
+        // entry must be created atomically (same batch/transaction) and the
+        // index must point back at this exact uid. Without this, an unbound
+        // voter doc could coexist with another account claiming the same
+        // student number and both would pass submitBallot's roster checks.
+        && getAfter(studentIndexPath(request.resource.data.studentNo)).data != null
+        && getAfter(studentIndexPath(request.resource.data.studentNo)).data.uid == uid
         && !("hasVoted" in request.resource.data)
         && !("votedAt" in request.resource.data);
     }
@@ -269,14 +279,13 @@ service cloud.firestore {
 
     match /elections/{electionId} {
       allow read: if isSignedIn() || electionPublished(electionId);
-      // Creating a new (draft) election is always allowed for admins; editing or
-      // deleting an existing election is refused while it is locked or finalized
-      // unless superadmin performs a controlled emergency action.
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin()
-        && (isSuperAdmin()
-          || (!resource.data.get("locked", false)
-            && resource.data.get("status", "draft") != "finalized"));
+      // Election documents are READ-ONLY to every client. All mutations run
+      // through trusted, audited callables (setElectionStatus,
+      // setRegistrationOpen, setEligibleSections, createElection,
+      // updateElection, publishTally, finalize/archive/reset...) via the Admin
+      // SDK, which bypasses these rules. This closes the former hole where any
+      // admin could write any field — including status — directly.
+      allow write: if false;
     }
 
     match /positions/{positionId} {
@@ -288,8 +297,11 @@ service cloud.firestore {
 
     match /candidates/{candidateId} {
       allow read: if isSignedIn() || electionPublished(resource.data.electionId);
-      allow create: if candidateWritable(request.resource.data.electionId);
-      allow update, delete: if candidateWritable(resource.data.electionId);
+      // All candidate CUD runs through trusted, audited callables
+      // (upsertCandidate / setCandidateActive / setCandidateArchived /
+      // deleteCandidate / importCandidates) which also enforce the
+      // "frozen once ballots exist" guard (V-04).
+      allow create, update, delete: if false;
     }
 
     match /voters/{uid} {

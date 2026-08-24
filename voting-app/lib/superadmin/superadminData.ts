@@ -8,12 +8,12 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { getFirebaseDb, getFirebaseFunctions } from '../firebase/init';
 import { snapshotRecords } from '../firebase/firestore';
 import { createAudit } from '../admin/adminData';
+import { updateElection } from './elections';
 import { ELECTION_ID } from '../constants';
 import type { AdminEntry, AppConfig, Election } from '../types';
 
@@ -72,11 +72,11 @@ export function watchAllElections(onChange: (elections: Election[]) => void, onE
   );
 }
 
-export async function updateElectionTitle(electionId: string, title: string, actorUid: string): Promise<void> {
-  const db = getFirebaseDb();
+/** Title changes go through the trusted updateElection callable (audited server-side). */
+export async function updateElectionTitle(electionId: string, title: string): Promise<void> {
   const trimmed = title.trim();
-  await updateDoc(doc(db, 'elections', electionId), { title: trimmed, updatedAt: serverTimestamp() });
-  await createAudit(actorUid, 'election.title.set', `elections/${electionId}`, { title: trimmed }, 'superadmin');
+  if (trimmed.length < 2) throw new Error('Election title is too short.');
+  await updateElection({ electionId, title: trimmed });
 }
 
 export async function saveAppConfig(config: Pick<AppConfig, 'allowGuestVoters' | 'maintenanceMode'>, actorUid: string): Promise<void> {

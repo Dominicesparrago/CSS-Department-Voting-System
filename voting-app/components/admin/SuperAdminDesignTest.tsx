@@ -1321,7 +1321,7 @@ export function DesignManagementSections({
     if (!electionTitle.trim() || electionBusy) return;
     setElectionBusy(true);
     try {
-      await updateElectionTitle(electionId, electionTitle, actorUid);
+      await updateElectionTitle(electionId, electionTitle);
       setElectionNotice('Election title updated.');
       setEditingElection('');
     } catch (error) {

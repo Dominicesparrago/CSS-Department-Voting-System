@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BarChart3, Download, Trophy } from 'lucide-react';
 import CustomSelect, { type CustomSelectOption } from '@/components/ui/CustomSelect';
 import { buildAggregate, currentWinner, positionVoteRows, type PositionVoteRow } from '@/lib/admin/adminCore';
@@ -93,25 +94,29 @@ function drawCanvasDoughnut(
   });
 }
 
-async function exportResultGraphic(params: {
-  title: string;
-  positionName: string;
-  rows: ResultRow[];
+async function drawDoughnutGraphic(params: {
+  kicker: string;
+  headline: string;
+  meta: string;
+  summary: { label: string; value: string; detail: string };
+  rows: WinnerGraphRow[];
   total: number;
-  winner: ReturnType<typeof currentWinner>;
-  winnerGraphRows: WinnerGraphRow[];
-  winnerGraphTotal: number;
+  centerLabel: string;
+  combinedLegend?: boolean;
   transparent: boolean;
-}) {
-  const { title, positionName, rows, total, winner, winnerGraphRows, winnerGraphTotal, transparent } = params;
+}): Promise<HTMLCanvasElement | null> {
+  const { kicker, headline, meta, summary, rows, total, centerLabel, combinedLegend = false, transparent } = params;
   if (document.fonts) await document.fonts.ready;
   const bodyFont = getComputedStyle(document.body).getPropertyValue('--font-figtree').trim() || 'Figtree, sans-serif';
   const monoFont = getComputedStyle(document.body).getPropertyValue('--font-jetbrains-mono').trim() || '"JetBrains Mono", monospace';
   const canvas = document.createElement('canvas');
   canvas.width = 1800;
-  canvas.height = transparent ? Math.max(560, 330 + rows.length * 52) : Math.max(1120, 920 + winnerGraphRows.length * 42);
+  // Layout geometry: the ring's outer edge reaches graphY ± 143, so the canvas
+  // reserves enough height that neither the doughnut nor its legend clips.
+  const graphY = 500;
+  canvas.height = Math.max(690, 497 + rows.length * 52);
   const context = canvas.getContext('2d');
-  if (!context) return;
+  if (!context) return null;
 
   if (!transparent) {
     const background = context.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -128,91 +133,53 @@ async function exportResultGraphic(params: {
   context.textAlign = 'left';
   context.fillStyle = accent;
   context.font = `600 18px ${monoFont}`;
-  context.fillText(transparent ? positionName.toUpperCase() : title.toUpperCase(), 90, 76);
+  context.fillText(kicker.toUpperCase(), 90, 76);
   context.fillStyle = text;
   context.font = `800 52px ${bodyFont}`;
-  context.fillText(transparent ? 'Vote distribution' : 'Election result', 90, 138);
+  context.fillText(headline, 90, 138);
   context.fillStyle = muted;
   context.font = `400 19px ${monoFont}`;
-  context.fillText(`${positionName} · ${new Date().toLocaleString('en-PH')}`, 90, 178);
+  context.fillText(meta, 90, 178);
 
-  const winnerLabel = winner.kind === 'winner'
-    ? winner.leaders[0].candidate.name
-    : winner.kind === 'tie'
-      ? winner.leaders.map((leader) => leader.candidate.name).join(' / ')
-      : 'No votes yet';
+  // Summary block ends at y=329; the doughnut's top edge (graphY - 143 = 357)
+  // stays clear of it.
   context.fillStyle = muted;
   context.font = `500 17px ${monoFont}`;
-  context.fillText(winner.kind === 'tie' ? 'TIED LEAD' : 'CURRENT WINNER', 90, 250);
+  context.fillText(summary.label, 90, 250);
   context.fillStyle = text;
   context.font = `700 34px ${bodyFont}`;
-  context.fillText(winnerLabel, 90, 294);
+  context.fillText(summary.value, 90, 294);
   context.fillStyle = muted;
   context.font = `400 19px ${monoFont}`;
-  context.fillText(`${formatNumber(winner.leaders[0]?.votes ?? 0)} votes · ${formatVotePercent(winner.leaders[0]?.votes ?? 0, total)} of race`, 90, 329);
+  context.fillText(summary.detail, 90, 329);
 
-  const graphY = transparent ? 420 : 470;
-  const selectedRows: WinnerGraphRow[] = rows.map((row) => ({
-    id: row.candidate.id,
-    candidateName: row.candidate.name,
-    positionName,
-    votes: row.votes,
-    color: row.color,
-  }));
-  drawCanvasDoughnut(context, selectedRows, total, 300, graphY, 126);
+  drawCanvasDoughnut(context, rows, total, 300, graphY, 126);
   context.textAlign = 'center';
   context.fillStyle = text;
   context.font = `800 34px ${bodyFont}`;
   context.fillText(formatNumber(total), 300, graphY + 8);
   context.fillStyle = muted;
   context.font = `500 15px ${monoFont}`;
-  context.fillText('TOTAL VOTES', 300, graphY + 38);
+  context.fillText(centerLabel, 300, graphY + 38);
   context.textAlign = 'left';
   context.font = `600 21px ${bodyFont}`;
-  selectedRows.forEach((row, index) => {
+  rows.forEach((row, index) => {
     const y = graphY - 100 + index * 52;
     context.fillStyle = row.color;
     context.fillRect(540, y - 15, 15, 15);
     context.fillStyle = text;
-    context.fillText(row.candidateName, 570, y);
+    context.fillText(combinedLegend ? `${row.positionName} · ${row.candidateName}` : row.candidateName, 570, y);
     context.fillStyle = muted;
     context.font = `400 17px ${monoFont}`;
     context.fillText(`${formatNumber(row.votes)} votes · ${formatVotePercent(row.votes, total)}`, 570, y + 25);
     context.font = `600 21px ${bodyFont}`;
   });
 
-  if (!transparent) {
-    const winnerGraphY = graphY + 430;
-    context.fillStyle = accent;
-    context.font = `600 18px ${monoFont}`;
-    context.fillText('ALL DEPARTMENT POSITION WINNERS', 90, winnerGraphY - 170);
-    context.fillStyle = text;
-    context.font = `700 32px ${bodyFont}`;
-    context.fillText('Winners by Position', 90, winnerGraphY - 125);
-    drawCanvasDoughnut(context, winnerGraphRows, winnerGraphTotal, 300, winnerGraphY, 126);
-    context.textAlign = 'center';
-    context.fillStyle = text;
-    context.font = `800 34px ${bodyFont}`;
-    context.fillText(formatNumber(winnerGraphTotal), 300, winnerGraphY + 8);
-    context.fillStyle = muted;
-    context.font = `500 15px ${monoFont}`;
-    context.fillText('WINNER VOTES', 300, winnerGraphY + 38);
-    context.textAlign = 'left';
-    context.font = `600 20px ${bodyFont}`;
-    winnerGraphRows.forEach((row, index) => {
-      const y = winnerGraphY - 125 + index * 42;
-      context.fillStyle = row.color;
-      context.fillRect(540, y - 14, 14, 14);
-      context.fillStyle = text;
-      context.fillText(`${row.positionName} · ${row.candidateName}`, 566, y);
-      context.fillStyle = muted;
-      context.font = `400 16px ${monoFont}`;
-      context.fillText(`${formatNumber(row.votes)} · ${formatVotePercent(row.votes, winnerGraphTotal)}`, 566, y + 22);
-      context.font = `600 20px ${bodyFont}`;
-    });
-  }
+  return canvas;
+}
 
-  await downloadCanvas(canvas, `css-voting-${transparent ? 'graph-transparent' : 'results'}.png`);
+function positionSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'position';
 }
 
 function Doughnut({ rows, total }: { rows: WinnerGraphRow[]; total: number }) {
@@ -249,6 +216,108 @@ function Doughnut({ rows, total }: { rows: WinnerGraphRow[]; total: number }) {
   );
 }
 
+export function ExportPreviewModal({
+  heading,
+  filename,
+  transparent,
+  canvas,
+  onClose,
+}: {
+  heading: string;
+  filename: string;
+  transparent: boolean;
+  canvas: HTMLCanvasElement | null;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const downloadRef = useRef<HTMLButtonElement>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    const host = bodyRef.current;
+    if (!host || !canvas) return;
+    host.replaceChildren(canvas);
+  }, [canvas]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    downloadRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button') ?? []);
+      if (focusable.length === 0) return;
+      const direction = event.shiftKey ? -1 : 1;
+      const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      event.preventDefault();
+      focusable[(currentIndex + direction + focusable.length) % focusable.length]?.focus();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
+  async function handleDownload() {
+    if (!canvas || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadCanvas(canvas, filename);
+      onClose();
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return createPortal(
+    <div className="export-preview-backdrop" onClick={(event) => { if (event.target === event.currentTarget && !downloading) onClose(); }}>
+      <div ref={panelRef} className="export-preview" role="dialog" aria-modal="true" aria-labelledby="export-preview-title">
+        <header className="export-preview-head">
+          <div>
+            <span className="design-kicker">Export preview</span>
+            <h2 id="export-preview-title">{heading}</h2>
+          </div>
+          <button className="btn btn-ghost btn-sm" type="button" disabled={downloading} onClick={onClose}>Cancel</button>
+        </header>
+
+        <div
+          className="export-preview-body"
+          data-transparent={transparent || undefined}
+          data-empty={!canvas || undefined}
+        >
+          {!canvas && (
+            <div className="export-preview-loading">
+              <span className="spinner" aria-hidden="true" />
+              <strong>Rendering preview…</strong>
+            </div>
+          )}
+          <div ref={bodyRef} />
+        </div>
+
+        <footer className="export-preview-foot">
+          <span className="export-preview-meta">
+            {filename}
+            {canvas ? ` · ${canvas.width} × ${canvas.height}px` : ''}
+            {transparent ? ' · checkerboard = transparency' : ''}
+          </span>
+          <div className="dlg-actions">
+            <button ref={downloadRef} className="btn btn-primary btn-sm" type="button" disabled={!canvas || downloading} onClick={() => void handleDownload()}>
+              <Download size={14} aria-hidden="true" /> {downloading ? 'Downloading…' : 'Download PNG'}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function SuperAdminResultsFeature({
   aggregate,
   candidates,
@@ -264,6 +333,12 @@ export default function SuperAdminResultsFeature({
 }) {
   const [positionId, setPositionId] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [preview, setPreview] = useState<{
+    heading: string;
+    filename: string;
+    transparent: boolean;
+    canvas: HTMLCanvasElement | null;
+  } | null>(null);
 
   useEffect(() => {
     setPositionId((current) => positions.some((position) => position.id === current)
@@ -295,23 +370,84 @@ export default function SuperAdminResultsFeature({
       : 'No votes yet';
   const winnerVotes = winner.leaders[0]?.votes ?? 0;
 
-  async function exportResults(transparent: boolean) {
-    if (!selectedPosition || exporting) return;
+  async function openExportPreview(kind: 'position' | 'winners', transparent: boolean) {
+    if (exporting) return;
+
+    let spec: { heading: string; filename: string; transparent: boolean };
+    if (kind === 'position') {
+      if (!selectedPosition) return;
+      const winnerLabel = winner.kind === 'winner'
+        ? winner.leaders[0].candidate.name
+        : winner.kind === 'tie'
+          ? winner.leaders.map((leader) => leader.candidate.name).join(' / ')
+          : 'No votes yet';
+      spec = {
+        heading: `${selectedPosition.name} — ${transparent ? 'transparent graph' : 'result'}`,
+        filename: `css-voting-${positionSlug(selectedPosition.name)}-result${transparent ? '-transparent' : ''}.png`,
+        transparent,
+      };
+      setPreview({ ...spec, canvas: null });
+      setExporting(true);
+      try {
+        const canvas = await drawDoughnutGraphic({
+          kicker: selectedPosition.name,
+          headline: 'Vote distribution',
+          meta: `${electionTitle} · ${new Date().toLocaleString('en-PH')}`,
+          summary: {
+            label: winner.kind === 'tie' ? 'TIED LEAD' : 'CURRENT WINNER',
+            value: winnerLabel,
+            detail: `${formatNumber(winnerVotes)} votes · ${formatVotePercent(winnerVotes, total)} of race`,
+          },
+          rows: rows.map((row) => ({
+            id: row.candidate.id,
+            candidateName: row.candidate.name,
+            positionName: selectedPosition.name,
+            votes: row.votes,
+            color: row.color,
+          })),
+          total,
+          centerLabel: 'TOTAL VOTES',
+          transparent,
+        });
+        setPreview((current) => (current && current.filename === spec.filename ? { ...current, canvas } : current));
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+
+    spec = {
+      heading: `Combined winners — ${transparent ? 'transparent graph' : 'all positions'}`,
+      filename: `css-voting-winners-by-position${transparent ? '-transparent' : ''}.png`,
+      transparent,
+    };
+    setPreview({ ...spec, canvas: null });
     setExporting(true);
     try {
-      await exportResultGraphic({
-        title: electionTitle,
-        positionName: selectedPosition.name,
-        rows,
-        total,
-        winner,
-        winnerGraphRows,
-        winnerGraphTotal,
+      const canvas = await drawDoughnutGraphic({
+        kicker: electionTitle,
+        headline: 'Winners by Position',
+        meta: `${positions.length} department positions · ${new Date().toLocaleString('en-PH')}`,
+        summary: {
+          label: 'COMBINED WINNER VOTES',
+          value: formatNumber(winnerGraphTotal),
+          detail: `${winnerGraphRows.length} winning candidates · ties shown separately`,
+        },
+        rows: winnerGraphRows,
+        total: winnerGraphTotal,
+        centerLabel: 'WINNER VOTES',
+        combinedLegend: true,
         transparent,
       });
+      setPreview((current) => (current && current.filename === spec.filename ? { ...current, canvas } : current));
     } finally {
       setExporting(false);
     }
+  }
+
+  function closeExportPreview() {
+    if (exporting) return;
+    setPreview(null);
   }
 
   return (
@@ -332,11 +468,11 @@ export default function SuperAdminResultsFeature({
               disabled={positionOptions.length === 0}
               onChange={setPositionId}
             />
-            <button className="btn btn-primary design-export-btn" type="button" disabled={!selectedPosition || exporting} onClick={() => void exportResults(false)}>
-              <Download size={16} aria-hidden="true" /> {exporting ? 'Preparing…' : 'Export Results'}
+            <button className="btn btn-primary design-export-btn" type="button" disabled={!selectedPosition || exporting} onClick={() => void openExportPreview('position', false)}>
+              <Download size={16} aria-hidden="true" /> {exporting ? 'Preparing…' : 'Export PNG'}
             </button>
-            <button className="btn btn-ghost design-export-transparent" type="button" disabled={!selectedPosition || exporting} onClick={() => void exportResults(true)}>
-              <BarChart3 size={16} aria-hidden="true" /> Export Graph — Transparent
+            <button className="btn btn-ghost design-export-transparent" type="button" disabled={!selectedPosition || exporting} onClick={() => void openExportPreview('position', true)}>
+              <BarChart3 size={16} aria-hidden="true" /> PNG — Transparent
             </button>
           </div>
         </div>
@@ -411,6 +547,14 @@ export default function SuperAdminResultsFeature({
         <div className="design-section-heading">
           <div><span className="design-kicker">All department positions</span><h2 id="superadmin-winners-title">Winners by Position</h2></div>
           <span className="design-section-note">One combined graph · {positions.length} positions</span>
+          <div className="design-toolbar-actions">
+            <button className="btn btn-primary design-export-btn" type="button" disabled={exporting} onClick={() => void openExportPreview('winners', false)}>
+              <Download size={16} aria-hidden="true" /> {exporting ? 'Preparing…' : 'Export Winners PNG'}
+            </button>
+            <button className="btn btn-ghost design-export-transparent" type="button" disabled={exporting} onClick={() => void openExportPreview('winners', true)}>
+              <BarChart3 size={16} aria-hidden="true" /> PNG — Transparent
+            </button>
+          </div>
         </div>
         <article className="design-winner-position-graph">
           <div className="design-card-heading">
@@ -434,6 +578,16 @@ export default function SuperAdminResultsFeature({
           </div>
         </article>
       </section>
+
+      {preview && (
+        <ExportPreviewModal
+          heading={preview.heading}
+          filename={preview.filename}
+          transparent={preview.transparent}
+          canvas={preview.canvas}
+          onClose={closeExportPreview}
+        />
+      )}
     </div>
   );
 }

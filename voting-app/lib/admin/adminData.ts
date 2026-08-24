@@ -18,6 +18,7 @@ import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage
 import { httpsCallable } from 'firebase/functions';
 import { getFirebaseDb, getFirebaseFunctions, getFirebaseStorage } from '../firebase/init';
 import { snapshotRecords } from '../firebase/firestore';
+import { friendlyAdminError } from './adminErrors';
 import { ELECTION_ID } from '../constants';
 import type { AuditEntry, Candidate, Voter } from '../types';
 import type { ResultsCounts } from './adminCore';
@@ -36,6 +37,10 @@ export async function loadVoters(): Promise<Voter[]> {
  * Aggregate vote counts from the trusted getResults function. Raw ballots are
  * never readable by the client — the server returns only per-candidate and
  * per-position totals, so no ballot can be traced to a voter.
+ *
+ * Counts are computed server-side from immutable ballots on every call; there
+ * is no live tally document to subscribe to. Call this (via refreshResults)
+ * whenever fresh numbers are wanted.
  */
 export async function loadResults(electionId = ELECTION_ID): Promise<ResultsCounts & { ballotCount: number }> {
   const call = httpsCallable<{ electionId: string }, ResultsCounts & { ballotCount: number }>(
@@ -48,30 +53,6 @@ export async function loadResults(electionId = ELECTION_ID): Promise<ResultsCoun
     perPosition: data.perPosition ?? {},
     ballotCount: data.ballotCount ?? 0,
   };
-}
-
-export function watchLiveResults(
-  onChange: (results: ResultsCounts & { ballotCount: number }) => void,
-  onError: (e: Error) => void,
-  electionId = ELECTION_ID,
-): () => void {
-  const db = getFirebaseDb();
-  return onSnapshot(
-    doc(db, 'tallies', electionId),
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onChange({ perCandidate: {}, perPosition: {}, ballotCount: 0 });
-        return;
-      }
-      const data = snapshot.data() as Partial<ResultsCounts> & { ballotCount?: number };
-      onChange({
-        perCandidate: data.perCandidate ?? {},
-        perPosition: data.perPosition ?? {},
-        ballotCount: data.ballotCount ?? 0,
-      });
-    },
-    onError,
-  );
 }
 
 export function watchCandidates(
@@ -139,67 +120,84 @@ export async function saveCandidate(params: {
   actorUid: string;
   electionId?: string;
 }): Promise<string> {
-  const db = getFirebaseDb();
-  const { candidate, photoFile, actorUid } = params;
+  const { candidate, photoFile } = params;
   const electionId = params.electionId ?? ELECTION_ID;
   const photoError = validateCandidatePhoto(photoFile ?? null);
   if (photoError) throw new Error(photoError);
 
-  const candidateRef = candidate.id
-    ? doc(db, 'candidates', candidate.id)
-    : doc(collection(db, 'candidates'));
+  // Generate a client id for the Storage path when creating; the callable
+  // will create the document with this id or with the provided one.
+  const provisionalId = candidate.id || `cand_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const photoFields = photoFile ? await uploadCandidatePhoto(provisionalId, photoFile) : {};
 
-  const photoFields = photoFile ? await uploadCandidatePhoto(candidateRef.id, photoFile) : {};
-
-  const payload = {
-    electionId,
-    positionId: candidate.positionId,
-    name: candidate.name.trim(),
-    section: candidate.section.trim(),
-    yearLevel: Number(candidate.yearLevel),
-    platform: candidate.platform.trim(),
-    goals: candidate.goals?.trim() || null,
-    bio: candidate.bio?.trim() || null,
-    party: candidate.party?.trim() || null,
-    order: Number(candidate.order),
-    active: candidate.active === true,
-    ...photoFields,
-    updatedAt: serverTimestamp(),
-  };
-
-  if (candidate.id) {
-    await updateDoc(candidateRef, payload);
-    await createAudit(actorUid, 'candidate.update', `candidates/${candidateRef.id}`, {
-      positionId: payload.positionId,
-      active: payload.active,
+  const call = httpsCallable<
+    CandidateInput & { electionId?: string; photoURL?: string; photoPath?: string },
+    { ok: boolean; id: string }
+  >(getFirebaseFunctions(), 'upsertCandidate');
+  try {
+    const { data } = await call({
+      id: candidate.id,
+      electionId,
+      positionId: candidate.positionId,
+      name: candidate.name,
+      section: candidate.section,
+      yearLevel: candidate.yearLevel,
+      platform: candidate.platform,
+      goals: candidate.goals,
+      bio: candidate.bio,
+      party: candidate.party,
+      order: candidate.order,
+      active: candidate.active,
+      photoURL: (photoFields as { photoURL?: string }).photoURL,
+      photoPath: (photoFields as { photoPath?: string }).photoPath,
     });
-  } else {
-    await setDoc(candidateRef, { ...payload, photoURL: (payload as { photoURL?: string }).photoURL ?? '', photoPath: (payload as { photoPath?: string }).photoPath ?? '', createdAt: serverTimestamp() });
-    await createAudit(actorUid, 'candidate.create', `candidates/${candidateRef.id}`, {
-      positionId: payload.positionId,
-    });
+    return data.id;
+  } catch (error) {
+    // Best-effort cleanup of an orphaned upload when the callable rejects
+    // (e.g., candidates frozen after voting started).
+    if ((photoFields as { photoPath?: string }).photoPath) {
+      try {
+        await deleteObject(ref(getFirebaseStorage(), (photoFields as { photoPath: string }).photoPath));
+      } catch {}
+    }
+    throw new Error(friendlyAdminError(error, 'Unable to save the candidate.'));
   }
-
-  return candidateRef.id;
 }
 
-export async function setCandidateActive(candidateId: string, active: boolean, actorUid: string): Promise<void> {
-  const db = getFirebaseDb();
-  await updateDoc(doc(db, 'candidates', candidateId), { active, updatedAt: serverTimestamp() });
-  await createAudit(actorUid, 'candidate.active.set', `candidates/${candidateId}`, { active });
+export async function setCandidateActive(candidateId: string, active: boolean, _actorUid: string): Promise<void> {
+  const call = httpsCallable<{ candidateId: string; active: boolean }, { ok: boolean }>(
+    getFirebaseFunctions(),
+    'setCandidateActive',
+  );
+  try {
+    await call({ candidateId, active });
+  } catch (error) {
+    throw new Error(friendlyAdminError(error, 'Unable to change the candidate status.'));
+  }
 }
 
-export async function setCandidateArchived(candidateId: string, archived: boolean, actorUid: string): Promise<void> {
-  const db = getFirebaseDb();
-  await updateDoc(doc(db, 'candidates', candidateId), { archived, updatedAt: serverTimestamp() });
-  await createAudit(actorUid, 'candidate.archived.set', `candidates/${candidateId}`, { archived });
+export async function setCandidateArchived(candidateId: string, archived: boolean, _actorUid: string): Promise<void> {
+  const call = httpsCallable<{ candidateId: string; archived: boolean }, { ok: boolean }>(
+    getFirebaseFunctions(),
+    'setCandidateArchived',
+  );
+  try {
+    await call({ candidateId, archived });
+  } catch (error) {
+    throw new Error(friendlyAdminError(error, 'Unable to archive the candidate.'));
+  }
 }
 
-export async function deleteCandidate(candidateId: string, actorUid: string): Promise<void> {
+export async function deleteCandidate(candidateId: string, _actorUid: string): Promise<void> {
   const db = getFirebaseDb();
   const snapshot = await getDoc(doc(db, 'candidates', candidateId));
   const photoPath = snapshot.exists() ? (snapshot.data() as { photoPath?: string }).photoPath : '';
-  await deleteDoc(doc(db, 'candidates', candidateId));
+  const call = httpsCallable<{ candidateId: string }, { ok: boolean }>(getFirebaseFunctions(), 'deleteCandidate');
+  try {
+    await call({ candidateId });
+  } catch (error) {
+    throw new Error(friendlyAdminError(error, 'Unable to delete the candidate.'));
+  }
   if (photoPath) {
     try {
       await deleteObject(ref(getFirebaseStorage(), photoPath));
@@ -207,7 +205,6 @@ export async function deleteCandidate(candidateId: string, actorUid: string): Pr
       // photo cleanup is best-effort; the record delete is what matters
     }
   }
-  await createAudit(actorUid, 'candidate.delete', `candidates/${candidateId}`, {});
 }
 
 export async function setVoterEligibility(uid: string, eligible: boolean, actorUid: string): Promise<void> {
@@ -216,16 +213,40 @@ export async function setVoterEligibility(uid: string, eligible: boolean, actorU
   await createAudit(actorUid, 'voter.eligible.set', `voters/${uid}`, { eligible });
 }
 
-export async function setElectionStatus(status: string, actorUid: string, electionId = ELECTION_ID): Promise<void> {
-  const db = getFirebaseDb();
-  await updateDoc(doc(db, 'elections', electionId), { status, updatedAt: serverTimestamp() });
-  await createAudit(actorUid, 'election.status.set', `elections/${electionId}`, { status });
+/**
+ * Election status changes run through the trusted setElectionStatus callable,
+ * which enforces the lifecycle state machine (draft→open→closed; reopening a
+ * closed election requires superadmin force) and writes the server-side audit
+ * entry. Clients can no longer write election documents directly.
+ */
+export async function setElectionStatus(
+  status: string,
+  actorUid: string,
+  electionId = ELECTION_ID,
+  force = false,
+): Promise<void> {
+  const call = httpsCallable<
+    { electionId: string; status: string; force: boolean },
+    { ok: boolean }
+  >(getFirebaseFunctions(), 'setElectionStatus');
+  try {
+    await call({ electionId, status, force });
+  } catch (error) {
+    throw new Error(friendlyAdminError(error, 'Unable to change the election status.'));
+  }
 }
 
+/** Registration toggle via the trusted setRegistrationOpen callable (audited server-side). */
 export async function setRegistrationOpen(registrationOpen: boolean, actorUid: string, electionId = ELECTION_ID): Promise<void> {
-  const db = getFirebaseDb();
-  await updateDoc(doc(db, 'elections', electionId), { registrationOpen, updatedAt: serverTimestamp() });
-  await createAudit(actorUid, 'election.registration.set', `elections/${electionId}`, { registrationOpen });
+  const call = httpsCallable<
+    { electionId: string; registrationOpen: boolean },
+    { ok: boolean }
+  >(getFirebaseFunctions(), 'setRegistrationOpen');
+  try {
+    await call({ electionId, registrationOpen });
+  } catch (error) {
+    throw new Error(friendlyAdminError(error, 'Unable to change registration.'));
+  }
 }
 
 /**

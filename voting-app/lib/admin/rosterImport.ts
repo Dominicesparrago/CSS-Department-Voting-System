@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from '@/vendor/xlsx-0.20.3/xlsx.mjs';
 import type { RosterImportRow, RosterStudent } from '../types';
 
 /**
@@ -287,7 +287,7 @@ function normalizeHeader(header: unknown): string {
  *   name-matched roster entries.
  */
 export async function parseRosterFile(file: File): Promise<{ rows: RosterImportRow[]; parsedRows: number }> {
-  let workbook: XLSX.WorkBook;
+  let workbook: any;
   try {
     const buffer = await file.arrayBuffer();
     workbook = XLSX.read(buffer, { type: 'array' });
@@ -305,7 +305,7 @@ export async function parseRosterFile(file: File): Promise<{ rows: RosterImportR
     // Raw grid (no header assumption): masterlist sheets start with a title
     // block (section name, GC link, schedule) before the real header row, so
     // the header must be located by scanning, not assumed at row 0.
-    const grid = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+    const grid = (XLSX.utils.sheet_to_json as unknown as (s: unknown, o: unknown) => unknown[][])(sheet, { header: 1, defval: '' });
     if (grid.length === 0) continue;
     const derived = sectionFromSheetName(sheetName);
 

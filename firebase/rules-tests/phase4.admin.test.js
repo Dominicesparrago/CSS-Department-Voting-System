@@ -209,24 +209,42 @@ async function testVoterElectionTallyAuditRules() {
     updatedAt: serverTimestamp()
   }));
 
+  // Election documents are read-only to clients — status mutations run through
+  // the audited setElectionStatus callable; tallies are written only by
+  // publishTally via the Admin SDK.
   await assertFails(updateDoc(doc(studentDb, "elections", ELECTION_ID), {
     status: "open",
     updatedAt: serverTimestamp()
   }));
-  await assertSucceeds(updateDoc(doc(adminDb, "elections", ELECTION_ID), {
+  await assertFails(updateDoc(doc(adminDb, "elections", ELECTION_ID), {
     status: "open",
     updatedAt: serverTimestamp()
   }));
 
   await assertFails(getDoc(doc(studentDb, "tallies", ELECTION_ID)));
-  await assertSucceeds(setDoc(doc(adminDb, "tallies", ELECTION_ID), {
+  await assertFails(setDoc(doc(adminDb, "tallies", ELECTION_ID), {
     ...tallies,
     updatedAt: serverTimestamp()
   }));
-  await assertSucceeds(updateDoc(doc(adminDb, "elections", ELECTION_ID), {
+  await assertFails(updateDoc(doc(adminDb, "elections", ELECTION_ID), {
     status: "published",
     updatedAt: serverTimestamp()
   }));
+
+  // Published visibility is reached only via publishTally (Admin SDK); seed it
+  // directly to verify students gain read access once published.
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "elections", ELECTION_ID), {
+      title: "Phase 4 Election",
+      status: "published",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    await setDoc(doc(context.firestore(), "tallies", ELECTION_ID), {
+      ...tallies,
+      updatedAt: serverTimestamp()
+    });
+  });
   await assertSucceeds(getDoc(doc(studentDb, "tallies", ELECTION_ID)));
 
   await assertSucceeds(setDoc(doc(adminDb, "audit", "phase4-admin-action"), {

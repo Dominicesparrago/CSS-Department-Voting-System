@@ -29,7 +29,9 @@ async function assertAdmin(db, auth) {
     return;
   }
   const email = typeof token.email === 'string' ? token.email.toLowerCase() : '';
-  if (email) {
+  // Registry membership only counts for a VERIFIED email: an unverified account
+  // merely claiming a granted address must never inherit its powers.
+  if (email && token.email_verified === true) {
     const snap = await db.doc(`admins/${email}`).get();
     if (snap.exists) return;
   }

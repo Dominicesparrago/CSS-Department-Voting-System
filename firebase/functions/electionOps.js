@@ -4,12 +4,13 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { getStorage } = require('firebase-admin/storage');
-const { assertSuperAdmin, actorRole } = require('./authGuards');
+const { assertSuperAdmin, assertAdmin, actorRole, isSuperAdminAuth } = require('./authGuards');
 const { writeAudit } = require('./audit');
 const { DEFAULT_ELECTION_ID } = require('./constants');
 const { readAllDocs, readDocsWhere, batchDeleteByIds, chunk } = require('./dbHelpers');
 const { isResetScope, scopeDefinition, preservedDataList } = require('./resetLogic');
 const { parseDate } = require('./tally');
+const { resolveElectionTransition } = require('./electionStateMachine');
 
 const db = getFirestore();
 
@@ -131,10 +132,131 @@ exports.updateElection = onCall(async (request) => {
 });
 
 /**
+ * Open or close an election through the enforced state machine (admin). This is
+ * the ONLY sanctioned path for draft->open / open->closed; reopening a closed
+ * election requires a superadmin force (audited). Clients may no longer write
+ * election documents directly — the rules deny it and every transition is
+ * audited here.
+ */
+exports.setElectionStatus = onCall(async (request) => {
+  await assertAdmin(db, request.auth);
+  const data = request.data || {};
+  const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
+  const nextStatus = typeof data.status === 'string' ? data.status.trim() : '';
+  const force = data.force === true;
+
+  const ref = db.doc(`elections/${electionId}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const current = snap.data();
+
+  const decision = resolveElectionTransition({
+    currentStatus: current.status,
+    nextStatus,
+    locked: current.locked === true,
+    isSuperadmin: isSuperAdminAuth(request.auth),
+    force,
+  });
+  if (!decision.ok) throw new HttpsError(decision.code, decision.message);
+
+  await ref.update({ status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
+  await writeAudit(db, {
+    actorUid: request.auth.uid,
+    actorRole: actorRole(request.auth),
+    action: 'election.status.set',
+    target: `elections/${electionId}`,
+    electionId,
+    details: { from: current.status, to: nextStatus, force },
+  });
+  return { ok: true, from: current.status, to: nextStatus };
+});
+
+/** Open or close registration (admin). Refused while the election is locked/finalized. */
+exports.setRegistrationOpen = onCall(async (request) => {
+  await assertAdmin(db, request.auth);
+  const data = request.data || {};
+  const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
+  if (typeof data.registrationOpen !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'registrationOpen must be a boolean.');
+  }
+
+  const ref = db.doc(`elections/${electionId}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const current = snap.data();
+  if (!isSuperAdminAuth(request.auth)) {
+    if (current.locked === true) throw new HttpsError('failed-precondition', 'Election data is locked.');
+    if (current.status === 'finalized') throw new HttpsError('failed-precondition', 'Election results are finalized.');
+  }
+  if (!['draft', 'open', 'closed'].includes(current.status)) {
+    throw new HttpsError('failed-precondition', `Registration cannot change while the election is ${current.status}.`);
+  }
+
+  await ref.update({ registrationOpen: data.registrationOpen, updatedAt: FieldValue.serverTimestamp() });
+  await writeAudit(db, {
+    actorUid: request.auth.uid,
+    actorRole: actorRole(request.auth),
+    action: 'election.registration.set',
+    target: `elections/${electionId}`,
+    electionId,
+    details: { registrationOpen: data.registrationOpen },
+  });
+  return { ok: true };
+});
+
+/**
+ * Configure which sections may vote (admin). Empty list = all active, eligible
+ * roster students. Sections are normalized to the canonical BSCS-<year><letter>
+ * format server-side so client normalization can never diverge.
+ */
+exports.setEligibleSections = onCall(async (request) => {
+  const { normalizeSection } = require('./rosterLogic');
+  await assertAdmin(db, request.auth);
+  const data = request.data || {};
+  const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
+  if (!Array.isArray(data.sections)) {
+    throw new HttpsError('invalid-argument', 'sections must be an array.');
+  }
+  if (data.sections.length > 64) {
+    throw new HttpsError('invalid-argument', 'At most 64 sections may be listed.');
+  }
+  const sections = Array.from(new Set(data.sections.map((s) => normalizeSection(String(s))).filter(Boolean))).sort();
+  if (sections.some((s) => s.length > 32)) {
+    throw new HttpsError('invalid-argument', 'Section names are too long.');
+  }
+
+  const ref = db.doc(`elections/${electionId}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const current = snap.data();
+  if (!isSuperAdminAuth(request.auth)) {
+    if (current.locked === true) throw new HttpsError('failed-precondition', 'Election data is locked.');
+    if (current.status === 'finalized') throw new HttpsError('failed-precondition', 'Election results are finalized.');
+  }
+  if (!['draft', 'open'].includes(current.status)) {
+    throw new HttpsError('failed-precondition', `Eligibility cannot change while the election is ${current.status}.`);
+  }
+
+  await ref.update({ eligibleSections: sections, updatedAt: FieldValue.serverTimestamp() });
+  await writeAudit(db, {
+    actorUid: request.auth.uid,
+    actorRole: actorRole(request.auth),
+    action: 'election.eligibleSections.set',
+    target: `elections/${electionId}`,
+    electionId,
+    details: { sections, count: sections.length },
+  });
+  return { ok: true, sections };
+});
+
+/**
  * Irreversible election reset for a fresh cycle. This removes the election's
  * candidates, ballots, tally, voter records, identity indexes, and imported
  * student roster. The election document, positions, admin accounts, config,
  * and audit history remain so the election can be configured again.
+ *
+ * Safety: only permitted on a closed/draft election (never open/published), so
+ * in-flight votes can never race the deletion pipeline.
  */
 exports.resetAllElectionData = onCall(async (request) => {
   assertSuperAdmin(request.auth);
@@ -151,8 +273,12 @@ exports.resetAllElectionData = onCall(async (request) => {
   const electionRef = db.doc(`elections/${electionId}`);
   const electionSnap = await electionRef.get();
   if (!electionSnap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const electionStatus = electionSnap.data().status;
   if (electionSnap.data().locked === true) {
     throw new HttpsError('failed-precondition', 'Unlock the election before resetting all data.');
+  }
+  if (!['draft', 'closed'].includes(electionStatus)) {
+    throw new HttpsError('failed-precondition', `Close the election before resetting (current status: ${electionStatus}).`);
   }
 
   const [candidates, ballots, voters, rosterStudents, studentIndexes, emailIndexes] = await Promise.all([
@@ -194,7 +320,7 @@ exports.resetAllElectionData = onCall(async (request) => {
     action: 'election.reset-all-data',
     target: `elections/${electionId}`,
     electionId,
-    details: { deleted, confirmationRequired: requiredConfirmation },
+    details: { deleted, confirmationRequired: requiredConfirmation, fromStatus: electionStatus },
   });
 
   return { ok: true, electionId, deleted };
@@ -277,11 +403,17 @@ exports.lockElection = onCall(async (request) => {
   return { ok: true };
 });
 
-/** Unlock an election (superadmin). Audited. */
+/** Unlock an election (superadmin). Audited. Refused once finalized/archived — those are immutable states. */
 exports.unlockElection = onCall(async (request) => {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
+  const snap = await db.doc(`elections/${electionId}`).get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const status = snap.data().status;
+  if (status === 'finalized' || status === 'archived') {
+    throw new HttpsError('failed-precondition', `A ${status} election cannot be unlocked.`);
+  }
   await db.doc(`elections/${electionId}`).update({
     locked: FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -372,9 +504,11 @@ async function clearVoterLocks(electionId) {
 
 /**
  * Election-scoped destructive reset (superadmin only). Requires a fresh backup
- * for the election; refuses otherwise. Batches writes; never touches persistent
- * data (roster, positions, voter accounts, admin registry, config, audit, or
- * any other election).
+ * for the election; refuses otherwise. The election must be locked AND in a
+ * quiescent state (draft/closed) so a live vote can never interleave with the
+ * deletion batches (which would open a double-vote window). Batches writes;
+ * never touches persistent data (roster, positions, voter accounts, admin
+ * registry, config, audit, or any other election).
  */
 exports.resetElectionData = onCall(async (request) => {
   assertSuperAdmin(request.auth);
@@ -389,6 +523,13 @@ exports.resetElectionData = onCall(async (request) => {
 
   const electionSnap = await db.doc(`elections/${electionId}`).get();
   if (!electionSnap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const current = electionSnap.data();
+  if (current.locked !== true) {
+    throw new HttpsError('failed-precondition', 'Lock the election before running a scoped reset.');
+  }
+  if (!['draft', 'closed'].includes(current.status)) {
+    throw new HttpsError('failed-precondition', `Scoped resets require a draft or closed election (current status: ${current.status}).`);
+  }
 
   await verifyBackupForReset(backupId, electionId);
 

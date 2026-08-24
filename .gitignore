@@ -30,3 +30,17 @@ voting-app/node_modules/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 voting-app/tsconfig.tsbuildinfo
+
+# P1 hygiene -- PII / generated / build artifacts (do NOT commit)
+*.xlsx
+*.xls
+*.csv
+testing-reports/
+audits/**/*.png
+audits/**/*.jpg
+audits/**/*.jpeg
+audits/**/*.webp
+audits/**/*.mp4
+audits/**/*.webm
+voting-app/.next.build-failure-backup/
+

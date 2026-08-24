@@ -17,7 +17,9 @@ const testEnv = await initializeTestEnvironment({
 
 const SUPER_UID = "super_uid";
 const superCtx = () => testEnv.authenticatedContext(SUPER_UID, { email: "super.scc@gmail.com", superadmin: true });
-const registryAdminCtx = () => testEnv.authenticatedContext("reg_admin_uid", { email: "reg.admin.scc@gmail.com" });
+// Registry admins must present a VERIFIED email for their grant to count.
+const registryAdminCtx = () => testEnv.authenticatedContext("reg_admin_uid", { email: "reg.admin.scc@gmail.com", email_verified: true });
+const unverifiedRegistryAdminCtx = () => testEnv.authenticatedContext("unverified_admin_uid", { email: "reg.admin.scc@gmail.com" });
 const studentCtx = () => testEnv.authenticatedContext("student_uid", { email: "student.scc@gmail.com" });
 const guestCtx = () => testEnv.authenticatedContext("guest_uid", {}); // anonymous: no email token
 
@@ -106,14 +108,16 @@ await assertSucceeds(getDoc(doc(registryAdminCtx().firestore(), "admins", "reg.a
 await assertFails(getDoc(doc(studentCtx().firestore(), "admins", "reg.admin.scc@gmail.com")));
 console.log("PASS admin can read own registry entry; student cannot read others'");
 
-// --- registry membership grants admin powers ---
-await assertSucceeds(
+// --- election documents are read-only to ALL clients ---
+// Status/registration/eligibility mutations run exclusively through the audited
+// setElectionStatus / setRegistrationOpen / setEligibleSections callables.
+await assertFails(
   updateDoc(doc(registryAdminCtx().firestore(), "elections", electionId), {
     status: "closed",
     updatedAt: serverTimestamp()
   })
 );
-console.log("PASS registry admin can run admin operations (election update)");
+console.log("PASS registry admin cannot write election documents directly (callables only)");
 
 await assertFails(
   updateDoc(doc(studentCtx().firestore(), "elections", electionId), {
@@ -121,7 +125,20 @@ await assertFails(
     updatedAt: serverTimestamp()
   })
 );
-console.log("PASS plain student still cannot run admin operations");
+console.log("PASS plain student still cannot write election documents");
+
+// --- registry membership requires a verified email ---
+await assertFails(
+  setDoc(doc(unverifiedRegistryAdminCtx().firestore(), "audit", "unverified-admin-action"), {
+    ts: serverTimestamp(),
+    actorUid: "unverified_admin_uid",
+    actorRole: "admin",
+    action: "candidate.update",
+    target: "candidates/x",
+    details: {}
+  })
+);
+console.log("PASS an unverified account claiming a granted email gains no admin powers");
 
 // --- config/app ---
 await seed();
