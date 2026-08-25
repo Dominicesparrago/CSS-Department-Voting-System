@@ -19,7 +19,7 @@ function toHttpsError(error, fallbackCode, fallbackMessage) {
  * Edit a single roster student's profile data (admin). Voting participation
  * locks are never modified here — only identity fields shown on the ballot.
  */
-exports.updateRosterStudent = onCall(async (request) => {
+exports.updateRosterStudent = onCall({ invoker: 'public' }, async (request) => {
   try {
   const data = request.data || {};
   await assertElectionConfigWritable(db, request.auth, data.electionId);

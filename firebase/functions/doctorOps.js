@@ -21,7 +21,7 @@ function toHttpsError(error, fallbackCode, fallbackMessage) {
 const MAX_IDS_RETURNED = 1000;
 
 /** Run the read-only integrity scan. */
-exports.databaseDoctor = onCall(async (request) => {
+exports.databaseDoctor = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const [voters, students, studentIndex, emailIndex, candidates, ballots, positions, elections, tallies] = await Promise.all([
@@ -73,7 +73,7 @@ exports.databaseDoctor = onCall(async (request) => {
  * Apply a single, explicitly confirmed safe repair. The client only ever sends
  * back the ids the scan surfaced; each repair is audited.
  */
-exports.databaseRepair = onCall(async (request) => {
+exports.databaseRepair = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};

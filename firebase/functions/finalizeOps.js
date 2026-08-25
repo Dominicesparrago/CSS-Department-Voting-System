@@ -35,7 +35,7 @@ async function loadVerificationData(electionId) {
 }
 
 /** Run the pre-finalization verification checklist (superadmin). */
-exports.verifyResults = onCall(async (request) => {
+exports.verifyResults = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;
@@ -71,7 +71,7 @@ exports.verifyResults = onCall(async (request) => {
  * recomputes the final tally from immutable ballots, locks the results, and
  * flags the election as finalized (still publicly readable like published).
  */
-exports.finalizeElection = onCall(async (request) => {
+exports.finalizeElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;

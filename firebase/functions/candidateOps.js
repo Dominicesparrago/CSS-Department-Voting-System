@@ -63,7 +63,7 @@ async function assertCandidatesMutable(electionId) {
  * candidates/{id} — the only path that creates candidate documents.
  * Refused once any ballot exists for the election (V-04).
  */
-exports.importCandidates = onCall(async (request) => {
+exports.importCandidates = onCall({ invoker: 'public' }, async (request) => {
   try {
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : DEFAULT_ELECTION_ID;
@@ -133,7 +133,7 @@ exports.importCandidates = onCall(async (request) => {
  * candidates/{id} are denied by the security rules; this callable is the
  * only sanctioned path. Frozen once any ballot exists for the election.
  */
-exports.upsertCandidate = onCall(async (request) => {
+exports.upsertCandidate = onCall({ invoker: 'public' }, async (request) => {
   try {
   const data = request.data || {};
   const normalized = normalizeCandidateInput(data, data.id);
@@ -199,7 +199,7 @@ exports.upsertCandidate = onCall(async (request) => {
   }
 });
 
-exports.setCandidateActive = onCall(async (request) => {
+exports.setCandidateActive = onCall({ invoker: 'public' }, async (request) => {
   try {
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
@@ -234,7 +234,7 @@ exports.setCandidateActive = onCall(async (request) => {
   }
 });
 
-exports.setCandidateArchived = onCall(async (request) => {
+exports.setCandidateArchived = onCall({ invoker: 'public' }, async (request) => {
   try {
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
@@ -269,7 +269,7 @@ exports.setCandidateArchived = onCall(async (request) => {
   }
 });
 
-exports.deleteCandidate = onCall(async (request) => {
+exports.deleteCandidate = onCall({ invoker: 'public' }, async (request) => {
   try {
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';

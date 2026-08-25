@@ -40,7 +40,7 @@ function requireBackupId(data) {
  * JSON blob in Storage, with a checksum and metadata record. Ballots contain no
  * uid/timestamp, so a backup never links a vote to a person.
  */
-exports.createBackup = onCall(async (request) => {
+exports.createBackup = onCall({ invoker: 'public' }, async (request) => {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : DEFAULT_ELECTION_ID;
@@ -153,7 +153,7 @@ exports.createBackup = onCall(async (request) => {
  * then upserts candidates/ballots/tally/participation for that election. Never
  * touches persistent collections (roster, voter accounts, positions, etc.).
  */
-exports.restoreBackup = onCall(async (request) => {
+exports.restoreBackup = onCall({ invoker: 'public' }, async (request) => {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const backupId = requireBackupId(data);
@@ -282,7 +282,7 @@ exports.restoreBackup = onCall(async (request) => {
 });
 
 /** Delete a backup (superadmin): metadata record + storage payload. */
-exports.deleteBackup = onCall(async (request) => {
+exports.deleteBackup = onCall({ invoker: 'public' }, async (request) => {
   assertSuperAdmin(request.auth);
   const backupId = requireBackupId(request.data);
   try {

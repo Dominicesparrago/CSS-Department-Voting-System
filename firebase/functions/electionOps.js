@@ -13,6 +13,7 @@ const { parseDate } = require('./tally');
 const { resolveElectionTransition } = require('./electionStateMachine');
 
 const db = getFirestore();
+const RESET_PAGE_SIZE = 400;
 
 function slugify(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
@@ -32,7 +33,7 @@ function toHttpsError(error, fallbackCode, fallbackMessage) {
  * Create a new draft election (superadmin). The ballot defaults to the current
  * positions whitelist unless one is provided.
  */
-exports.createElection = onCall(async (request) => {
+exports.createElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
@@ -96,7 +97,7 @@ exports.createElection = onCall(async (request) => {
 });
 
 /** Update an existing election's configurable fields (superadmin). */
-exports.updateElection = onCall(async (request) => {
+exports.updateElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
@@ -184,7 +185,7 @@ exports.updateElection = onCall(async (request) => {
  * election documents directly — the rules deny it and every transition is
  * audited here.
  */
-exports.setElectionStatus = onCall(async (request) => {
+exports.setElectionStatus = onCall({ invoker: 'public' }, async (request) => {
   try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
@@ -228,7 +229,7 @@ exports.setElectionStatus = onCall(async (request) => {
 });
 
 /** Open or close registration (admin). Refused while the election is locked/finalized. */
-exports.setRegistrationOpen = onCall(async (request) => {
+exports.setRegistrationOpen = onCall({ invoker: 'public' }, async (request) => {
   try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
@@ -275,7 +276,7 @@ exports.setRegistrationOpen = onCall(async (request) => {
  * roster students. Sections are normalized to the canonical BSCS-<year><letter>
  * format server-side so client normalization can never diverge.
  */
-exports.setEligibleSections = onCall(async (request) => {
+exports.setEligibleSections = onCall({ invoker: 'public' }, async (request) => {
   try {
   const { normalizeSection } = require('./rosterLogic');
   await assertAdmin(db, request.auth);
@@ -334,7 +335,9 @@ exports.setEligibleSections = onCall(async (request) => {
  * Safety: only permitted on a closed/draft election (never open/published), so
  * in-flight votes can never race the deletion pipeline.
  */
-exports.resetAllElectionData = onCall(async (request) => {
+exports.resetAllElectionData = onCall(
+  { invoker: 'public', timeoutSeconds: 540, memory: '1GiB' },
+  async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};
@@ -358,31 +361,53 @@ exports.resetAllElectionData = onCall(async (request) => {
     throw new HttpsError('failed-precondition', `Close the election before resetting (current status: ${electionStatus}).`);
   }
 
-  const [candidates, ballots, voters, rosterStudents, studentIndexes, emailIndexes] = await Promise.all([
-    readDocsWhere(db, 'candidates', 'electionId', electionId),
-    readDocsWhere(db, 'ballots', 'electionId', electionId),
-    readAllDocs(db, 'voters'),
-    readAllDocs(db, 'students'),
-    readAllDocs(db, 'studentIndex'),
-    readAllDocs(db, 'emailIndex'),
-  ]);
+  console.log(`resetAllElectionData: starting full reset of ${electionId} (status: ${electionStatus}).`);
 
+  // Read→delete one page at a time so peak memory stays flat even for very
+  // large rosters; each commit logs a breadcrumb so a mid-run failure pinpoints
+  // exactly which collection and how far it got.
+  async function purge(queryFactory, label, collectIds) {
+    let total = 0;
+    for (;;) {
+      const snap = await queryFactory().get();
+      if (snap.empty) break;
+      const batch = db.batch();
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      total += snap.size;
+      if (collectIds) snap.docs.forEach((d) => collectIds.push(d.id));
+      console.log(`resetAllElectionData: ${label} deleted ${total}...`);
+      if (snap.size < RESET_PAGE_SIZE) break;
+    }
+    return total;
+  }
+
+  // Voter uids are captured during the voters pass (ids only — small in memory)
+  // because their Auth accounts must be deleted after the Firestore purge.
+  const voterUids = [];
   const deleted = {
-    candidates: await batchDeleteByIds(db, 'candidates', candidates.map((d) => d.id)),
-    ballots: await batchDeleteByIds(db, 'ballots', ballots.map((d) => d.id)),
-    voters: await batchDeleteByIds(db, 'voters', voters.map((d) => d.id)),
-    students: await batchDeleteByIds(db, 'students', rosterStudents.map((d) => d.id)),
-    studentIndexes: await batchDeleteByIds(db, 'studentIndex', studentIndexes.map((d) => d.id)),
-    emailIndexes: await batchDeleteByIds(db, 'emailIndex', emailIndexes.map((d) => d.id)),
+    candidates: await purge(
+      () => db.collection('candidates').where('electionId', '==', electionId).orderBy('__name__').limit(RESET_PAGE_SIZE),
+      'candidates',
+    ),
+    ballots: await purge(
+      () => db.collection('ballots').where('electionId', '==', electionId).orderBy('__name__').limit(RESET_PAGE_SIZE),
+      'ballots',
+    ),
+    voters: await purge(() => db.collection('voters').orderBy('__name__').limit(RESET_PAGE_SIZE), 'voters', voterUids),
+    students: await purge(() => db.collection('students').orderBy('__name__').limit(RESET_PAGE_SIZE), 'students'),
+    studentIndexes: await purge(() => db.collection('studentIndex').orderBy('__name__').limit(RESET_PAGE_SIZE), 'studentIndex'),
+    emailIndexes: await purge(() => db.collection('emailIndex').orderBy('__name__').limit(RESET_PAGE_SIZE), 'emailIndex'),
     tallies: 0,
     authUsers: 0,
   };
 
   // Voter documents are the application-side identity registry. Remove the
   // matching Firebase Auth accounts as well, in chunks supported by Admin SDK.
-  for (let i = 0; i < voters.length; i += 1000) {
-    const result = await getAuth().deleteUsers(voters.slice(i, i + 1000).map((d) => d.id));
+  for (let i = 0; i < voterUids.length; i += 1000) {
+    const result = await getAuth().deleteUsers(voterUids.slice(i, i + 1000));
     deleted.authUsers += result.successCount;
+    console.log(`resetAllElectionData: auth users deleted ${deleted.authUsers}/${voterUids.length}...`);
   }
 
   const tallyRef = db.doc(`tallies/${electionId}`);
@@ -413,7 +438,7 @@ exports.resetAllElectionData = onCall(async (request) => {
 });
 
 /** Archive a completed election (superadmin). */
-exports.archiveElection = onCall(async (request) => {
+exports.archiveElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
@@ -450,7 +475,7 @@ exports.archiveElection = onCall(async (request) => {
 });
 
 /** Restore an archived election back to draft (superadmin). */
-exports.restoreElection = onCall(async (request) => {
+exports.restoreElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
@@ -484,7 +509,7 @@ exports.restoreElection = onCall(async (request) => {
 });
 
 /** Lock an election (superadmin). While locked, ordinary admin edits and voting are refused. */
-exports.lockElection = onCall(async (request) => {
+exports.lockElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
@@ -520,7 +545,7 @@ exports.lockElection = onCall(async (request) => {
 });
 
 /** Unlock an election (superadmin). Audited. Refused once finalized/archived — those are immutable states. */
-exports.unlockElection = onCall(async (request) => {
+exports.unlockElection = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
@@ -559,7 +584,7 @@ exports.unlockElection = onCall(async (request) => {
  * Affected-record counts for a proposed reset. Ballots are never client-readable,
  * so this must come from the server.
  */
-exports.estimateReset = onCall(async (request) => {
+exports.estimateReset = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;
@@ -658,7 +683,7 @@ async function clearVoterLocks(electionId) {
  * never touches persistent data (roster, positions, voter accounts, admin
  * registry, config, audit, or any other election).
  */
-exports.resetElectionData = onCall(async (request) => {
+exports.resetElectionData = onCall({ invoker: 'public' }, async (request) => {
   try {
   assertSuperAdmin(request.auth);
   const data = request.data || {};

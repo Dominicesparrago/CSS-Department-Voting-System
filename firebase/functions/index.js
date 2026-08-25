@@ -119,6 +119,7 @@ exports.submitBallot = onCall(
     // Rejects requests without a valid App Check token once enforcement is
     // enabled in the Firebase console (see docs/RATE_LIMIT_HARDENING.md).
     enforceAppCheck: true,
+    invoker: 'public',
     // Keeps a warm instance so a simultaneous voting burst isn't absorbed by cold starts.
     minInstances: 1,
   },
@@ -277,7 +278,7 @@ async function checkVoterEligibility(get, uid, electionId) {
  * inside its write transaction, so this is UX, not security.
  */
 exports.checkMyRosterStatus = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: true, invoker: 'public' },
   async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in to vote.');
   const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
@@ -296,7 +297,7 @@ exports.checkMyRosterStatus = onCall(
  * (scripts/bots cannot mint reCAPTCHA tokens), not an auth requirement.
  */
 exports.verifyStudentAgainstRoster = onCall(
-  { enforceAppCheck: true },
+  { enforceAppCheck: true, invoker: 'public' },
   async (request) => {
   const data = request.data || {};
   const electionId = data.electionId || DEFAULT_ELECTION_ID;
@@ -356,7 +357,7 @@ exports.verifyStudentAgainstRoster = onCall(
  * the student can no longer vote (participation locks already recorded are
  * preserved).
  */
-exports.deleteRosterEntries = onCall(async (request) => {
+exports.deleteRosterEntries = onCall({ invoker: 'public' }, async (request) => {
   try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
@@ -426,7 +427,7 @@ async function readAllRosterDocs() {
  * `replace: true` additionally soft-deactivates roster students absent from
  * the file (records and participation are preserved; status flips to inactive).
  */
-exports.importRoster = onCall(async (request) => {
+exports.importRoster = onCall({ invoker: 'public' }, async (request) => {
   try {
   await assertAdmin(db, request.auth);
   const data = request.data || {};
@@ -569,7 +570,7 @@ function tallyFromBallots(ballotsSnap) {
  * Aggregate results for the admin console. Reads raw ballots server-side and
  * returns only counts — admins never receive individual ballot documents.
  */
-exports.getResults = onCall(async (request) => {
+exports.getResults = onCall({ invoker: 'public' }, async (request) => {
   try {
     await assertAdmin(db, request.auth);
     const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;
@@ -593,7 +594,7 @@ exports.getResults = onCall(async (request) => {
  * Create a Firebase Auth account and its runtime admin registry entry. The
  * password is accepted only by this trusted callable and is never persisted.
  */
-exports.createAdminAccount = onCall(async (request) => {
+exports.createAdminAccount = onCall({ invoker: 'public' }, async (request) => {
   try {
     assertSuperAdmin(request.auth);
     const { email, password } = normalizeAdminAccountInput(request.data);
@@ -650,7 +651,7 @@ exports.createAdminAccount = onCall(async (request) => {
  * Publish official results. Recomputes the tally from immutable ballots and
  * writes tallies/{electionId}, then flips the election to published.
  */
-exports.publishTally = onCall(async (request) => {
+exports.publishTally = onCall({ invoker: 'public' }, async (request) => {
   try {
   await assertAdmin(db, request.auth);
   const electionId = (request.data && request.data.electionId) || DEFAULT_ELECTION_ID;

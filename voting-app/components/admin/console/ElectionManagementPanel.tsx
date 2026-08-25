@@ -1,6 +1,7 @@
 'use client';
 
 import { getFunctionsErrorMessage } from '@/lib/firebase/functionsError';
+import { getFirebaseAuth } from '@/lib/firebase/init';
 import { useState } from 'react';
 import { Archive, CheckCircle2, LockKeyhole, Plus, RotateCcw, Stethoscope, UnlockKeyhole, Vote, TriangleAlert } from 'lucide-react';
 import NoticeLine, { type Notice } from '@/components/admin/console/NoticeLine';
@@ -41,11 +42,20 @@ export default function ElectionManagementPanel({ elections, positions }: { elec
 
   const ordered = [...elections].sort((a, b) => (a.id === ELECTION_ID ? -1 : b.id === ELECTION_ID ? 1 : a.id.localeCompare(b.id)));
 
+  const SESSION_EXPIRED = 'Your session has expired. Sign in again, then retry.';
+  function assertSignedIn(): boolean {
+    if (getFirebaseAuth().currentUser) return true;
+    setNotice({ text: SESSION_EXPIRED, error: true });
+    setBusy('');
+    return false;
+  }
+
   function run(actionKey: string, fn: () => Promise<unknown>, success: string) {
     if (busy) return;
     setBusy(actionKey);
     setNotice(null);
     setVerifyResult('');
+    if (!assertSignedIn()) return;
     void (async () => {
       try {
         await fn();
@@ -90,6 +100,7 @@ export default function ElectionManagementPanel({ elections, positions }: { elec
     if (busy || resetConfirmation !== 'DELETE ALL STUDENT AND CANDIDATE DATA') return;
     setBusy(`reset-all-${electionId}`);
     setNotice(null);
+    if (!assertSignedIn()) return;
     try {
       const result = await resetAllElectionData({ electionId, confirmation: resetConfirmation });
       const deleted = result.deleted;
