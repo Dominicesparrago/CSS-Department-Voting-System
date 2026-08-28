@@ -5,6 +5,8 @@ export interface VoterProfile {
   uid: string;
   studentNo?: string;
   fullName: string;
+  firstName?: string;
+  surname?: string;
   email: string;
   yearLevel: number;
   section: string;
@@ -61,6 +63,8 @@ export interface Election {
    * superadmin retains a controlled emergency override (audited).
    */
   locked?: boolean;
+  /** Superadmin emergency permission for profile-only candidate edits after ballots exist. */
+  candidateProfileEditingUnlocked?: boolean;
   /** Set when results are finalized; further ordinary admin modification is refused. */
   finalizedAt?: Timestamp | null;
   archivedAt?: Timestamp | null;
@@ -199,7 +203,7 @@ export interface ResetEstimate {
 export interface BackupRecord {
   id: string;
   electionId: string;
-  type: 'manual' | 'pre-reset';
+  type: 'manual' | 'pre-reset' | 'pre-reset-full';
   storagePath: string;
   sizeBytes: number;
   checksum: string;

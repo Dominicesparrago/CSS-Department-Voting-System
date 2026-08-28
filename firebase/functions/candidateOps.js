@@ -6,8 +6,11 @@ const { assertElectionConfigWritable, actorRole } = require('./authGuards');
 const { writeAudit } = require('./audit');
 const { DEFAULT_ELECTION_ID } = require('./constants');
 const { processCandidateImport } = require('./candidateImportLogic');
+const { createRateLimiter } = require('./rateLimit');
+const { invalidateBallotConfigCache } = require('./electionCache');
 
 const db = getFirestore();
+const limiter = createRateLimiter({ db });
 function toHttpsError(error, fallbackCode, fallbackMessage) {
   if (error instanceof HttpsError) throw error;
   if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
@@ -33,7 +36,6 @@ function normalizeCandidateInput(data, existingId) {
   const yearLevel = Number(data.yearLevel);
   if (![1, 2, 3, 4].includes(yearLevel)) throw new HttpsError('invalid-argument', 'yearLevel must be 1-4.');
   const platform = typeof data.platform === 'string' ? data.platform.trim() : '';
-  if (platform.length < 10) throw new HttpsError('invalid-argument', 'Platform is required (at least 10 characters).');
   if (platform.length > 2000) throw new HttpsError('invalid-argument', 'Platform is too long (max 2000).');
   const order = Number(data.order);
   if (!Number.isInteger(order) || order < 0 || order > 9999) throw new HttpsError('invalid-argument', 'order must be an integer 0-9999.');
@@ -65,6 +67,7 @@ async function assertCandidatesMutable(electionId) {
  */
 exports.importCandidates = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminHeavy');
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : DEFAULT_ELECTION_ID;
   await assertElectionConfigWritable(db, request.auth, electionId);
@@ -90,8 +93,9 @@ exports.importCandidates = onCall({ invoker: 'public' }, async (request) => {
   for (let i = 0; i < records.length; i += 400) {
     const batch = db.batch();
     for (const record of records.slice(i, i + 400)) {
-      const ref = record.id ? db.doc(`candidates/${record.id}`) : db.collection('candidates').doc();
-      batch.set(ref, { ...record, id: undefined, electionId, updatedAt: now });
+      const { id: _recordId, ...docData } = record;
+      const ref = _recordId ? db.doc(`candidates/${_recordId}`) : db.collection('candidates').doc();
+      batch.set(ref, { ...docData, electionId, updatedAt: now });
     }
     await batch.commit();
   }
@@ -113,6 +117,7 @@ exports.importCandidates = onCall({ invoker: 'public' }, async (request) => {
     },
   });
 
+  invalidateBallotConfigCache();
   return { ok: true, summary };
   } catch (error) {
     if (error instanceof HttpsError) throw error;
@@ -135,11 +140,26 @@ exports.importCandidates = onCall({ invoker: 'public' }, async (request) => {
  */
 exports.upsertCandidate = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   const data = request.data || {};
   const normalized = normalizeCandidateInput(data, data.id);
   const electionId = normalized.electionId;
   await assertElectionConfigWritable(db, request.auth, electionId);
-  await assertCandidatesMutable(electionId);
+  const existing = normalized.id ? await db.doc(`candidates/${normalized.id}`).get() : null;
+  const profileOnlyOverride = existing && existing.exists;
+  const electionSnap = await db.doc(`elections/${electionId}`).get();
+  const ballotsFrozen = await ballotsExist(electionId);
+  if (ballotsFrozen) {
+    if (!profileOnlyOverride || electionSnap.data()?.candidateProfileEditingUnlocked !== true) {
+      throw new HttpsError('failed-precondition', 'Candidates are frozen once voting has begun.');
+    }
+    const current = existing.data();
+    if (normalized.positionId !== current.positionId || normalized.section !== current.section || normalized.yearLevel !== current.yearLevel || normalized.order !== current.order || normalized.active !== current.active) {
+      throw new HttpsError('failed-precondition', 'Only candidate profile fields can be changed after voting has begun.');
+    }
+  } else {
+    await assertCandidatesMutable(electionId);
+  }
 
   const positionSnap = await db.doc(`positions/${normalized.positionId}`).get();
   if (!positionSnap.exists) throw new HttpsError('invalid-argument', `Unknown position: ${normalized.positionId}.`);
@@ -147,8 +167,7 @@ exports.upsertCandidate = onCall({ invoker: 'public' }, async (request) => {
   const isUpdate = !!normalized.id;
   let ref;
   if (isUpdate) {
-    const existing = await db.doc(`candidates/${normalized.id}`).get();
-    if (!existing.exists) throw new HttpsError('not-found', 'Candidate was not found.');
+    if (!existing || !existing.exists) throw new HttpsError('not-found', 'Candidate was not found.');
     if (existing.data().electionId !== electionId) {
       throw new HttpsError('invalid-argument', 'Candidate electionId mismatch.');
     }
@@ -169,10 +188,10 @@ exports.upsertCandidate = onCall({ invoker: 'public' }, async (request) => {
     party: normalized.party,
     order: normalized.order,
     active: normalized.active,
-    photoURL: normalized.photoURL,
-    photoPath: normalized.photoPath,
     updatedAt: FieldValue.serverTimestamp(),
   };
+  if (normalized.photoURL) payload.photoURL = normalized.photoURL;
+  if (normalized.photoPath) payload.photoPath = normalized.photoPath;
   if (!isUpdate) payload.createdAt = FieldValue.serverTimestamp();
 
   await ref.set(payload, { merge: true });
@@ -184,6 +203,7 @@ exports.upsertCandidate = onCall({ invoker: 'public' }, async (request) => {
     electionId,
     details: { positionId: normalized.positionId, active: normalized.active },
   });
+  invalidateBallotConfigCache();
   return { ok: true, id: ref.id };
   } catch (error) {
     if (error instanceof HttpsError) throw error;
@@ -201,6 +221,7 @@ exports.upsertCandidate = onCall({ invoker: 'public' }, async (request) => {
 
 exports.setCandidateActive = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
   const active = data.active === true;
@@ -219,6 +240,7 @@ exports.setCandidateActive = onCall({ invoker: 'public' }, async (request) => {
     electionId,
     details: { active },
   });
+  invalidateBallotConfigCache();
   return { ok: true };
   } catch (error) {
     if (error instanceof HttpsError) throw error;
@@ -236,6 +258,7 @@ exports.setCandidateActive = onCall({ invoker: 'public' }, async (request) => {
 
 exports.setCandidateArchived = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
   const archived = data.archived === true;
@@ -254,6 +277,7 @@ exports.setCandidateArchived = onCall({ invoker: 'public' }, async (request) => 
     electionId,
     details: { archived },
   });
+  invalidateBallotConfigCache();
   return { ok: true };
   } catch (error) {
     if (error instanceof HttpsError) throw error;
@@ -271,6 +295,7 @@ exports.setCandidateArchived = onCall({ invoker: 'public' }, async (request) => 
 
 exports.deleteCandidate = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   const data = request.data || {};
   const candidateId = typeof data.candidateId === 'string' ? data.candidateId : '';
   if (!candidateId) throw new HttpsError('invalid-argument', 'candidateId is required.');
@@ -288,6 +313,7 @@ exports.deleteCandidate = onCall({ invoker: 'public' }, async (request) => {
     electionId,
     details: {},
   });
+  invalidateBallotConfigCache();
   return { ok: true };
   } catch (error) {
     if (error instanceof HttpsError) throw error;

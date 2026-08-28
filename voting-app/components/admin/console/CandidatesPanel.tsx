@@ -58,6 +58,7 @@ interface CandidatesPanelProps {
   actorUid: string;
   candidates: Candidate[];
   positions: Position[];
+  candidateProfileEditingUnlocked: boolean;
   positionOptions: CustomSelectOption[];
   onRefreshCandidates: () => Promise<void>;
   onRequestConfirm: (state: ConfirmState) => void;
@@ -68,6 +69,7 @@ export default function CandidatesPanel({
   actorUid,
   candidates,
   positions,
+  candidateProfileEditingUnlocked,
   positionOptions,
   onRefreshCandidates,
   onRequestConfirm,
@@ -262,7 +264,7 @@ export default function CandidatesPanel({
                 value={form.positionId}
                 options={positionOptions}
                 placeholder="Select position"
-                disabled={positionOptions.length === 0}
+                disabled={positionOptions.length === 0 || (Boolean(form.id) && candidateProfileEditingUnlocked)}
                 onChange={(positionId) => setForm((current) => ({ ...current, positionId }))}
               />
             </div>
@@ -272,6 +274,7 @@ export default function CandidatesPanel({
                 value={form.yearLevel}
                 options={YEAR_LEVEL_OPTIONS}
                 placeholder="Select year level"
+                disabled={Boolean(form.id) && candidateProfileEditingUnlocked}
                 onChange={(yearLevel) => setForm((current) => {
                   // keep the section letter, retarget it to the new year (BSCS-3B → BSCS-4B)
                   const letter = /^BSCS-\d([A-Z])$/.exec(current.section)?.[1];
@@ -283,6 +286,7 @@ export default function CandidatesPanel({
                 value={form.section}
                 options={sectionOptions}
                 placeholder="Select section"
+                disabled={Boolean(form.id) && candidateProfileEditingUnlocked}
                 onChange={(section) => setForm((current) => ({ ...current, section }))}
               />
             </div>
@@ -299,6 +303,7 @@ export default function CandidatesPanel({
               <input
                 type="checkbox"
                 checked={form.active}
+                disabled={Boolean(form.id) && candidateProfileEditingUnlocked}
                 onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
               />
               Active — shown on the ballot

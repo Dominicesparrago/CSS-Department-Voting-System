@@ -1,7 +1,8 @@
 'use strict';
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { getStorage } = require('firebase-admin/storage');
 const { assertSuperAdmin, assertAdmin, actorRole, isSuperAdminAuth } = require('./authGuards');
@@ -11,8 +12,10 @@ const { readAllDocs, readDocsWhere, batchDeleteByIds, chunk } = require('./dbHel
 const { isResetScope, scopeDefinition, preservedDataList } = require('./resetLogic');
 const { parseDate } = require('./tally');
 const { resolveElectionTransition } = require('./electionStateMachine');
+const { createRateLimiter } = require('./rateLimit');
 
 const db = getFirestore();
+const limiter = createRateLimiter({ db });
 const RESET_PAGE_SIZE = 400;
 
 function slugify(text) {
@@ -35,6 +38,7 @@ function toHttpsError(error, fallbackCode, fallbackMessage) {
  */
 exports.createElection = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const title = typeof data.title === 'string' ? data.title.trim() : '';
@@ -48,7 +52,7 @@ exports.createElection = onCall({ invoker: 'public' }, async (request) => {
     ? data.positions.map(String).filter((p) => p.length > 0 && p.length <= 64)
     : [];
   if (positions.length) {
-    const existing = await db.getAll(positions.map((id) => db.doc(`positions/${id}`)));
+    const existing = await db.getAll(...positions.map((id) => db.doc(`positions/${id}`)));
     const missing = existing.filter((d) => !d.exists).map((d) => d.id);
     if (missing.length) throw new HttpsError('invalid-argument', `Unknown position(s): ${missing.join(', ')}.`);
   }
@@ -99,6 +103,7 @@ exports.createElection = onCall({ invoker: 'public' }, async (request) => {
 /** Update an existing election's configurable fields (superadmin). */
 exports.updateElection = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : '';
@@ -126,7 +131,7 @@ exports.updateElection = onCall({ invoker: 'public' }, async (request) => {
     if (data.positions.length > 50) throw new HttpsError('invalid-argument', 'At most 50 positions may be linked.');
     const ids = data.positions.map(String).filter((p) => p.length > 0 && p.length <= 64);
     if (ids.length > 50) throw new HttpsError('invalid-argument', 'At most 50 positions may be linked.');
-    const existing = await db.getAll(ids.map((id) => db.doc(`positions/${id}`)));
+    const existing = await db.getAll(...ids.map((id) => db.doc(`positions/${id}`)));
     const missing = existing.filter((d) => !d.exists).map((d) => d.id);
     if (missing.length) throw new HttpsError('invalid-argument', `Unknown position(s): ${missing.join(', ')}.`);
     patch.positions = ids;
@@ -187,6 +192,7 @@ exports.updateElection = onCall({ invoker: 'public' }, async (request) => {
  */
 exports.setElectionStatus = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
@@ -231,6 +237,7 @@ exports.setElectionStatus = onCall({ invoker: 'public' }, async (request) => {
 /** Open or close registration (admin). Refused while the election is locked/finalized. */
 exports.setRegistrationOpen = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
@@ -271,6 +278,45 @@ exports.setRegistrationOpen = onCall({ invoker: 'public' }, async (request) => {
   }
 });
 
+/** Save or clear the automatic close time. Admins may schedule it while editable. */
+exports.setElectionCloseAt = onCall({ invoker: 'public' }, async (request) => {
+  try {
+    await limiter.enforce(request, 'adminLight');
+    await assertAdmin(db, request.auth);
+    const data = request.data || {};
+    const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
+    const ref = db.doc(`elections/${electionId}`);
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Election was not found.');
+    const current = snap.data();
+    if (!isSuperAdminAuth(request.auth) && (current.locked === true || current.status === 'finalized')) {
+      throw new HttpsError('failed-precondition', 'Election data is locked.');
+    }
+    const rawCloseAt = data.closeAt;
+    const closeAt = rawCloseAt === null || rawCloseAt === '' ? null : parseDate(rawCloseAt);
+    if (rawCloseAt !== null && rawCloseAt !== '' && !closeAt) {
+      throw new HttpsError('invalid-argument', 'Enter a valid close date and time.');
+    }
+    if (closeAt && closeAt.toMillis() <= Date.now()) {
+      throw new HttpsError('invalid-argument', 'The automatic close time must be in the future.');
+    }
+    await ref.update({ closeAt, updatedAt: FieldValue.serverTimestamp() });
+    await writeAudit(db, {
+      actorUid: request.auth.uid,
+      actorRole: actorRole(request.auth),
+      action: 'election.schedule-close',
+      target: `elections/${electionId}`,
+      electionId,
+      details: { closeAt: closeAt ? closeAt.toDate().toISOString() : null },
+    });
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('setElectionCloseAt unexpected error:', error);
+    throw new HttpsError('internal', 'Unable to save the automatic close schedule.');
+  }
+});
+
 /**
  * Configure which sections may vote (admin). Empty list = all active, eligible
  * roster students. Sections are normalized to the canonical BSCS-<year><letter>
@@ -279,6 +325,7 @@ exports.setRegistrationOpen = onCall({ invoker: 'public' }, async (request) => {
 exports.setEligibleSections = onCall({ invoker: 'public' }, async (request) => {
   try {
   const { normalizeSection } = require('./rosterLogic');
+  await limiter.enforce(request, 'adminLight');
   await assertAdmin(db, request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
@@ -339,6 +386,7 @@ exports.resetAllElectionData = onCall(
   { invoker: 'public', timeoutSeconds: 540, memory: '1GiB' },
   async (request) => {
   try {
+  await limiter.enforce(request, 'saHeavy');
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : '';
@@ -349,6 +397,11 @@ exports.resetAllElectionData = onCall(
   if (confirmation !== requiredConfirmation) {
     throw new HttpsError('failed-precondition', `Type exactly: ${requiredConfirmation}`);
   }
+  // Hard gate (plan §13): a verified full-coverage backup must exist before
+  // this operation may run. It is the only recovery point for the roster,
+  // voter profiles, and identity indexes about to be deleted.
+  const backupId = typeof data.backupId === 'string' ? data.backupId : '';
+  if (!backupId) throw new HttpsError('invalid-argument', 'A full-coverage backup id is required before resetting all data.');
 
   const electionRef = db.doc(`elections/${electionId}`);
   const electionSnap = await electionRef.get();
@@ -361,7 +414,9 @@ exports.resetAllElectionData = onCall(
     throw new HttpsError('failed-precondition', `Close the election before resetting (current status: ${electionStatus}).`);
   }
 
-  console.log(`resetAllElectionData: starting full reset of ${electionId} (status: ${electionStatus}).`);
+  await verifyBackupForReset(backupId, electionId, { requireFull: true });
+
+  console.log(`resetAllElectionData: starting full reset of ${electionId} (status: ${electionStatus}, backup: ${backupId}).`);
 
   // Read→delete one page at a time so peak memory stays flat even for very
   // large rosters; each commit logs a breadcrumb so a mid-run failure pinpoints
@@ -422,10 +477,10 @@ exports.resetAllElectionData = onCall(
     action: 'election.reset-all-data',
     target: `elections/${electionId}`,
     electionId,
-    details: { deleted, confirmationRequired: requiredConfirmation, fromStatus: electionStatus },
+    details: { deleted, confirmationRequired: requiredConfirmation, fromStatus: electionStatus, backupId },
   });
 
-  return { ok: true, electionId, deleted };
+  return { ok: true, electionId, deleted, backupId };
   } catch (error) {
     if (error instanceof HttpsError) throw error;
     console.error('resetAllElectionData unexpected error:', error);
@@ -440,6 +495,7 @@ exports.resetAllElectionData = onCall(
 /** Archive a completed election (superadmin). */
 exports.archiveElection = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -477,6 +533,7 @@ exports.archiveElection = onCall({ invoker: 'public' }, async (request) => {
 /** Restore an archived election back to draft (superadmin). */
 exports.restoreElection = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -511,6 +568,7 @@ exports.restoreElection = onCall({ invoker: 'public' }, async (request) => {
 /** Lock an election (superadmin). While locked, ordinary admin edits and voting are refused. */
 exports.lockElection = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -547,6 +605,7 @@ exports.lockElection = onCall({ invoker: 'public' }, async (request) => {
 /** Unlock an election (superadmin). Audited. Refused once finalized/archived — those are immutable states. */
 exports.unlockElection = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'adminLight');
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
   if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
@@ -582,30 +641,35 @@ exports.unlockElection = onCall({ invoker: 'public' }, async (request) => {
 
 /**
  * Affected-record counts for a proposed reset. Ballots are never client-readable,
- * so this must come from the server.
+ * so this must come from the server. All figures come from index-only COUNT
+ * aggregations — no document is read regardless of collection size.
  */
 exports.estimateReset = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'saHeavy');
   assertSuperAdmin(request.auth);
   const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : DEFAULT_ELECTION_ID;
   const electionSnap = await db.doc(`elections/${electionId}`).get();
   if (!electionSnap.exists) throw new HttpsError('not-found', 'Election was not found.');
 
-  const [candidates, ballots, voters, tallies, positions] = await Promise.all([
-    readDocsWhere(db, 'candidates', 'electionId', electionId),
-    readDocsWhere(db, 'ballots', 'electionId', electionId),
-    readAllDocs(db, 'voters'),
-    readDocsWhere(db, 'tallies', 'electionId', electionId),
+  const countOf = (query, fallback = 0) =>
+    query.count().get().then((s) => Number(s.data().count || 0)).catch(() => fallback);
+
+  const [candidates, ballots, votersLocked, tallies, positions] = await Promise.all([
+    countOf(db.collection('candidates').where('electionId', '==', electionId)),
+    countOf(db.collection('ballots').where('electionId', '==', electionId)),
+    // Map sub-field equality uses the automatic single-field index.
+    countOf(db.collection('voters').where(`hasVoted.${electionId}`, '==', true)),
+    countOf(db.collection('tallies').where('electionId', '==', electionId)),
     db.collection('positions').count().get().then((s) => s.data().count).catch(() => 0),
   ]);
-  const votersLocked = voters.filter((d) => d.data().hasVoted && d.data().hasVoted[electionId] === true).length;
 
   return {
     electionId,
     electionTitle: electionSnap.data().title || '',
-    candidates: candidates.length,
-    ballots: ballots.length,
-    tallies: tallies.length,
+    candidates,
+    ballots,
+    tallies,
     votersLocked,
     positions,
   };
@@ -629,13 +693,16 @@ const SCOPE_PLAN = {
   full: { candidates: true, ballots: true, tallies: true, locks: true },
 };
 
-async function verifyBackupForReset(backupId, electionId) {
+async function verifyBackupForReset(backupId, electionId, { requireFull = false } = {}) {
   try {
     const snap = await db.doc(`backups/${backupId}`).get();
   if (!snap.exists) throw new HttpsError('failed-precondition', 'A backup must be created before a destructive reset. Create a backup first.');
   const meta = snap.data();
   if (meta.electionId !== electionId) {
     throw new HttpsError('failed-precondition', 'The backup is for a different election. Create a fresh backup for this election.');
+  }
+  if (requireFull && meta.type !== 'pre-reset-full') {
+    throw new HttpsError('failed-precondition', 'This reset deletes the roster and voter accounts — it requires a full-coverage backup (type "pre-reset-full"). Create one first.');
   }
     let exists;
     try {
@@ -652,6 +719,87 @@ async function verifyBackupForReset(backupId, electionId) {
     throw new HttpsError('internal', 'Backup verification failed: ' + (error.message || 'unknown'));
   }
 }
+
+/** Delete only an election's ballots and tally so candidates can be edited again. */
+exports.deleteBallots = onCall({ invoker: 'public' }, async (request) => {
+  try {
+  await limiter.enforce(request, 'saHeavy');
+  assertSuperAdmin(request.auth);
+  const data = request.data || {};
+  const electionId = typeof data.electionId === 'string' ? data.electionId : '';
+  const backupId = typeof data.backupId === 'string' ? data.backupId : '';
+
+  if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
+  if (!backupId) throw new HttpsError('invalid-argument', 'A backup id is required before deleting ballots.');
+
+  const electionSnap = await db.doc(`elections/${electionId}`).get();
+  if (!electionSnap.exists) throw new HttpsError('not-found', 'Election was not found.');
+  const current = electionSnap.data();
+  if (!['draft', 'closed'].includes(current.status)) {
+    throw new HttpsError('failed-precondition', `Ballot deletion requires a draft or closed election (current status: ${current.status}).`);
+  }
+  if (current.locked !== true) {
+    throw new HttpsError('failed-precondition', 'Lock the election before deleting ballots.');
+  }
+
+  await verifyBackupForReset(backupId, electionId);
+
+  const ballots = await readDocsWhere(db, 'ballots', 'electionId', electionId);
+  const deletedBallots = await batchDeleteByIds(db, 'ballots', ballots.map((d) => d.id));
+  const tallyRef = db.doc(`tallies/${electionId}`);
+  const deletedTallies = (await tallyRef.get()).exists ? 1 : 0;
+  if (deletedTallies) await tallyRef.delete();
+
+  await writeAudit(db, {
+    actorUid: request.auth.uid,
+    actorRole: 'superadmin',
+    action: 'election.delete-ballots',
+    target: `elections/${electionId}`,
+    electionId,
+    details: { deletedBallots, deletedTallies, backupId, fromStatus: current.status },
+  });
+
+  return { ok: true, deletedBallots, deletedTallies };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('deleteBallots unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for deleteBallots: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    throw new HttpsError('internal', 'deleteBallots failed: ' + msg);
+  }
+});
+
+/** Superadmin emergency action: permit profile-only candidate edits without removing ballots. */
+exports.unlockCandidateProfiles = onCall({ invoker: 'public' }, async (request) => {
+  try {
+    await limiter.enforce(request, 'adminLight');
+    assertSuperAdmin(request.auth);
+    const electionId = typeof (request.data || {}).electionId === 'string' ? request.data.electionId : '';
+    if (!electionId) throw new HttpsError('invalid-argument', 'Election id is required.');
+    const ref = db.doc(`elections/${electionId}`);
+    const snap = await ref.get();
+    if (!snap.exists) throw new HttpsError('not-found', 'Election was not found.');
+    if (['finalized', 'archived'].includes(snap.data().status)) {
+      throw new HttpsError('failed-precondition', 'Finalized or archived elections cannot be changed.');
+    }
+    await ref.update({ candidateProfileEditingUnlocked: true, updatedAt: FieldValue.serverTimestamp() });
+    await writeAudit(db, {
+      actorUid: request.auth.uid,
+      actorRole: actorRole(request.auth),
+      action: 'candidate.profile-editing.unlock',
+      target: ref.path,
+      electionId,
+      details: { preservesBallots: true, profileOnly: true },
+    });
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('unlockCandidateProfiles unexpected error:', error);
+    throw new HttpsError('internal', 'unlockCandidateProfiles failed.');
+  }
+});
 
 async function clearVoterLocks(electionId) {
   const voters = await readAllDocs(db, 'voters');
@@ -675,6 +823,36 @@ async function clearVoterLocks(electionId) {
   return cleared;
 }
 
+/** Close due elections independently of the admin browser. */
+exports.autoCloseElections = onSchedule({ schedule: 'every 1 minutes', timeZone: 'Asia/Manila' }, async () => {
+  const now = Timestamp.now();
+  const snap = await db.collection('elections').where('status', '==', 'open').get();
+  let closed = 0;
+  for (const election of snap.docs) {
+    const closeAt = election.data().closeAt;
+    if (!closeAt || typeof closeAt.toMillis !== 'function' || closeAt.toMillis() > now.toMillis()) continue;
+    const didClose = await db.runTransaction(async (tx) => {
+      const current = await tx.get(election.ref);
+      const data = current.exists ? current.data() : null;
+      const currentCloseAt = data && data.closeAt;
+      if (!data || data.status !== 'open' || !currentCloseAt || typeof currentCloseAt.toMillis !== 'function' || currentCloseAt.toMillis() > now.toMillis()) return false;
+      tx.update(election.ref, { status: 'closed', updatedAt: FieldValue.serverTimestamp() });
+      return true;
+    });
+    if (!didClose) continue;
+    closed += 1;
+    await writeAudit(db, {
+      actorUid: 'system:auto-close',
+      actorRole: 'system',
+      action: 'election.auto-close',
+      target: election.ref.path,
+      electionId: election.id,
+      details: { closeAt: closeAt.toDate().toISOString() },
+    });
+  }
+  console.log(`autoCloseElections closed ${closed} election(s).`);
+});
+
 /**
  * Election-scoped destructive reset (superadmin only). Requires a fresh backup
  * for the election; refuses otherwise. The election must be locked AND in a
@@ -685,6 +863,7 @@ async function clearVoterLocks(electionId) {
  */
 exports.resetElectionData = onCall({ invoker: 'public' }, async (request) => {
   try {
+  await limiter.enforce(request, 'saHeavy');
   assertSuperAdmin(request.auth);
   const data = request.data || {};
   const electionId = typeof data.electionId === 'string' ? data.electionId : '';

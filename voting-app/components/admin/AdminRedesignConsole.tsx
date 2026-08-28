@@ -17,7 +17,7 @@ import BrandMark from '@/components/BrandMark';
 import RouteLoading from '@/components/RouteLoading';
 import { useGuardedSession } from '@/hooks/useGuardedSession';
 import { buildAggregate } from '@/lib/admin/adminCore';
-import { hasAdminAccess } from '@/lib/auth/guards-core';
+import { hasAdminAccess, hasSuperAdminClaim } from '@/lib/auth/guards-core';
 import { ELECTION_ID } from '@/lib/constants';
 import { positionGroup } from '@/lib/election/candidates';
 import { initials } from '@/lib/initials';
@@ -269,6 +269,7 @@ export default function AdminRedesignConsole({ fonts }: { fonts: AdminAuthFonts 
             actorUid={actorUid}
             candidates={candidates}
             positions={positions}
+            candidateProfileEditingUnlocked={election?.candidateProfileEditingUnlocked === true}
             positionOptions={positionOptions}
             onRefreshCandidates={refreshCandidates}
             onRequestConfirm={setConfirmState}
@@ -296,6 +297,7 @@ export default function AdminRedesignConsole({ fonts }: { fonts: AdminAuthFonts 
           <LifecyclePanel
             active={activePanel === 'lifecycle'}
             actorUid={actorUid}
+            isSuperAdmin={hasSuperAdminClaim(session?.claims ?? null)}
             election={election}
             auditEntries={auditEntries}
             onRequestConfirm={setConfirmState}

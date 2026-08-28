@@ -68,6 +68,7 @@ export function restoreElection(electionId: string): Promise<{ ok: boolean }> {
 export interface ResetAllElectionDataResult {
   ok: boolean;
   electionId: string;
+  backupId?: string;
   deleted: {
     candidates: number;
     ballots: number;
@@ -80,12 +81,14 @@ export interface ResetAllElectionDataResult {
   };
 }
 
+/** Requires `backupId` from a fresh 'pre-reset-full' backup (server-verified). */
 export function resetAllElectionData(params: {
   electionId: string;
   confirmation: string;
+  backupId: string;
 }): Promise<ResetAllElectionDataResult> {
   const call = httpsCallable<
-    { electionId: string; confirmation: string },
+    { electionId: string; confirmation: string; backupId: string },
     ResetAllElectionDataResult
   >(getFirebaseFunctions(), 'resetAllElectionData');
   return call(params).then(({ data }) => data);
@@ -104,6 +107,15 @@ export function unlockElection(electionId: string): Promise<{ ok: boolean }> {
   const call = httpsCallable<{ electionId: string }, { ok: boolean }>(
     getFirebaseFunctions(),
     'unlockElection',
+  );
+  return call({ electionId }).then(({ data }) => data);
+}
+
+/** Allow profile-only candidate edits while preserving ballots and tallies. */
+export function unlockCandidateProfiles(electionId: string): Promise<{ ok: boolean }> {
+  const call = httpsCallable<{ electionId: string }, { ok: boolean }>(
+    getFirebaseFunctions(),
+    'unlockCandidateProfiles',
   );
   return call({ electionId }).then(({ data }) => data);
 }
