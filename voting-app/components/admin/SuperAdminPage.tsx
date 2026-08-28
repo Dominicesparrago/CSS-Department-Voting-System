@@ -52,6 +52,8 @@ import {
   grantAdmin,
   createAdminAccount,
   resetVoterRegistration,
+  resetAllVoterRegistrations,
+  removeVoters,
   revokeAdmin,
   watchAdmins,
   watchAllElections,
@@ -310,28 +312,38 @@ export default function SuperAdminPage({ fonts }: { fonts: OneTimeVoteFonts }) {
             )}
             {activeTab === 'oversight' && (
               <>
-                <div className="pos-switch" role="group" aria-label="Oversight section">
-                  {([['overview', 'Overview'], ['positions', 'Positions'], ['import', 'Import candidates']] as const).map(([key, label]) => (
-                    <button key={key} className={oversightSection === key ? 'on' : ''} type="button" aria-pressed={oversightSection === key} onClick={() => setOversightSection(key)}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                <header className="head">
+                  <div>
+                    <span className="eyebrow">Roster integrity</span>
+                    <h1>Positions &amp; candidates</h1>
+                    <p>{liveData.positions.length} positions · {liveData.candidates.filter((c) => c.active).length} active candidates · {liveData.positions.filter((p) => liveData.candidates.some((c) => c.positionId === p.id && c.active)).length}/{liveData.positions.length} covered. Sanity checks flag gaps that would show up on the ballot.</p>
+                  </div>
+                  <div className="head-actions">
+                    <div className="pos-switch" role="group" aria-label="Oversight section">
+                      {([['overview', 'Overview'], ['positions', 'Positions'], ['import', 'Import candidates']] as const).map(([key, label]) => (
+                        <button key={key} className={oversightSection === key ? 'on' : ''} type="button" aria-pressed={oversightSection === key} onClick={() => setOversightSection(key)}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </header>
                 {oversightSection === 'overview' && (
                   <OversightPanel
                     positions={liveData.positions}
                     candidates={liveData.candidates}
                     results={liveData.results}
                     electionTitle={electionTitle}
+                    hideHeader
                   />
                 )}
-                {oversightSection === 'positions' && <PositionsPanel positions={liveData.positions} />}
-                {oversightSection === 'import' && <CandidateImportPanel />}
+                {oversightSection === 'positions' && <PositionsPanel positions={liveData.positions} hideHeader />}
+                {oversightSection === 'import' && <CandidateImportPanel hideHeader />}
               </>
             )}
             {activeTab === 'admins' && <AdminsPanel admins={admins} actorUid={actorUid} actorEmail={actorEmail} />}
             {activeTab === 'voters' && <VotersPanel voters={liveData.voters} actorUid={actorUid} />}
-            {activeTab === 'elections' && <ElectionManagementPanel elections={elections} positions={liveData.positions} />}
+            {activeTab === 'elections' && <ElectionManagementPanel elections={elections} positions={liveData.positions} onRefresh={() => Promise.all([liveData.refreshCandidates(), liveData.refreshResults()]).then(() => undefined)} />}
             {activeTab === 'backups' && <BackupCenter />}
             {activeTab === 'doctor' && <DatabaseDoctor />}
             {activeTab === 'export' && (
@@ -634,11 +646,12 @@ interface RosterIssue {
 }
 
 /** Positions/candidates oversight: roster sanity checks + official tally export. */
-function OversightPanel({ positions, candidates, results, electionTitle }: {
+function OversightPanel({ positions, candidates, results, electionTitle, hideHeader }: {
   positions: Position[];
   candidates: Candidate[];
   results: ResultsCounts;
   electionTitle: string;
+  hideHeader?: boolean;
 }) {
   const issues = useMemo<RosterIssue[]>(() => {
     const found: RosterIssue[] = [];
@@ -724,13 +737,28 @@ function OversightPanel({ positions, candidates, results, electionTitle }: {
 
   return (
     <>
-      <header className="head">
-        <div>
-          <span className="eyebrow">Roster integrity</span>
-          <h1>Positions &amp; candidates</h1>
-          <p>{positions.length} positions · {activeCandidates} active candidates · {coveredPositions}/{positions.length} covered. Sanity checks flag gaps that would show up on the ballot.</p>
-        </div>
-        <div className="head-actions">
+      {!hideHeader && (
+        <header className="head">
+          <div>
+            <span className="eyebrow">Roster integrity</span>
+            <h1>Positions &amp; candidates</h1>
+            <p>{positions.length} positions · {activeCandidates} active candidates · {coveredPositions}/{positions.length} covered. Sanity checks flag gaps that would show up on the ballot.</p>
+          </div>
+          <div className="head-actions">
+            <button
+              className="btn btn-ghost btn-sm"
+              type="button"
+              onClick={() => downloadFile(`css-tally-${ELECTION_ID}.csv`, resultsToCsv({ results, candidates, positions }), 'text/csv;charset=utf-8')}
+            >
+              <Download size={14} style={{ marginRight: 6 }} />
+              Tally CSV
+            </button>
+          </div>
+        </header>
+      )}
+
+      {hideHeader && (
+        <div className="head-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           <button
             className="btn btn-ghost btn-sm"
             type="button"
@@ -740,7 +768,7 @@ function OversightPanel({ positions, candidates, results, electionTitle }: {
             Tally CSV
           </button>
         </div>
-      </header>
+      )}
 
       <div className="student-facts">
         {[
@@ -805,18 +833,31 @@ function VotersPanel({ voters, actorUid }: { voters: Voter[]; actorUid: string }
     });
   }, [search, voters, filter]);
 
-  function requestReset(voter: Voter) {
-    setDialog({
-      title: `Reset registration for ${voter.fullName}?`,
-      body: `Deletes the voter record and frees ${voter.studentNo ?? 'their student number'} / ${voter.email} so they can register again. Use only for genuinely broken registrations (e.g. a typo'd student number or email).`,
-      confirmLabel: 'Reset registration',
-      danger: true,
-      action: async (reason) => {
-        await resetVoterRegistration({ uid: voter.id, reason, actorUid });
-        setNotice({ text: `Registration reset for ${voter.fullName}.` });
-      },
-    });
-  }
+function requestReset(voter: Voter) {
+     setDialog({
+       title: `Reset registration for ${voter.fullName}?`,
+       body: `Deletes the voter record and frees ${voter.studentNo ?? 'their student number'} / ${voter.email} so they can register again. Use only for genuinely broken registrations (e.g. a typo'd student number or email).`,
+       confirmLabel: 'Reset registration',
+       danger: true,
+       action: async (reason) => {
+         await resetVoterRegistration({ uid: voter.id, reason, actorUid });
+         setNotice({ text: `Registration reset for ${voter.fullName}.` });
+       },
+     });
+   }
+
+   function requestRemove(voter: Voter) {
+     setDialog({
+       title: `Remove ${voter.fullName}?`,
+       body: `Deletes the voter record and frees ${voter.studentNo ?? 'their student number'} / ${voter.email}. ${voter.hasVoted?.[ELECTION_ID] === true ? 'Their participation lock remains so they cannot vote again.' : ''} ${voter.hasVoted?.[ELECTION_ID] === true ? '' : ''} This action cannot be undone.`,
+       confirmLabel: 'Remove voter',
+       danger: true,
+       action: async (reason) => {
+         await removeVoters({ uids: [voter.id], reason, actorUid });
+         setNotice({ text: `Voter ${voter.fullName} removed.` });
+       },
+     });
+   }
 
   return (
     <>
@@ -826,17 +867,59 @@ function VotersPanel({ voters, actorUid }: { voters: Voter[]; actorUid: string }
           <h1>Voters</h1>
           <p>{voters.length} registered · {votedCount} voted. Reset frees a broken one-time registration (student number + email) for a fresh attempt.</p>
         </div>
-        <div className="head-actions">
-          <button
-            className="btn btn-ghost btn-sm"
-            type="button"
-            disabled={filteredVoters.length === 0}
-            onClick={() => downloadFile(`css-voters-${filter}-${ELECTION_ID}.csv`, votersToCsv(filteredVoters, ELECTION_ID), 'text/csv;charset=utf-8')}
-          >
-            <Download size={14} style={{ marginRight: 6 }} />
-            Export CSV
-          </button>
-        </div>
+<div className="head-actions">
+  <button
+    className="btn btn-danger btn-sm"
+    type="button"
+    disabled={voters.length === 0}
+    title="Reset signup for voters who have not voted"
+    onClick={() => {
+      setDialog({
+        title: 'Reset all voter registrations?',
+        body: 'Clears signup records for voters who have not cast a ballot, so stuck or refreshed signups can start again. Voters with recorded ballots are preserved and cannot be reset.',
+        confirmLabel: 'Reset all registrations',
+        danger: true,
+        action: async (reason) => {
+          const result = await resetAllVoterRegistrations({ reason });
+          setNotice({ text: `Reset ${result.reset} registration${result.reset === 1 ? '' : 's'}; preserved ${result.preservedVoted} voted voter${result.preservedVoted === 1 ? '' : 's'}.` });
+        },
+      });
+    }}
+  >
+    <RotateCcw size={14} style={{ marginRight: 6 }} />
+    Reset all registrations
+  </button>
+  <button
+    className="btn btn-ghost btn-sm"
+    type="button"
+    disabled={filteredVoters.length === 0}
+    onClick={() => downloadFile(`css-voters-${filter}-${ELECTION_ID}.csv`, votersToCsv(filteredVoters, ELECTION_ID), 'text/csv;charset=utf-8')}
+  >
+    <Download size={14} style={{ marginRight: 6 }} />
+    Export CSV
+  </button>
+  <button
+    className="btn btn-outline btn-sm"
+    type="button"
+    disabled={filteredVoters.length === 0}
+    title="Remove all voter records and associated data"
+    onClick={() => {
+      setDialog({
+        title: 'Remove all voters?',
+        body: 'Deletes all voter records and frees all student numbers and email addresses. Purges all ballots (removing all votes from tallies). For voted voters, participation locks are preserved so they cannot vote again. This action cannot be undone.',
+        confirmLabel: 'Remove all voters',
+        danger: true,
+        action: async (reason) => {
+          await removeVoters({ all: true, reason, actorUid });
+          setNotice({ text: 'All voters removed.' });
+        },
+      });
+    }}
+  >
+    <TriangleAlert size={14} style={{ marginRight: 6 }} />
+    Remove all
+  </button>
+</div>
       </header>
       <NoticeLine notice={notice} />
       <div className="pos-switch" role="group" aria-label="Filter voters by status">
@@ -878,19 +961,28 @@ function VotersPanel({ voters, actorUid }: { voters: Voter[]; actorUid: string }
                     {voter.guest ? ' · one-time' : ''}
                   </p>
                 </div>
-                <div className="superadmin-actions">
-                  <span className={`tag${voted ? ' active' : ''}`}>{voted ? 'Voted' : 'Not yet'}</span>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    type="button"
-                    disabled={voted}
-                    title={voted ? 'Cannot reset a voter who has already cast a ballot.' : 'Reset this registration'}
-                    onClick={() => requestReset(voter)}
-                  >
-                    <RotateCcw size={14} style={{ marginRight: 6 }} />
-                    Reset
-                  </button>
-                </div>
+<div className="superadmin-actions">
+  <span className={`tag${voted ? ' active' : ''}`}>{voted ? 'Voted' : 'Not yet'}</span>
+  <button
+    className="btn btn-danger btn-sm"
+    type="button"
+    disabled={voted}
+    title={voted ? 'Cannot reset a voter who has already cast a ballot.' : 'Reset this registration'}
+    onClick={() => requestReset(voter)}
+  >
+    <RotateCcw size={14} style={{ marginRight: 6 }} />
+    Reset
+  </button>
+  <button
+    className="btn btn-outline btn-sm"
+    type="button"
+    title="Remove voter record and associated data"
+    onClick={() => requestRemove(voter)}
+  >
+    <TriangleAlert size={14} style={{ marginRight: 6 }} />
+    Remove
+  </button>
+</div>
               </div>
             );
           })}

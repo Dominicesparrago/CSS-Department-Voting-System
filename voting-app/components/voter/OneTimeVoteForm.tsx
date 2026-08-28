@@ -8,9 +8,10 @@ import { loginGuest } from '@/lib/auth/authService';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { hasErrors, validateGuest, type FieldErrors } from '@/lib/auth/validation';
 import { watchSession } from '@/lib/auth/session';
+import { watchAppConfig } from '@/lib/appConfig';
 import { sectionLettersForYear } from '@/lib/constants';
 
-const EMPTY_VALUES = { fullName: '', yearLevel: '', section: '' };
+const EMPTY_VALUES = { firstName: '', surname: '', yearLevel: '', section: '' };
 const YEAR_OPTIONS = [
   { value: '1', label: '1st Year' },
   { value: '2', label: '2nd Year' },
@@ -36,6 +37,18 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [configReady, setConfigReady] = useState(false);
+
+  useEffect(() => {
+    return watchAppConfig(
+      (config) => {
+        setMaintenanceMode(config.maintenanceMode);
+        setConfigReady(true);
+      },
+      () => setConfigReady(true),
+    );
+  }, []);
 
   // The shared --font / --font-body / --font-mono chain in theme.css is computed once
   // at :root, so an inherited --font-figtree override never reaches font-family through
@@ -101,7 +114,8 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
     setMessage('');
 
     const nextValues = {
-      fullName: values.fullName.trim(),
+      firstName: values.firstName.trim(),
+      surname: values.surname.trim(),
       yearLevel: Number(values.yearLevel),
       section: values.section.trim(),
     };
@@ -125,6 +139,23 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
     }
   }
 
+  if (!configReady || maintenanceMode) {
+    return (
+      <main className="auth-shell">
+        <section className="status-panel" id="landing-route" data-spot>
+          <p className="eyebrow">CSS Department Voting</p>
+          <h1>{configReady ? 'Down for maintenance' : 'Checking service status'}</h1>
+          <p className="lede">
+            {configReady
+              ? 'The voting platform is temporarily offline while the election committee performs maintenance. Please check back shortly.'
+              : 'Please wait while we check whether voting is available.'}
+          </p>
+          {configReady && <div className="maintenance-banner" role="status"><span className="d" aria-hidden="true" />Voting is temporarily paused.</div>}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="auth-shell">
       <form className="auth-panel form-stack" onSubmit={handleSubmit} noValidate aria-label="One-time voter identification form">
@@ -134,20 +165,38 @@ export default function OneTimeVoteForm({ fonts }: { fonts: OneTimeVoteFonts }) 
           <p>Enter your student information to continue to the ballot.</p>
         </header>
 
-        <label className="field">
-          <span>Full Name</span>
-          <input
-            name="fullName"
-            type="text"
-            autoComplete="name"
-            required
-            value={values.fullName}
-            onChange={(event) => setValues((current) => ({ ...current, fullName: event.target.value }))}
-            aria-invalid={Boolean(errors.fullName)}
-            aria-describedby={errors.fullName ? 'one-time-full-name-error' : undefined}
-          />
-          {errors.fullName && <span id="one-time-full-name-error" className="field-error">{errors.fullName}</span>}
-        </label>
+        <div className="field">
+          <div className="two-col">
+            <label className="field">
+              <span>Surname</span>
+              <input
+                name="surname"
+                type="text"
+                autoComplete="family-name"
+                required
+                value={values.surname}
+                onChange={(event) => setValues((current) => ({ ...current, surname: event.target.value }))}
+                aria-invalid={Boolean(errors.surname)}
+                aria-describedby={errors.surname ? 'one-time-surname-error' : undefined}
+              />
+              {errors.surname && <span id="one-time-surname-error" className="field-error">{errors.surname}</span>}
+            </label>
+            <label className="field">
+              <span>First Name</span>
+              <input
+                name="firstName"
+                type="text"
+                autoComplete="given-name"
+                required
+                value={values.firstName}
+                onChange={(event) => setValues((current) => ({ ...current, firstName: event.target.value }))}
+                aria-invalid={Boolean(errors.firstName)}
+                aria-describedby={errors.firstName ? 'one-time-first-name-error' : undefined}
+              />
+              {errors.firstName && <span id="one-time-first-name-error" className="field-error">{errors.firstName}</span>}
+            </label>
+          </div>
+        </div>
 
         <div className="field">
           <div className="two-col">

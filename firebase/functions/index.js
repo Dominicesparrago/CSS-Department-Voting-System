@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
@@ -24,9 +25,11 @@ const {
   ROSTER_BATCH_SIZE,
 } = require('./constants');
 const { readAllDocs } = require('./dbHelpers');
+const { createRateLimiter } = require('./rateLimit');
 
 initializeApp();
 const db = getFirestore();
+const limiter = createRateLimiter({ db });
 function toHttpsError(error, fallbackCode, fallbackMessage) {
   if (error instanceof HttpsError) throw error;
   if (error && error.code && ['unauthenticated','permission-denied','invalid-argument','not-found','failed-precondition','already-exists','data-loss','aborted','out-of-range','unimplemented','internal','unavailable'].includes(error.code)) throw error;
@@ -270,6 +273,77 @@ async function checkVoterEligibility(get, uid, electionId) {
   }
   return { ok: true };
 }
+
+/** Register a one-time voter only after authoritative roster verification. */
+exports.registerGuestVoter = onCall({ invoker: 'public' }, async (request) => {
+  await limiter.enforce(request, 'rosterPreauth');
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  if (request.auth.token?.firebase?.sign_in_provider !== 'anonymous') {
+    throw new HttpsError('permission-denied', 'This registration is for one-time voters only.');
+  }
+
+  const data = request.data || {};
+  const firstName = typeof data.firstName === 'string' ? data.firstName.trim().replace(/\s+/g, ' ') : '';
+  const surname = typeof data.surname === 'string' ? data.surname.trim().replace(/\s+/g, ' ') : '';
+  const yearLevel = Number(data.yearLevel);
+  const section = typeof data.section === 'string' ? data.section.trim() : '';
+  const namePattern = /^[\p{L}][\p{L} .'-]{0,79}$/u;
+  if (!namePattern.test(firstName) || !namePattern.test(surname)) {
+    throw new HttpsError('invalid-argument', 'Enter a valid first name and surname.');
+  }
+  if (![1, 2, 3, 4].includes(yearLevel) || !section) {
+    throw new HttpsError('invalid-argument', 'Enter a valid year level and section.');
+  }
+
+  const electionId = typeof data.electionId === 'string' && data.electionId ? data.electionId : DEFAULT_ELECTION_ID;
+  const voter = { fullName: `${firstName} ${surname}`, yearLevel, section, eligible: true, guest: true };
+  const voterRef = db.doc(`voters/${request.auth.uid}`);
+
+  return db.runTransaction(async (tx) => {
+    const electionSnap = await tx.get(db.doc(`elections/${electionId}`));
+    if (!electionSnap.exists || electionSnap.data().registrationOpen === false || electionSnap.data().status === 'closed') {
+      throw new HttpsError('failed-precondition', 'One-time voter registration is closed.');
+    }
+    const configSnap = await tx.get(db.doc('config/app'));
+    if (!configSnap.exists || configSnap.data().allowGuestVoters !== true) {
+      throw new HttpsError('failed-precondition', 'One-time voting is currently unavailable.');
+    }
+    const rosterResult = await resolveRosterRecord((ref) => tx.get(ref), voter);
+    if (!rosterResult.ok) throw new HttpsError(rosterResult.code, rosterResult.message);
+    const eligibility = validateRosterEligibility({ voter, roster: rosterResult.record, election: electionSnap.data() });
+    if (!eligibility.ok) throw new HttpsError(eligibility.code, eligibility.message);
+
+    const identity = rosterResult.record.studentNo
+      ? `student:${rosterResult.record.studentNo}`
+      : `name:${identityKey(rosterResult.record)}`;
+    const key = crypto.createHash('sha256').update(`css-guest-v1:${electionId}:${identity}`).digest('hex');
+    const indexRef = db.doc(`guestRegistrations/${key}`);
+    const [indexSnap, voterSnap] = await Promise.all([tx.get(indexRef), tx.get(voterRef)]);
+    if (indexSnap.exists && indexSnap.data().uid !== request.auth.uid) {
+      throw new HttpsError('already-exists', 'This student already has a one-time voting registration.');
+    }
+    if (voterSnap.exists && voterSnap.data()._guestRegistrationKey && voterSnap.data()._guestRegistrationKey !== key) {
+      throw new HttpsError('already-exists', 'This anonymous session already has a one-time voting registration.');
+    }
+    if (voterSnap.exists && voterSnap.data().hasVoted && voterSnap.data().hasVoted[electionId] === true) {
+      throw new HttpsError('already-exists', 'You have already voted in this election.');
+    }
+    if (!indexSnap.exists || !voterSnap.exists) {
+      tx.set(voterRef, {
+        fullName: voter.fullName,
+        yearLevel,
+        section,
+        eligible: true,
+        guest: true,
+        _guestRegistrationKey: key,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: false });
+      tx.set(indexRef, { uid: request.auth.uid, electionId, createdAt: FieldValue.serverTimestamp() });
+    }
+    return { ok: true };
+  });
+});
 
 /**
  * Early read-only roster status for the current voter (used by the ballot
@@ -734,3 +808,104 @@ Object.assign(module.exports,
   require('./positionOps'),
   require('./rosterStudentOps'),
 );
+
+/** Remove voter records. Superadmin-only; voted voters are tombstoned. */
+exports.deleteVoters = onCall({ invoker: 'public' }, async (request) => {
+  try {
+    assertSuperAdmin(request.auth);
+
+    const data = request.data || {};
+    const { validateDeleteVotersInput, buildVoterRemovalOps, executeVoterRemovals } = require('./voterRemovalLogic');
+    validateDeleteVotersInput(data);
+
+    const electionId = data.electionId || DEFAULT_ELECTION_ID;
+    let voterDocs;
+    if (data.all === true) {
+      voterDocs = await readAllDocs(db, 'voters');
+    } else {
+      const snapshots = await Promise.all(data.uids.map((uid) => db.doc(`voters/${uid}`).get()));
+      voterDocs = snapshots.filter((snapshot) => snapshot.exists);
+    }
+
+    const { ops, studentIndexDeletes, emailIndexDeletes, guestRegistrationDeletes } = buildVoterRemovalOps(voterDocs, electionId);
+    const { removed, tombstoned } = await executeVoterRemovals(
+      db,
+      ops,
+      studentIndexDeletes,
+      emailIndexDeletes,
+      guestRegistrationDeletes,
+    );
+    const ballotsPurged = 0;
+
+    await writeAudit(db, {
+      actorUid: request.auth.uid,
+      actorRole: 'superadmin',
+      action: 'voter.remove',
+      target: 'voters',
+      electionId,
+      details: {
+        count: voterDocs.length,
+        removed,
+        tombstoned,
+        ballotsPurged,
+        all: data.all === true,
+        ...(data.all === true ? {} : { uids: data.uids.slice(0, 100) }),
+        reason: data.reason.trim(),
+      },
+    });
+
+    return { ok: true, removed, tombstoned, ballotsPurged };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('deleteVoters unexpected error:', error);
+    const msg = error && error.message ? error.message : 'unknown error';
+    if (msg.includes('requires an index') || msg.includes('FAILED_PRECONDITION')) {
+      throw new HttpsError('failed-precondition', 'Firestore index missing for deleteVoters: ' + msg + '. Run firebase deploy --only firestore.');
+    }
+    if (msg.includes('PERMISSION_DENIED') || msg.includes('permission')) {
+      throw new HttpsError('permission-denied', msg);
+    }
+    throw new HttpsError('internal', 'deleteVoters failed: ' + msg);
+  }
+});
+
+/**
+ * Clear stuck signup records for voters who have not voted in the current
+ * election. This is intentionally separate from deleteVoters: voted voter
+ * locks are never cleared by a registration reset.
+ */
+exports.resetAllVoterRegistrations = onCall({ invoker: 'public' }, async (request) => {
+  try {
+    assertSuperAdmin(request.auth);
+    const data = request.data || {};
+    if (typeof data.reason !== 'string' || data.reason.trim().length < 8) {
+      throw new HttpsError('invalid-argument', 'Reason must be at least 8 characters long.');
+    }
+
+    const electionId = data.electionId || DEFAULT_ELECTION_ID;
+    const voterDocs = await readAllDocs(db, 'voters');
+    const resettable = voterDocs.filter((snapshot) => {
+      const voter = snapshot.data() || {};
+      return voter.hasVoted?.[electionId] !== true;
+    });
+    const { ops, studentIndexDeletes, emailIndexDeletes, guestRegistrationDeletes } = require('./voterRemovalLogic')
+      .buildVoterRemovalOps(resettable, electionId);
+    const result = await require('./voterRemovalLogic').executeVoterRemovals(
+      db, ops, studentIndexDeletes, emailIndexDeletes, guestRegistrationDeletes,
+    );
+
+    await writeAudit(db, {
+      actorUid: request.auth.uid,
+      actorRole: 'superadmin',
+      action: 'voter.reset-all-registrations',
+      target: 'voters',
+      electionId,
+      details: { reason: data.reason.trim(), reset: result.removed, preservedVoted: voterDocs.length - resettable.length },
+    });
+    return { ok: true, reset: result.removed, preservedVoted: voterDocs.length - resettable.length };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error('resetAllVoterRegistrations unexpected error:', error);
+    throw new HttpsError('internal', 'Unable to reset voter registrations.');
+  }
+});

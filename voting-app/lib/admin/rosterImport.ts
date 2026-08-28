@@ -27,9 +27,12 @@ const NAME_SUFFIXES = new Set(['jr', 'sr', 'jnr', 'snr', 'ii', 'iii', 'iv', 'v']
 const SURNAME_PARTICLES = new Set(['de', 'del', 'dela', 'la', 'van', 'von', 'bin', 'ibn']);
 
 /** Flexible header aliases (normalized to lowercase alphanumerics). */
-const HEADER_ALIASES: Record<keyof Pick<RosterImportRow, 'studentNo' | 'fullName' | 'section' | 'yearLevel' | 'email' | 'status' | 'eligible'>, string[]> = {
+const HEADER_ALIASES: Record<'studentNo' | 'fullName' | 'surname' | 'firstName' | 'section' | 'yearLevel' | 'email' | 'status' | 'eligible', string[]> = {
   studentNo: ['studentno', 'studentid', 'studentnumber', 'idnumber', 'idno', 'studentno', 'id', 'lrn'],
   fullName: ['fullname', 'fullnameofstudent', 'studentfullname', 'completename', 'studentname', 'name'],
+  // Some masterlists store the identity in two columns instead of one.
+  surname: ['surname', 'lastname', 'familyname', 'family'],
+  firstName: ['firstname', 'first', 'givenname', 'given'],
   section: ['section', 'sectionclass', 'classsection', 'class', 'classroom'],
   yearLevel: ['yearlevel', 'year', 'gradelevel', 'grade', 'level', 'yeargrade'],
   email: ['email', 'emailaddress', 'schoolemail', 'studentemail', 'accountemail', 'emailaddressofstudent'],
@@ -314,7 +317,9 @@ export async function parseRosterFile(file: File): Promise<{ rows: RosterImportR
     for (let i = 0; i < grid.length; i++) {
       const row = grid[i];
       const normalized = row.map((cell) => normalizeHeader(cell));
-      const hasName = normalized.some((h) => HEADER_ALIASES.fullName.includes(h));
+      const hasName = normalized.some((h) => HEADER_ALIASES.fullName.includes(h))
+        || normalized.some((h) => HEADER_ALIASES.surname.includes(h))
+        || normalized.some((h) => HEADER_ALIASES.firstName.includes(h));
       const hasStudentNo = normalized.some((h) => HEADER_ALIASES.studentNo.includes(h));
       if (hasName || hasStudentNo) {
         headerIndex = i;
@@ -344,10 +349,11 @@ export async function parseRosterFile(file: File): Promise<{ rows: RosterImportR
       }
     });
 
-    if (!columnMap.fullName && !columnMap.studentNo) continue;
+    const hasSplitName = Boolean(columnMap.surname && columnMap.firstName);
+    if (!columnMap.fullName && !hasSplitName && !columnMap.studentNo) continue;
 
     const missing: string[] = [];
-    if (!columnMap.fullName) missing.push('Full Name');
+    if (!columnMap.fullName && !hasSplitName) missing.push('Full Name (or Surname + Firstname)');
     // Section + year level come from a column OR the sheet name ("CS 1A").
     if (!columnMap.section && !derived) missing.push('Section');
     if (!columnMap.yearLevel && !derived) missing.push('Year Level');
@@ -376,7 +382,12 @@ export async function parseRosterFile(file: File): Promise<{ rows: RosterImportR
         return index >= 0 && index < columnCount ? record[index] : undefined;
       };
       const rawName = read('fullName');
-      if (rawName == null || String(rawName).trim() === '' || isFooterMarker(rawName)) continue;
+      const separateSurname = read('surname');
+      const separateFirstName = read('firstName');
+      const combinedName = rawName != null && String(rawName).trim() !== ''
+        ? rawName
+        : [separateFirstName, separateSurname].filter((part) => part != null && String(part).trim() !== '').join(' ');
+      if (combinedName == null || String(combinedName).trim() === '' || isFooterMarker(combinedName)) continue;
       const rawSection = read('section');
       const rawYear = read('yearLevel');
       // Explicit column wins; blank cells fall back to the sheet-derived value.
@@ -384,7 +395,7 @@ export async function parseRosterFile(file: File): Promise<{ rows: RosterImportR
       const yearValue = normalizeYearLevel(rawYear) ?? derived?.yearLevel ?? null;
       const normalized = normalizeRosterRow({
         studentNo: read('studentNo'),
-        fullName: rawName,
+        fullName: combinedName,
         section: sectionValue,
         yearLevel: yearValue,
         email: read('email'),
@@ -420,18 +431,37 @@ function csvCell(value: unknown): string {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+/** Split a canonical name into the surname-first fields used by roster exports. */
+export function splitNameForExport(fullName: string): { surname: string; firstName: string } {
+  const text = String(fullName ?? '').trim().replace(/\s+/g, ' ');
+  if (!text) return { surname: '', firstName: '' };
+  const comma = text.indexOf(',');
+  if (comma > 0) {
+    const surname = text.slice(0, comma).trim();
+    const firstName = text.slice(comma + 1).trim();
+    if (surname && firstName) return { surname, firstName };
+  }
+  const tokens = text.split(' ');
+  if (tokens.length < 2) return { surname: '', firstName: text };
+  return { surname: tokens.slice(1).join(' '), firstName: tokens[0] };
+}
+
 /** Roster export for admins: identity + eligibility + participation columns. */
 export function rosterToCsv(students: RosterStudent[], participated: (student: RosterStudent) => boolean): string {
-  const header = ['studentNo', 'fullName', 'section', 'yearLevel', 'email', 'status', 'eligible', 'participated'];
-  const rows = students.map((student) => [
-    student.studentNo ?? '',
-    student.fullName,
-    student.section,
-    student.yearLevel,
-    student.email ?? '',
-    student.status,
-    student.eligible ? 'yes' : 'no',
-    participated(student) ? 'voted' : 'not yet',
-  ]);
+  const header = ['studentNo', 'surname', 'firstName', 'section', 'yearLevel', 'email', 'status', 'eligible', 'participated'];
+  const rows = students.map((student) => {
+    const { surname, firstName } = splitNameForExport(student.fullName);
+    return [
+      student.studentNo ?? '',
+      surname,
+      firstName,
+      student.section,
+      student.yearLevel,
+      student.email ?? '',
+      student.status,
+      student.eligible ? 'yes' : 'no',
+      participated(student) ? 'voted' : 'not yet',
+    ];
+  });
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
 }

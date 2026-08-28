@@ -57,10 +57,10 @@ export async function createAdminAccount(params: { email: string; password: stri
 }
 
 export async function revokeAdmin(params: { email: string; reason: string; actorUid: string }): Promise<void> {
-  const db = getFirebaseDb();
-  const email = params.email.trim().toLowerCase();
-  await deleteDoc(doc(db, 'admins', email));
-  await createAudit(params.actorUid, 'admin.revoke', `admins/${email}`, { email, reason: params.reason.trim() }, 'superadmin');
+  const call = httpsCallable<{ email: string }, { ok: boolean }>(
+    getFirebaseFunctions(), 'revokeAdminAccount',
+  );
+  await call({ email: params.email.trim().toLowerCase() });
 }
 
 export function watchAllElections(onChange: (elections: Election[]) => void, onError: (e: Error) => void): () => void {
@@ -132,4 +132,35 @@ export async function resetVoterRegistration(params: { uid: string; reason: stri
     },
     'superadmin',
   );
+}
+
+/**
+ * Remove voter records (superadmin-only). For voted voters, replaces the doc with a tombstone
+ * that keeps the hasVoted lock so the same account cannot vote again. For non-voted voters,
+ * fully deletes the doc. Optionally purges all ballots when `all: true` is specified.
+ * Deletes studentIndex and emailIndex entries for removed voters.
+ */
+export async function removeVoters(params: {
+  uids: string[];
+  reason: string;
+  actorUid: string;
+  all?: boolean;
+}): Promise<void> {
+  const call = httpsCallable<
+    { all?: boolean; uids: string[]; reason: string },
+    { ok: boolean; removed: number; tombstoned: number; ballotsPurged: number }
+  >(getFirebaseFunctions(), 'deleteVoters');
+  await call({ all: params.all ?? false, uids: params.uids, reason: params.reason });
+}
+
+/** Clear all non-voted voter registrations so stuck signups can start again. */
+export async function resetAllVoterRegistrations(params: {
+  reason: string;
+}): Promise<{ reset: number; preservedVoted: number }> {
+  const call = httpsCallable<
+    { electionId: string; reason: string },
+    { ok: boolean; reset: number; preservedVoted: number }
+  >(getFirebaseFunctions(), 'resetAllVoterRegistrations');
+  const { data } = await call({ electionId: ELECTION_ID, reason: params.reason });
+  return { reset: data.reset, preservedVoted: data.preservedVoted };
 }

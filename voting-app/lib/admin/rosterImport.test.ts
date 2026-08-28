@@ -15,6 +15,7 @@ import {
   normalizeYearLevel,
   parseRosterFile,
   rosterToCsv,
+  splitNameForExport,
   sectionFromSheetName,
   validateRosterRow,
 } from './rosterImport';
@@ -357,6 +358,16 @@ describe('parseRosterFile (real workbook)', () => {
     expect(rows[0].studentNo).toBe('');
     expect(rows[1].fullName).toBe('Maria Santos');
   });
+
+  it('combines separate Surname and Firstname columns, including compound surnames', async () => {
+    const file = workbookFile([
+      ['Surname', 'Firstname', 'Section', 'Year'],
+      ['Del Rosario', 'John Paul', 'BSCS-1A', '1'],
+    ]);
+    const { rows } = await parseRosterFile(file);
+    expect(rows[0].fullName).toBe('John Paul Del Rosario');
+    expect(namesMatch('John Paul Del Rosario', rows[0].fullName)).toBe(true);
+  });
 });
 
 describe('roster export and template', () => {
@@ -375,8 +386,13 @@ describe('roster export and template', () => {
     const csv = rosterToCsv([...students] as never, (student) => student.studentNo === '20260001');
     const lines = csv.split('\n');
     // Project convention: every CSV cell is quoted (same as votersToCsv).
-    expect(lines[0]).toBe('"studentNo","fullName","section","yearLevel","email","status","eligible","participated"');
-    expect(lines[1]).toContain('"Juan, Dela Cruz"');
+    expect(lines[0]).toBe('"studentNo","surname","firstName","section","yearLevel","email","status","eligible","participated"');
+    expect(lines[1]).toContain('"Dela Cruz","Juan"');
     expect(lines[1]).toContain('"voted"');
+  });
+
+  it('splits exported names into surname and first name', () => {
+    expect(splitNameForExport('Juan Dela Cruz')).toEqual({ surname: 'Dela Cruz', firstName: 'Juan' });
+    expect(splitNameForExport('Dela Cruz, Juan')).toEqual({ surname: 'Dela Cruz', firstName: 'Juan' });
   });
 });
